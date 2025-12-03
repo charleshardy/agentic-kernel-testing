@@ -1,0 +1,25 @@
+{
+  "enabled": true,
+  "name": "Linux Repo Monitor",
+  "description": "Monitors the https://github.com/torvalds/linux.git repository for main feature updates and sends email notifications to le.liu@windriver.com when significant changes are detected",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "MAINTAINERS",
+      "Makefile",
+      "README",
+      "Documentation/**/*",
+      "arch/**/*",
+      "drivers/**/*",
+      "fs/**/*",
+      "kernel/**/*",
+      "mm/**/*",
+      "net/**/*"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Analyze the recent changes in the Linux kernel repository (https://github.com/torvalds/linux.git). Determine if these changes represent main feature updates (such as new subsystems, major driver additions, significant kernel improvements, or architectural changes). If main features have been updated, compose and send an email to le.liu@windriver.com with a summary of the key changes, including what was changed, why it matters, and any relevant commit information."
+  }
+}
