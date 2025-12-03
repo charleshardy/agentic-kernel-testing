@@ -26,18 +26,18 @@
   - Test edge cases for data model fields
   - _Requirements: 1.1, 2.1, 4.1_
 
-- [ ] 3. Implement code analysis and diff parsing
+- [x] 3. Implement code analysis and diff parsing
   - Create Git integration for detecting code changes
   - Implement diff parser to extract changed files and functions
   - Build AST analyzer for identifying affected subsystems
   - Calculate impact scores for code changes
   - _Requirements: 1.1, 1.2, 4.2_
 
-- [ ] 3.1 Write property test for subsystem identification
+- [x] 3.1 Write property test for subsystem identification
   - **Property 2: Subsystem targeting accuracy**
   - **Validates: Requirements 1.2**
 
-- [ ] 3.2 Write unit tests for diff parsing
+- [x] 3.2 Write unit tests for diff parsing
   - Test parsing of various diff formats
   - Test extraction of changed functions
   - Test impact score calculation
