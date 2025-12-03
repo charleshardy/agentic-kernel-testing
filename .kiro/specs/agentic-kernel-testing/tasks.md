@@ -43,7 +43,7 @@
   - Test impact score calculation
   - _Requirements: 1.1, 1.2_
 
-- [ ] 4. Implement AI test generator core
+- [x] 4. Implement AI test generator core
   - Set up LLM API integration supporting multiple providers:
     - OpenAI API (GPT-4, GPT-3.5)
     - Anthropic API (Claude)
@@ -56,15 +56,15 @@
   - Add provider-specific configuration and credential management
   - _Requirements: 1.1, 1.3, 1.4_
 
-- [ ] 4.1 Write property test for test generation quantity
+- [x] 4.1 Write property test for test generation quantity
   - **Property 4: Test generation quantity**
   - **Validates: Requirements 1.4**
 
-- [ ] 4.2 Write property test for API test coverage
+- [x] 4.2 Write property test for API test coverage
   - **Property 3: API test coverage completeness**
   - **Validates: Requirements 1.3**
 
-- [ ] 4.3 Write property test for test generation time bound
+- [x] 4.3 Write property test for test generation time bound
   - **Property 1: Test generation time bound**
   - **Validates: Requirements 1.1**
 
