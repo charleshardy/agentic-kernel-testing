@@ -38,7 +38,7 @@
   - _Requirements: 1.1, 1.2_
 
 - [ ] 4. Implement AI test generator core
-  - Set up LLM API integration (OpenAI/Anthropic)
+  - Set up LLM API integration (Through Amazon Q, which is built on Amazon Bedrock to operate those LLM, e.g.,OpenAI/Anthropic, etc.)
   - Implement code-to-prompt conversion for test generation
   - Create test case template system
   - Build test case validator for generated tests
