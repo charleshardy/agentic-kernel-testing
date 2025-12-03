@@ -67,14 +67,14 @@ Resources for contributors and developers:
 
 | Document | Status | Last Updated |
 |----------|--------|--------------|
-| Quick Start | ✅ Complete | Dec 2025 |
-| Installation | ✅ Complete | Dec 2025 |
-| Architecture | ✅ Complete | Dec 2025 |
-| Contributing | ✅ Complete | Dec 2025 |
-| Complete Overview | ✅ Complete | Dec 2025 |
-| Requirements | ✅ Complete | Dec 2025 |
-| Design | ✅ Complete | Dec 2025 |
-| Tasks | ✅ Complete | Dec 2025 |
+| Quick Start | ✅ Complete | Dec 3, 2025 |
+| Installation | ✅ Complete | Dec 3, 2025 |
+| Architecture | ✅ Complete | Dec 3, 2025 |
+| Contributing | ✅ Complete | Dec 3, 2025 |
+| Complete Overview | ✅ Complete | Dec 3, 2025 |
+| Requirements | ✅ Complete | Dec 3, 2025 |
+| Design | ✅ Complete | Dec 3, 2025 |
+| Tasks | ✅ Updated | Dec 3, 2025 |
 
 ---
 
