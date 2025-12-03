@@ -164,13 +164,29 @@ pytest tests/unit/test_config.py -v
 
 ## What's Next?
 
-The project is currently in the implementation phase. The next tasks are:
+The project is currently in active development. **Task 1 is complete** (Dec 3, 2025), and we're ready for the next phase:
+
+### Upcoming Tasks
 
 1. **Task 2**: Implement core data models and interfaces
-2. **Task 3**: Implement code analysis and diff parsing
-3. **Task 4**: Implement AI test generator core
+   - Define TestCase, TestResult, CodeAnalysis, FailureAnalysis, HardwareConfig, Environment
+   - Implement serialization/deserialization
+   - Create validation logic
+   - Write unit tests for data models
 
-Follow the [Implementation Tasks](../.kiro/specs/agentic-kernel-testing/tasks.md) for the complete roadmap.
+2. **Task 3**: Implement code analysis and diff parsing
+   - Git integration for detecting code changes
+   - Diff parser for extracting changed files and functions
+   - AST analyzer for identifying affected subsystems
+   - Write property tests for subsystem identification
+
+3. **Task 4**: Implement AI test generator core
+   - LLM API integration (OpenAI, Anthropic, Amazon Q via Bedrock)
+   - Code-to-prompt conversion
+   - Test case template system
+   - Write property tests for test generation
+
+Follow the [Implementation Tasks](../.kiro/specs/agentic-kernel-testing/tasks.md) for the complete 50-task roadmap with comprehensive testing.
 
 ## Resources
 
