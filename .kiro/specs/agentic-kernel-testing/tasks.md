@@ -93,7 +93,7 @@
   - **Property 10: Virtual environment preference**
   - **Validates: Requirements 2.5**
 
-- [ ] 7. Implement environment manager for virtual environments
+- [x] 7. Implement environment manager for virtual environments
   - Create QEMU environment provisioning
   - Implement KVM environment setup
   - Build environment lifecycle management (provision, deploy, cleanup)
@@ -101,11 +101,11 @@
   - Add environment health monitoring
   - _Requirements: 2.1, 3.5, 10.4_
 
-- [ ] 7.1 Write property test for environment cleanup
+- [x] 7.1 Write property test for environment cleanup
   - **Property 49: Environment cleanup completeness**
   - **Validates: Requirements 10.4**
 
-- [ ] 7.2 Write property test for stress test isolation
+- [x] 7.2 Write property test for stress test isolation
   - **Property 15: Stress test isolation**
   - **Validates: Requirements 3.5**
 

@@ -264,6 +264,7 @@ class Environment:
     ssh_credentials: Optional[Credentials] = None
     created_at: datetime = field(default_factory=datetime.now)
     last_used: datetime = field(default_factory=datetime.now)
+    metadata: Dict[str, Any] = field(default_factory=dict)
     
     def __post_init__(self):
         """Validate environment."""
@@ -281,6 +282,7 @@ class Environment:
         data['last_used'] = self.last_used.isoformat()
         if self.ssh_credentials:
             data['ssh_credentials'] = self.ssh_credentials.to_dict()
+        data['metadata'] = self.metadata
         return data
     
     @classmethod
@@ -290,12 +292,13 @@ class Environment:
         creds_data = data.pop('ssh_credentials', None)
         created_at = datetime.fromisoformat(data.pop('created_at'))
         last_used = datetime.fromisoformat(data.pop('last_used'))
+        metadata = data.pop('metadata', {})
         
         config = HardwareConfig.from_dict(config_data)
         creds = Credentials.from_dict(creds_data) if creds_data else None
         
         return cls(**data, config=config, ssh_credentials=creds, 
-                   created_at=created_at, last_used=last_used)
+                   created_at=created_at, last_used=last_used, metadata=metadata)
 
 
 @dataclass
