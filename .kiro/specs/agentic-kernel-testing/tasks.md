@@ -112,6 +112,7 @@
 - [x] 8. Implement physical hardware lab interface
   - Create hardware reservation system
   - Build SSH-based test execution on physical boards
+  - Build remote serial console (telnet) test execution on physical boards
   - Implement hardware power control integration
   - Add physical hardware health checks
   - _Requirements: 2.1, 2.3_
