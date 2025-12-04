@@ -37,7 +37,7 @@ credentials = Credentials(
 ### 2. Register Physical Hardware
 
 ```python
-# Create physical hardware instance
+# Create physical hardware instance with SSH and serial console
 hardware = PhysicalHardware(
     hardware_id="rpi-001",
     config=config,
@@ -45,6 +45,8 @@ hardware = PhysicalHardware(
     ssh_credentials=credentials,
     power_control_type="pdu",  # or "ipmi", "manual"
     power_control_address="192.168.1.10",
+    serial_console_host="console-server.lab",  # Serial console server
+    serial_console_port=7001,  # Telnet port for this board
     location="Lab Rack 1, Slot 3"
 )
 
@@ -146,6 +148,12 @@ available = lab.list_available_hardware(
 )
 ```
 
+## Test Execution Methods
+
+The Physical Hardware Lab supports two methods for test execution:
+1. **SSH-based execution** - For normal testing when network is available
+2. **Serial console execution** - For early boot testing, kernel debugging, and when network is unavailable
+
 ## SSH-Based Test Execution
 
 ### Basic Test Execution
@@ -199,6 +207,166 @@ if result.failure_info:
     if result.failure_info.timeout_occurred:
         print("Test timed out")
 ```
+
+## Serial Console Test Execution
+
+### Overview
+
+Serial console execution uses telnet to connect to a serial console server and execute tests directly on the hardware's serial port. This is particularly useful for:
+
+- **Early boot testing** - Capture boot messages before network is available
+- **Kernel panic debugging** - See kernel panics and stack traces
+- **Low-level debugging** - Access hardware when network fails
+- **Boot sequence validation** - Test bootloader and kernel initialization
+
+### Configuring Serial Console
+
+```python
+# Configure hardware with serial console access
+hardware = PhysicalHardware(
+    hardware_id="rpi-001",
+    config=config,
+    ip_address="192.168.1.100",
+    ssh_credentials=credentials,
+    serial_console_host="console-server.lab",  # Console server IP/hostname
+    serial_console_port=7001  # Telnet port for this board
+)
+```
+
+### Basic Serial Console Test Execution
+
+```python
+# Reserve hardware first
+reservation = lab.reserve_hardware("rpi-001", "test-runner")
+
+# Create test case for early boot
+test_case = TestCase(
+    id="test-boot-001",
+    name="Early Boot Test",
+    description="Test early boot sequence",
+    test_type=TestType.INTEGRATION,
+    target_subsystem="kernel/boot",
+    test_script="dmesg | head -20"  # Get early boot messages
+)
+
+# Execute test via serial console
+result = lab.execute_test_serial("rpi-001", test_case)
+
+# Check result
+if result.status == TestStatus.PASSED:
+    print("Boot test passed!")
+    print(f"Boot messages: {result.artifacts.logs[0]}")
+
+# Release hardware
+lab.release_reservation(reservation.reservation_id)
+```
+
+### Serial Console Use Cases
+
+#### 1. Boot Sequence Testing
+
+```python
+# Test kernel boot
+boot_test = TestCase(
+    id="test-boot-sequence",
+    name="Kernel Boot Sequence",
+    description="Validate kernel boots successfully",
+    test_type=TestType.INTEGRATION,
+    target_subsystem="kernel/boot",
+    test_script="dmesg | grep 'Linux version'"
+)
+
+result = lab.execute_test_serial("rpi-001", boot_test)
+```
+
+#### 2. Kernel Panic Debugging
+
+```python
+# Test that triggers kernel panic (for debugging)
+panic_test = TestCase(
+    id="test-panic-handling",
+    name="Kernel Panic Test",
+    description="Test kernel panic handling",
+    test_type=TestType.INTEGRATION,
+    target_subsystem="kernel/panic",
+    test_script="echo c > /proc/sysrq-trigger"  # Trigger crash
+)
+
+result = lab.execute_test_serial("rpi-001", panic_test, timeout_seconds=120)
+# Serial console will capture the panic output
+```
+
+#### 3. Bootloader Testing
+
+```python
+# Test bootloader configuration
+bootloader_test = TestCase(
+    id="test-bootloader",
+    name="Bootloader Test",
+    description="Test bootloader configuration",
+    test_type=TestType.INTEGRATION,
+    target_subsystem="boot/loader",
+    test_script="cat /proc/cmdline"  # Check kernel command line
+)
+
+result = lab.execute_test_serial("rpi-001", bootloader_test)
+```
+
+### Checking Serial Console Connectivity
+
+```python
+# Check if serial console is accessible
+is_reachable = lab.check_serial_console_connectivity("rpi-001")
+
+if is_reachable:
+    print("Serial console is accessible")
+else:
+    print("Serial console connection failed")
+    print("Check:")
+    print("  - Console server is running")
+    print("  - Port is correct")
+    print("  - Network connectivity to console server")
+```
+
+### Serial Console vs SSH Execution
+
+| Feature | SSH Execution | Serial Console Execution |
+|---------|--------------|-------------------------|
+| **Network Required** | Yes | No (uses serial port) |
+| **Early Boot Access** | No | Yes |
+| **Kernel Panic Capture** | Limited | Full capture |
+| **Performance** | Fast | Slower (serial bandwidth) |
+| **Use Case** | Normal testing | Boot/debug testing |
+| **Setup Complexity** | Simple | Requires console server |
+
+### Serial Console Best Practices
+
+1. **Use for Early Boot Testing**
+   ```python
+   # Good: Use serial console for boot tests
+   result = lab.execute_test_serial("rpi-001", boot_test)
+   
+   # Better: Use SSH for normal tests
+   result = lab.execute_test_ssh("rpi-001", normal_test)
+   ```
+
+2. **Set Appropriate Timeouts**
+   ```python
+   # Boot tests may take longer
+   result = lab.execute_test_serial(
+       "rpi-001",
+       boot_test,
+       timeout_seconds=300  # 5 minutes for boot
+   )
+   ```
+
+3. **Combine with Power Control**
+   ```python
+   # Reboot and capture boot sequence
+   lab.power_control("rpi-001", "reboot")
+   time.sleep(5)  # Wait for reboot to start
+   result = lab.execute_test_serial("rpi-001", boot_test)
+   ```
 
 ## Power Control
 

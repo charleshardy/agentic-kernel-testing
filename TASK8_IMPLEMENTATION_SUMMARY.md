@@ -55,6 +55,36 @@ Successfully implemented a comprehensive physical hardware lab interface for the
 - Handles SSH connection failures gracefully
 - Supports timeout with proper cleanup
 
+### 2b. Serial Console Test Execution ✅
+
+**Location:** `execution/physical_hardware_lab.py` - `execute_test_serial()` method
+
+**Capabilities:**
+- Execute test cases via serial console (telnet)
+- Access hardware when network is unavailable
+- Capture early boot messages and kernel panics
+- Test bootloader and kernel initialization
+- Low-level hardware debugging
+
+**Key Methods:**
+- `execute_test_serial()` - Execute test case via serial console
+- `_execute_serial_console_command()` - Low-level telnet command execution
+- `check_serial_console_connectivity()` - Verify serial console access
+
+**Use Cases:**
+- **Early Boot Testing** - Capture boot messages before network is available
+- **Kernel Panic Debugging** - See full panic output and stack traces
+- **Bootloader Testing** - Validate bootloader configuration
+- **Network Failure Testing** - Test when SSH is unavailable
+
+**Features:**
+- Telnet-based connection to serial console servers
+- Configurable console host and port per hardware
+- Integrated into health checks
+- Same TestResult format as SSH execution
+- Proper timeout handling
+- Validates serial console configuration before execution
+
 ### 3. Hardware Power Control Integration ✅
 
 **Location:** `execution/physical_hardware_lab.py` - Power control methods
@@ -128,6 +158,8 @@ class PhysicalHardware:
     ssh_credentials: Credentials
     power_control_type: Optional[str]  # "pdu", "ipmi", "manual"
     power_control_address: Optional[str]
+    serial_console_host: Optional[str]  # Serial console server IP/hostname
+    serial_console_port: Optional[int]  # Serial console telnet port
     location: Optional[str]
     status: ReservationStatus
     last_health_check: Optional[datetime]
@@ -343,3 +375,15 @@ Task 8 has been successfully completed with a comprehensive physical hardware la
 - ✅ Full hardware lifecycle management
 
 The implementation is production-ready, well-tested, and integrates seamlessly with the existing Agentic AI Testing System architecture.
+
+## Serial Console Addition
+
+The serial console functionality was added to provide an alternative test execution method that doesn't rely on network connectivity. This is particularly valuable for:
+
+1. **Early Boot Testing** - Tests can capture boot messages from the moment the kernel starts, before network interfaces are initialized
+2. **Kernel Panic Debugging** - Full panic output including stack traces is captured via serial console
+3. **Bootloader Validation** - Test bootloader configuration and kernel command line parameters
+4. **Network Failure Scenarios** - Continue testing even when network connectivity fails
+5. **Low-Level Debugging** - Direct hardware access for debugging kernel issues
+
+The serial console implementation uses telnetlib to connect to serial console servers (common in hardware labs) and provides the same TestResult interface as SSH execution, making it a drop-in alternative for specific test scenarios.
