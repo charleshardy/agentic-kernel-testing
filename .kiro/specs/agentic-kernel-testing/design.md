@@ -4,11 +4,25 @@
 
 The Agentic AI Testing System is a sophisticated autonomous testing platform that combines AI-driven test generation, multi-environment execution, and intelligent analysis to comprehensively test Linux kernels and Board Support Packages. The system uses Large Language Models (LLMs) for code understanding and test generation, property-based testing for comprehensive coverage, and distributed execution across virtual and physical hardware environments.
 
+**Supported LLM Providers:**
+- OpenAI (GPT-4, GPT-3.5-turbo)
+- Anthropic (Claude 3.5 Sonnet, Claude 3 Opus)
+- Amazon Bedrock (Claude via Bedrock, Amazon Titan)
+- **Amazon Q Developer Pro** (AWS's AI-powered coding assistant)
+- **Kiro AI** (AI-powered IDE with autonomous capabilities)
+
+**Authentication Methods:**
+- API Keys (traditional)
+- **AWS SSO / IAM Identity Center** (for Amazon Q)
+- **OAuth2/OIDC SSO** (for Kiro)
+- AWS CLI Profiles
+
 The architecture follows a modular design with clear separation between:
 - **Intelligence Layer**: AI agents for test generation, analysis, and decision-making
 - **Execution Layer**: Test runners, environment managers, and result collectors
 - **Analysis Layer**: Coverage tracking, root cause analysis, and reporting
 - **Integration Layer**: CI/CD hooks, version control integration, and notification systems
+- **Authentication Layer**: SSO providers for secure, centralized authentication
 
 ## Architecture
 
