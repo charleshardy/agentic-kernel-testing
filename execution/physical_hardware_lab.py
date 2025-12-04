@@ -68,6 +68,8 @@ class PhysicalHardware:
     ssh_credentials: Credentials
     power_control_type: Optional[str] = None  # e.g., "pdu", "ipmi", "manual"
     power_control_address: Optional[str] = None
+    serial_console_host: Optional[str] = None  # Serial console server IP/hostname
+    serial_console_port: Optional[int] = None  # Serial console telnet port
     location: Optional[str] = None
     status: ReservationStatus = ReservationStatus.AVAILABLE
     last_health_check: Optional[datetime] = None
@@ -439,6 +441,235 @@ class PhysicalHardwareLab:
                 'timed_out': False
             }
     
+    def execute_test_serial(
+        self,
+        hardware_id: str,
+        test_case: TestCase,
+        timeout_seconds: int = 300
+    ) -> TestResult:
+        """Execute test on physical hardware via serial console (telnet).
+        
+        This method connects to the hardware's serial console via telnet and
+        executes the test script. This is useful for:
+        - Testing boot sequences
+        - Low-level kernel debugging
+        - Testing when network is unavailable
+        - Capturing early boot messages
+        
+        Args:
+            hardware_id: ID of hardware to execute on
+            test_case: Test case to execute
+            timeout_seconds: Timeout for test execution
+            
+        Returns:
+            TestResult with execution results
+            
+        Raises:
+            ValueError: If hardware not found, not accessible, or serial console not configured
+            RuntimeError: If test execution fails
+        """
+        if hardware_id not in self.hardware:
+            raise ValueError(f"Hardware {hardware_id} not found")
+        
+        hw = self.hardware[hardware_id]
+        
+        # Verify hardware is reserved or in use
+        if hw.status not in [ReservationStatus.RESERVED, ReservationStatus.IN_USE]:
+            raise ValueError(f"Hardware {hardware_id} must be reserved before test execution")
+        
+        # Verify serial console is configured
+        if not hw.serial_console_host or not hw.serial_console_port:
+            raise ValueError(
+                f"Serial console not configured for hardware {hardware_id}. "
+                f"Set serial_console_host and serial_console_port."
+            )
+        
+        # Mark hardware as in use
+        hw.status = ReservationStatus.IN_USE
+        
+        try:
+            # Create environment representation
+            environment = Environment(
+                id=hardware_id,
+                config=hw.config,
+                status=EnvironmentStatus.BUSY,
+                ip_address=hw.ip_address,
+                ssh_credentials=hw.ssh_credentials,
+                created_at=datetime.now(),
+                last_used=datetime.now(),
+                metadata={
+                    'execution_method': 'serial_console',
+                    'serial_host': hw.serial_console_host,
+                    'serial_port': hw.serial_console_port
+                }
+            )
+            
+            start_time = time.time()
+            
+            # Execute test via serial console
+            result = self._execute_serial_console_command(
+                hw.serial_console_host,
+                hw.serial_console_port,
+                test_case.test_script,
+                timeout_seconds
+            )
+            
+            execution_time = time.time() - start_time
+            
+            # Determine test status
+            if result['return_code'] == 0:
+                status = TestStatus.PASSED
+                failure_info = None
+            elif result['timed_out']:
+                status = TestStatus.TIMEOUT
+                failure_info = FailureInfo(
+                    error_message="Test execution timed out",
+                    timeout_occurred=True,
+                    exit_code=result['return_code']
+                )
+            else:
+                status = TestStatus.FAILED
+                failure_info = FailureInfo(
+                    error_message=result['stderr'] or "Test failed",
+                    exit_code=result['return_code']
+                )
+            
+            # Create artifact bundle
+            artifacts = ArtifactBundle(
+                logs=[result['stdout'], result['stderr']],
+                metadata={
+                    'hardware_id': hardware_id,
+                    'serial_console_host': hw.serial_console_host,
+                    'serial_console_port': hw.serial_console_port,
+                    'execution_method': 'serial_console'
+                }
+            )
+            
+            # Create test result
+            test_result = TestResult(
+                test_id=test_case.id,
+                status=status,
+                execution_time=execution_time,
+                environment=environment,
+                artifacts=artifacts,
+                failure_info=failure_info,
+                timestamp=datetime.now()
+            )
+            
+            return test_result
+            
+        finally:
+            # Mark hardware as reserved (not in use) after test
+            hw.status = ReservationStatus.RESERVED
+    
+    def _execute_serial_console_command(
+        self,
+        console_host: str,
+        console_port: int,
+        command: str,
+        timeout_seconds: int
+    ) -> Dict[str, Any]:
+        """Execute command on hardware via serial console (telnet).
+        
+        This method uses telnet to connect to a serial console server and
+        execute commands on the physical hardware.
+        
+        Args:
+            console_host: Serial console server IP/hostname
+            console_port: Serial console telnet port
+            command: Command to execute
+            timeout_seconds: Timeout for command execution
+            
+        Returns:
+            Dictionary with stdout, stderr, return_code, and timed_out flag
+        """
+        try:
+            # Use telnetlib for serial console connection
+            import telnetlib
+            
+            # Connect to serial console
+            tn = telnetlib.Telnet(console_host, console_port, timeout=10)
+            
+            # Wait for prompt (common prompts)
+            tn.read_until(b"login:", timeout=5)
+            
+            # Send command
+            tn.write(command.encode('utf-8') + b"\n")
+            
+            # Read output with timeout
+            output = tn.read_until(b"# ", timeout=timeout_seconds)
+            
+            # Close connection
+            tn.close()
+            
+            # Parse output
+            output_str = output.decode('utf-8', errors='ignore')
+            
+            # Check for common error patterns
+            if 'error' in output_str.lower() or 'failed' in output_str.lower():
+                return_code = 1
+            else:
+                return_code = 0
+            
+            return {
+                'stdout': output_str,
+                'stderr': '',
+                'return_code': return_code,
+                'timed_out': False
+            }
+            
+        except TimeoutError:
+            return {
+                'stdout': '',
+                'stderr': 'Serial console connection timed out',
+                'return_code': -1,
+                'timed_out': True
+            }
+        except Exception as e:
+            return {
+                'stdout': '',
+                'stderr': f'Serial console error: {str(e)}',
+                'return_code': -1,
+                'timed_out': False
+            }
+    
+    def check_serial_console_connectivity(self, hardware_id: str) -> bool:
+        """Check if serial console is accessible for hardware.
+        
+        Args:
+            hardware_id: ID of hardware to check
+            
+        Returns:
+            True if serial console is accessible
+            
+        Raises:
+            ValueError: If hardware not found or serial console not configured
+        """
+        if hardware_id not in self.hardware:
+            raise ValueError(f"Hardware {hardware_id} not found")
+        
+        hw = self.hardware[hardware_id]
+        
+        if not hw.serial_console_host or not hw.serial_console_port:
+            raise ValueError(
+                f"Serial console not configured for hardware {hardware_id}"
+            )
+        
+        try:
+            import telnetlib
+            
+            # Try to connect to serial console
+            tn = telnetlib.Telnet(
+                hw.serial_console_host,
+                hw.serial_console_port,
+                timeout=10
+            )
+            tn.close()
+            return True
+            
+        except Exception:
+            return False
+    
     def power_control(
         self,
         hardware_id: str,
@@ -593,6 +824,18 @@ class PhysicalHardwareLab:
         checks_performed.append("kernel_version")
         kernel_info = self._check_kernel_version(hw)
         metrics.update(kernel_info)
+        
+        # Check serial console connectivity if configured
+        if hw.serial_console_host and hw.serial_console_port:
+            checks_performed.append("serial_console_connectivity")
+            try:
+                serial_ok = self.check_serial_console_connectivity(hardware_id)
+                metrics['serial_console_reachable'] = serial_ok
+                if not serial_ok:
+                    issues.append("Serial console connectivity failed")
+            except Exception as e:
+                metrics['serial_console_reachable'] = False
+                issues.append(f"Serial console check error: {str(e)}")
         
         # Update last health check time
         hw.last_health_check = datetime.now()

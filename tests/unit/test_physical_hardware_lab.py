@@ -443,6 +443,150 @@ class TestHardwareReservation:
         assert not active.is_expired()
 
 
+class TestSerialConsoleExecution:
+    """Tests for serial console test execution."""
+    
+    def test_execute_test_serial_success(self, hardware_lab):
+        """Test successful test execution via serial console."""
+        # Configure serial console
+        hw = hardware_lab.get_hardware("rpi-001")
+        hw.serial_console_host = "console-server.lab"
+        hw.serial_console_port = 7001
+        
+        # Reserve hardware
+        hardware_lab.reserve_hardware("rpi-001", "test-user")
+        
+        # Mock telnetlib
+        with patch('execution.physical_hardware_lab.telnetlib.Telnet') as mock_telnet:
+            mock_tn = MagicMock()
+            mock_tn.read_until.side_effect = [b"login:", b"Test passed\n# "]
+            mock_telnet.return_value = mock_tn
+            
+            # Create test case
+            test_case = TestCase(
+                id="test-serial-001",
+                name="Serial Console Test",
+                description="Test via serial console",
+                test_type=TestType.INTEGRATION,
+                target_subsystem="kernel",
+                test_script="./run_test.sh"
+            )
+            
+            result = hardware_lab.execute_test_serial("rpi-001", test_case)
+            
+            assert result.test_id == "test-serial-001"
+            assert result.status == TestStatus.PASSED
+            assert result.environment.metadata['execution_method'] == 'serial_console'
+            assert result.artifacts.metadata['serial_console_host'] == "console-server.lab"
+            assert result.artifacts.metadata['serial_console_port'] == 7001
+    
+    def test_execute_test_serial_not_configured(self, hardware_lab):
+        """Test serial execution fails when not configured."""
+        hardware_lab.reserve_hardware("rpi-001", "test-user")
+        
+        test_case = TestCase(
+            id="test-serial-002",
+            name="Test",
+            description="Test",
+            test_type=TestType.UNIT,
+            target_subsystem="kernel",
+            test_script="./test.sh"
+        )
+        
+        with pytest.raises(ValueError, match="Serial console not configured"):
+            hardware_lab.execute_test_serial("rpi-001", test_case)
+    
+    def test_execute_test_serial_timeout(self, hardware_lab):
+        """Test serial execution timeout."""
+        # Configure serial console
+        hw = hardware_lab.get_hardware("rpi-001")
+        hw.serial_console_host = "console-server.lab"
+        hw.serial_console_port = 7001
+        
+        hardware_lab.reserve_hardware("rpi-001", "test-user")
+        
+        # Mock telnetlib with timeout
+        with patch('execution.physical_hardware_lab.telnetlib.Telnet') as mock_telnet:
+            mock_telnet.side_effect = TimeoutError("Connection timed out")
+            
+            test_case = TestCase(
+                id="test-serial-003",
+                name="Timeout Test",
+                description="Test that times out",
+                test_type=TestType.UNIT,
+                target_subsystem="kernel",
+                test_script="./long_test.sh"
+            )
+            
+            result = hardware_lab.execute_test_serial("rpi-001", test_case, timeout_seconds=60)
+            
+            assert result.status == TestStatus.TIMEOUT
+            assert result.failure_info.timeout_occurred
+    
+    def test_check_serial_console_connectivity(self, hardware_lab):
+        """Test checking serial console connectivity."""
+        # Configure serial console
+        hw = hardware_lab.get_hardware("rpi-001")
+        hw.serial_console_host = "console-server.lab"
+        hw.serial_console_port = 7001
+        
+        # Mock successful connection
+        with patch('execution.physical_hardware_lab.telnetlib.Telnet') as mock_telnet:
+            mock_tn = MagicMock()
+            mock_telnet.return_value = mock_tn
+            
+            result = hardware_lab.check_serial_console_connectivity("rpi-001")
+            assert result is True
+    
+    def test_check_serial_console_connectivity_failed(self, hardware_lab):
+        """Test serial console connectivity check failure."""
+        # Configure serial console
+        hw = hardware_lab.get_hardware("rpi-001")
+        hw.serial_console_host = "console-server.lab"
+        hw.serial_console_port = 7001
+        
+        # Mock failed connection
+        with patch('execution.physical_hardware_lab.telnetlib.Telnet') as mock_telnet:
+            mock_telnet.side_effect = Exception("Connection refused")
+            
+            result = hardware_lab.check_serial_console_connectivity("rpi-001")
+            assert result is False
+    
+    def test_check_serial_console_not_configured(self, hardware_lab):
+        """Test serial console check when not configured."""
+        with pytest.raises(ValueError, match="Serial console not configured"):
+            hardware_lab.check_serial_console_connectivity("rpi-001")
+    
+    def test_health_check_includes_serial_console(self, hardware_lab):
+        """Test health check includes serial console when configured."""
+        # Configure serial console
+        hw = hardware_lab.get_hardware("rpi-001")
+        hw.serial_console_host = "console-server.lab"
+        hw.serial_console_port = 7001
+        
+        # Mock all health checks
+        with patch('execution.physical_hardware_lab.PhysicalHardwareLab._execute_ssh_command') as mock_ssh, \
+             patch('execution.physical_hardware_lab.telnetlib.Telnet') as mock_telnet:
+            
+            # Mock SSH commands
+            mock_ssh.side_effect = [
+                {'stdout': 'test', 'stderr': '', 'return_code': 0, 'timed_out': False},  # connectivity
+                {'stdout': '10G', 'stderr': '', 'return_code': 0, 'timed_out': False},  # disk
+                {'stdout': '2048', 'stderr': '', 'return_code': 0, 'timed_out': False},  # memory
+                {'stdout': '3600.5', 'stderr': '', 'return_code': 0, 'timed_out': False},  # uptime
+                {'stdout': '5.10.0', 'stderr': '', 'return_code': 0, 'timed_out': False},  # kernel
+            ]
+            
+            # Mock serial console connection
+            mock_tn = MagicMock()
+            mock_telnet.return_value = mock_tn
+            
+            result = hardware_lab.check_hardware_health("rpi-001")
+            
+            assert "serial_console_connectivity" in result.checks_performed
+            assert result.metrics['serial_console_reachable'] is True
+
+
 class TestPhysicalHardware:
     """Tests for PhysicalHardware class."""
     
@@ -458,6 +602,20 @@ class TestPhysicalHardware:
         assert hw.hardware_id == "test-hw"
         assert hw.config == sample_hardware_config
         assert hw.status == ReservationStatus.AVAILABLE
+    
+    def test_create_with_serial_console(self, sample_hardware_config, sample_credentials):
+        """Test creating physical hardware with serial console."""
+        hw = PhysicalHardware(
+            hardware_id="test-hw",
+            config=sample_hardware_config,
+            ip_address="192.168.1.1",
+            ssh_credentials=sample_credentials,
+            serial_console_host="console-server.lab",
+            serial_console_port=7001
+        )
+        
+        assert hw.serial_console_host == "console-server.lab"
+        assert hw.serial_console_port == 7001
     
     def test_create_with_virtual_config_raises_error(self, sample_credentials):
         """Test creating physical hardware with virtual config raises error."""
