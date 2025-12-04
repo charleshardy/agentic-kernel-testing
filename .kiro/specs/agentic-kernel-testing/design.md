@@ -157,6 +157,8 @@ class EnvironmentManager:
 - QEMU virtual machines for x86_64, ARM, RISC-V architectures
 - KVM for performance-sensitive tests
 - Physical hardware boards in test lab (Raspberry Pi, embedded boards)
+  - SSH-based test execution for normal testing
+  - Serial console (telnet) execution for early boot testing and kernel debugging
 - Container-based environments for userspace testing
 
 ### 4. Coverage Analyzer
