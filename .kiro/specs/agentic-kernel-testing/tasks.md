@@ -78,18 +78,18 @@
   - **Property 5: Test summary organization**
   - **Validates: Requirements 1.5**
 
-- [ ] 6. Implement hardware configuration management
+- [x] 6. Implement hardware configuration management
   - Create hardware configuration parser and validator
   - Build test matrix generator for multi-hardware testing
   - Implement hardware capability detection
   - Create virtual vs physical hardware classifier
   - _Requirements: 2.1, 2.2, 2.4, 2.5_
 
-- [ ] 6.1 Write property test for hardware matrix coverage
+- [x] 6.1 Write property test for hardware matrix coverage
   - **Property 6: Hardware matrix coverage**
   - **Validates: Requirements 2.1**
 
-- [ ] 6.2 Write property test for virtual environment preference
+- [x] 6.2 Write property test for virtual environment preference
   - **Property 10: Virtual environment preference**
   - **Validates: Requirements 2.5**
 
