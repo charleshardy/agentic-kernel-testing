@@ -8,12 +8,19 @@ An autonomous AI-powered testing platform that intelligently tests Linux kernels
 
 ## 📚 Documentation
 
+### Core Documentation
 - **[Quick Start Guide](docs/QUICKSTART.md)** - Get up and running in minutes
 - **[Architecture Overview](docs/ARCHITECTURE.md)** - System design and technical architecture
 - **[Installation Guide](docs/INSTALLATION.md)** - Detailed installation instructions
 - **[Contributing Guidelines](docs/CONTRIBUTING.md)** - How to contribute to the project
 - **[Complete Overview](docs/CONFLUENCE_PAGE.md)** - Comprehensive project documentation
 - **[Changelog](CHANGELOG.md)** - Project updates and version history
+
+### LLM Provider Integration
+- **[Amazon Q & Kiro Integration](docs/AMAZON_Q_AND_KIRO_INTEGRATION.md)** - Using Amazon Q Developer and Kiro AI
+- **[SSO Authentication Guide](docs/SSO_AUTHENTICATION_GUIDE.md)** - Complete SSO setup and usage
+- **[Quick Start: Amazon Q & Kiro](QUICK_START_AMAZON_Q_KIRO.md)** - 3-step setup guide
+- **[SSO Quick Reference](SSO_QUICK_REFERENCE.md)** - SSO authentication cheat sheet
 
 ### Specifications
 - [Requirements Document](.kiro/specs/agentic-kernel-testing/requirements.md) - Detailed system requirements
@@ -24,14 +31,23 @@ An autonomous AI-powered testing platform that intelligently tests Linux kernels
 
 ## 🚀 Recent Updates
 
-**Latest:** December 3, 2025
-- ✅ **Task List Refreshed:** Updated implementation plan with 50 comprehensive tasks
-- ✅ **All Tests Required:** Comprehensive testing approach from the start (unit + property-based)
-- ✅ **Infrastructure Complete:** Project structure and core infrastructure fully implemented
-- ✅ **Documentation Updated:** All guides synchronized with latest project state
-- ✅ **Testing Framework:** pytest and Hypothesis configured for unit and property-based testing
+**Latest:** December 4, 2025
+- ✅ **Task 4 Complete:** AI Test Generator Core with Multi-Provider Support
+  - OpenAI, Anthropic, Amazon Bedrock integration
+  - **NEW: Amazon Q Developer Pro integration**
+  - **NEW: Kiro AI integration**
+  - **NEW: SSO Authentication Support (AWS SSO & OAuth2)**
+  - LLM provider abstraction layer with unified interface
+  - Automatic retry with exponential backoff
+  - Test case validation and template system
+  - 16 property-based tests (100+ iterations each) - All passing ✅
+  - 5 integration tests - All passing ✅
+- ✅ **Task 3 Complete:** Code analysis and diff parsing with subsystem identification
+- ✅ **Task 2 Complete:** Core data models and interfaces with comprehensive validation
+- ✅ **Task 1 Complete:** Project structure and core infrastructure
+- ✅ **Testing Framework:** pytest and Hypothesis configured with 99 tests passing
 - ✅ **Configuration System:** Comprehensive settings system with pydantic-settings
-- 📋 **Ready for Task 2:** Core data models and interfaces implementation
+- 📋 **Ready for Task 5:** Test case organization and summarization
 
 ---
 
@@ -76,7 +92,8 @@ Seamless integration with GitHub, GitLab, and Jenkins. Automatic test triggering
 | Category | Technologies |
 |----------|-------------|
 | **Language** | Python 3.10+ |
-| **AI/ML** | Amazon Q APIs (built on Amazon Bedrock for LLM access), Hypothesis (property-based testing) |
+| **AI/ML** | OpenAI (GPT-4), Anthropic (Claude), Amazon Bedrock, **Amazon Q Developer Pro**, **Kiro AI**, Hypothesis (property-based testing) |
+| **Authentication** | **AWS SSO/IAM Identity Center**, **OAuth2/OIDC**, API Keys, AWS CLI Profiles |
 | **Testing** | pytest, gcov/lcov, Syzkaller (fuzzing), Coccinelle (static analysis), KASAN, KTSAN |
 | **Virtualization** | QEMU, KVM, SSH for physical hardware |
 | **Performance** | LMBench, FIO, Netperf, perf |
@@ -103,6 +120,34 @@ Seamless integration with GitHub, GitLab, and Jenkins. Automatic test triggering
     └── steering/      # AI assistant guidance (✅ Complete)
 ```
 
+## LLM Provider Support
+
+The system supports multiple LLM providers for AI-powered test generation:
+
+| Provider | Authentication | Best For |
+|----------|---------------|----------|
+| **Amazon Q Developer** | AWS SSO, CLI Profile, API Keys | AWS environments, enterprise security |
+| **Kiro AI** | OAuth2 SSO, API Keys | IDE integration, fast iteration |
+| OpenAI | API Keys | General purpose, proven reliability |
+| Anthropic | API Keys | Long context, detailed analysis |
+| Amazon Bedrock | AWS Credentials | AWS-native, multiple models |
+
+### Quick Setup
+
+**Amazon Q with SSO:**
+```bash
+aws configure sso
+aws sso login --profile my-sso-profile
+```
+
+**Kiro with SSO:**
+```bash
+export KIRO_CLIENT_ID="your-client-id"
+export KIRO_CLIENT_SECRET="your-client-secret"
+```
+
+See [SSO Quick Reference](SSO_QUICK_REFERENCE.md) for complete setup.
+
 ## Getting Started
 
 ### Prerequisites
@@ -110,6 +155,7 @@ Seamless integration with GitHub, GitLab, and Jenkins. Automatic test triggering
 - Python 3.10 or higher
 - Poetry or pip for dependency management
 - Docker (optional, for containerized deployment)
+- LLM Provider credentials (Amazon Q, Kiro, OpenAI, or Anthropic)
 
 ### Installation
 
