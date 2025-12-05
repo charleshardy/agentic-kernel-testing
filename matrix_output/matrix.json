@@ -1,0 +1,136 @@
+{
+  "cells": [
+    {
+      "hardware_config": {
+        "architecture": "x86_64",
+        "cpu_model": "Intel Core i7-9700K",
+        "memory_mb": 8192,
+        "storage_type": "ssd",
+        "peripherals": [],
+        "is_virtual": true,
+        "emulator": "qemu"
+      },
+      "status": "passed",
+      "pass_count": 3,
+      "fail_count": 0,
+      "error_count": 0,
+      "total_count": 3,
+      "pass_rate": 1.0,
+      "test_result_ids": [
+        "test_001",
+        "test_002",
+        "test_003"
+      ]
+    },
+    {
+      "hardware_config": {
+        "architecture": "x86_64",
+        "cpu_model": "AMD Ryzen 9 5900X",
+        "memory_mb": 16384,
+        "storage_type": "ssd",
+        "peripherals": [],
+        "is_virtual": true,
+        "emulator": "qemu"
+      },
+      "status": "mixed",
+      "pass_count": 3,
+      "fail_count": 1,
+      "error_count": 0,
+      "total_count": 4,
+      "pass_rate": 0.75,
+      "test_result_ids": [
+        "test_004",
+        "test_005",
+        "test_006",
+        "test_007"
+      ]
+    },
+    {
+      "hardware_config": {
+        "architecture": "arm64",
+        "cpu_model": "ARM Cortex-A72",
+        "memory_mb": 4096,
+        "storage_type": "ssd",
+        "peripherals": [],
+        "is_virtual": true,
+        "emulator": "qemu"
+      },
+      "status": "mixed",
+      "pass_count": 2,
+      "fail_count": 1,
+      "error_count": 0,
+      "total_count": 3,
+      "pass_rate": 0.6666666666666666,
+      "test_result_ids": [
+        "test_008",
+        "test_009",
+        "test_010"
+      ]
+    },
+    {
+      "hardware_config": {
+        "architecture": "arm64",
+        "cpu_model": "ARM Cortex-A76",
+        "memory_mb": 4096,
+        "storage_type": "ssd",
+        "peripherals": [],
+        "is_virtual": false,
+        "emulator": null
+      },
+      "status": "failed",
+      "pass_count": 0,
+      "fail_count": 2,
+      "error_count": 0,
+      "total_count": 2,
+      "pass_rate": 0.0,
+      "test_result_ids": [
+        "test_011",
+        "test_012"
+      ]
+    },
+    {
+      "hardware_config": {
+        "architecture": "arm",
+        "cpu_model": "ARM Cortex-A53",
+        "memory_mb": 2048,
+        "storage_type": "ssd",
+        "peripherals": [],
+        "is_virtual": false,
+        "emulator": null
+      },
+      "status": "passed",
+      "pass_count": 1,
+      "fail_count": 0,
+      "error_count": 0,
+      "total_count": 1,
+      "pass_rate": 1.0,
+      "test_result_ids": [
+        "test_013"
+      ]
+    },
+    {
+      "hardware_config": {
+        "architecture": "riscv64",
+        "cpu_model": "SiFive U74",
+        "memory_mb": 2048,
+        "storage_type": "ssd",
+        "peripherals": [],
+        "is_virtual": true,
+        "emulator": "qemu"
+      },
+      "status": "not_tested",
+      "pass_count": 0,
+      "fail_count": 0,
+      "error_count": 0,
+      "total_count": 0,
+      "pass_rate": 0.0,
+      "test_result_ids": []
+    }
+  ],
+  "metadata": {
+    "total_results": 13,
+    "generation_method": "from_results"
+  },
+  "created_at": "2025-12-05T12:07:08.209001",
+  "updated_at": "2025-12-05T12:07:08.209034"
+}
