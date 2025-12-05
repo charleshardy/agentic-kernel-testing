@@ -33,6 +33,7 @@ Processes test results and generates insights.
 - **Coverage Analyzer**: Tracks code coverage and identifies gaps
 - **Performance Monitor**: Detects performance regressions
 - **Security Scanner**: Performs fuzzing and static analysis
+- **Fault Detection System**: Detects and reports kernel crashes, hangs, memory leaks, and data corruption
 
 ### 4. Integration Layer
 Connects with external systems.
