@@ -8,10 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Physical Hardware Lab Interface (Task 8 Complete)** - 2025-12-04
+- **Physical Hardware Lab Interface (Task 8 Complete)** - 2025-12-05
   - Hardware reservation system with time-based expiration and automatic cleanup
   - SSH-based test execution on physical boards with timeout handling
-  - **Serial console (telnet) test execution for early boot testing and kernel debugging**
+  - Serial console (telnet) test execution for early boot testing and kernel debugging
+  - **Bootloader deployment and verification (U-Boot, GRUB, UEFI, custom)**
+    - Multiple deployment methods: TFTP, storage (USB/SD/eMMC), serial console
+    - Comprehensive verification: version check, command testing, environment validation, boot script execution, kernel loading
+    - Flexible configuration supporting custom bootloaders and deployment scripts
+    - Complete documentation in Bootloader Deployment Guide
+    - Working examples demonstrating all deployment methods
   - Power control integration supporting PDU, IPMI, and manual control methods
   - Comprehensive health checks: SSH connectivity, disk space, memory, uptime, kernel version, serial console
   - Maintenance mode management for hardware servicing

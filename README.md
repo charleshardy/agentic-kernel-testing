@@ -31,11 +31,15 @@ An autonomous AI-powered testing platform that intelligently tests Linux kernels
 
 ## 🚀 Recent Updates
 
-**Latest:** December 4, 2025
+**Latest:** December 5, 2025
 - ✅ **Task 8 Complete:** Physical Hardware Lab Interface
   - Hardware reservation system with time-based expiration
   - SSH-based test execution on physical boards
-  - **NEW: Serial console (telnet) test execution for early boot and debugging**
+  - Serial console (telnet) test execution for early boot and debugging
+  - **NEW: Bootloader deployment and verification (U-Boot, GRUB, UEFI)**
+    - TFTP, storage (USB/SD/eMMC), and serial console deployment methods
+    - Comprehensive verification with 5 checks: version, commands, environment, boot script, kernel loading
+    - Support for custom bootloaders with flexible configuration
   - Power control integration (PDU, IPMI, manual)
   - Comprehensive health checks (SSH, disk, memory, uptime, kernel version, serial console)
   - Maintenance mode management
@@ -69,7 +73,7 @@ An autonomous AI-powered testing platform that intelligently tests Linux kernels
 AI agents analyze code changes and automatically generate targeted test cases covering normal usage, boundary conditions, and error paths. Generates 10+ distinct test cases per modified function within 5 minutes.
 
 ### 🖥️ Multi-Hardware Testing
-Execute tests across virtual environments (QEMU, KVM) and physical hardware boards to ensure compatibility across x86_64, ARM, and RISC-V architectures. Supports both SSH-based execution and serial console (telnet) access for early boot testing and kernel debugging.
+Execute tests across virtual environments (QEMU, KVM) and physical hardware boards to ensure compatibility across x86_64, ARM, and RISC-V architectures. Supports SSH-based execution, serial console (telnet) access for early boot testing and kernel debugging, and bootloader deployment/verification (U-Boot, GRUB, UEFI) for pre-boot testing.
 
 ### 💥 Intelligent Fault Injection
 Stress testing with memory failures, I/O errors, and timing variations to discover edge cases and race conditions. Detects crashes, hangs, memory leaks, and data corruption.
@@ -309,4 +313,4 @@ For questions or collaboration opportunities, please reach out through GitHub is
 
 ---
 
-**Last Updated:** December 3, 2025
+**Last Updated:** December 5, 2025

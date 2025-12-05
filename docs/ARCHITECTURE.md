@@ -24,6 +24,7 @@ Manages test execution across different environments.
 - **Physical Hardware Lab**: Interface to physical test boards
   - SSH-based test execution
   - Serial console (telnet) test execution for early boot and debugging
+  - Bootloader deployment and verification (U-Boot, GRUB, UEFI) for pre-boot testing
 
 ### 3. Analysis Layer
 Processes test results and generates insights.
