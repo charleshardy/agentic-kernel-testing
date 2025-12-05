@@ -159,6 +159,7 @@ class EnvironmentManager:
 - Physical hardware boards in test lab (Raspberry Pi, embedded boards)
   - SSH-based test execution for normal testing
   - Serial console (telnet) execution for early boot testing and kernel debugging
+  - Bootloader deployment and verification (U-Boot, GRUB, UEFI) for pre-boot testing
 - Container-based environments for userspace testing
 
 ### 4. Coverage Analyzer
