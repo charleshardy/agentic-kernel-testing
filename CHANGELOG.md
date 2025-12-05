@@ -7,8 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Physical Hardware Lab Interface (Task 8 Complete)** - 2025-12-04
+  - Hardware reservation system with time-based expiration and automatic cleanup
+  - SSH-based test execution on physical boards with timeout handling
+  - **Serial console (telnet) test execution for early boot testing and kernel debugging**
+  - Power control integration supporting PDU, IPMI, and manual control methods
+  - Comprehensive health checks: SSH connectivity, disk space, memory, uptime, kernel version, serial console
+  - Maintenance mode management for hardware servicing
+  - Hardware inventory management (add, remove, list, filter)
+  - 30+ unit tests covering all functionality
+  - Complete documentation in Physical Hardware Lab Guide
+  - Validates Requirements 2.1 (Multi-hardware testing) and 2.3 (Hardware failure isolation)
+
 ### In Progress
-- Task 2: Core data models and interfaces implementation
+- Task 9: Test execution engine
 
 ## [0.1.0] - 2025-12-03
 
