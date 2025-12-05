@@ -22,6 +22,8 @@ Manages test execution across different environments.
 - **Environment Manager**: Provisions and manages test environments
 - **Virtual Environments**: QEMU/KVM virtual machines
 - **Physical Hardware Lab**: Interface to physical test boards
+  - SSH-based test execution
+  - Serial console (telnet) test execution for early boot and debugging
 
 ### 3. Analysis Layer
 Processes test results and generates insights.
