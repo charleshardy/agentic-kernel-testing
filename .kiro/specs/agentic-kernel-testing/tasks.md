@@ -155,14 +155,14 @@
   - **Property 11: Fault injection diversity**
   - **Validates: Requirements 3.1**
 
-- [ ] 12. Implement fault detection and monitoring
+- [x] 12. Implement fault detection and monitoring
   - Create kernel crash detector
   - Build hang detector with timeout monitoring
   - Implement memory leak detector (KASAN integration)
   - Add data corruption detector
   - _Requirements: 3.2_
 
-- [ ] 12.1 Write property test for fault detection completeness
+- [x] 12.1 Write property test for fault detection completeness
   - **Property 12: Fault detection completeness**
   - **Validates: Requirements 3.2**
 
