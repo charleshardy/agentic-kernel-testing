@@ -166,13 +166,13 @@
   - **Property 12: Fault detection completeness**
   - **Validates: Requirements 3.2**
 
-- [ ] 13. Implement concurrency testing support
+- [x] 13. Implement concurrency testing support
   - Create thread scheduling variation system
   - Build timing variation injector for race condition detection
   - Implement multiple execution runs with different schedules
   - _Requirements: 3.3_
 
-- [ ] 13.1 Write property test for concurrency testing variation
+- [x] 13.1 Write property test for concurrency testing variation
   - **Property 13: Concurrency testing variation**
   - **Validates: Requirements 3.3**
 
