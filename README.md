@@ -12,6 +12,7 @@ An autonomous AI-powered testing platform that intelligently tests Linux kernels
 - **[Quick Start Guide](docs/QUICKSTART.md)** - Get up and running in minutes
 - **[Architecture Overview](docs/ARCHITECTURE.md)** - System design and technical architecture
 - **[Installation Guide](docs/INSTALLATION.md)** - Detailed installation instructions
+- **[Fault Detection Guide](docs/FAULT_DETECTION_GUIDE.md)** - Comprehensive fault detection and monitoring
 - **[Contributing Guidelines](docs/CONTRIBUTING.md)** - How to contribute to the project
 - **[Complete Overview](docs/CONFLUENCE_PAGE.md)** - Comprehensive project documentation
 - **[Changelog](CHANGELOG.md)** - Project updates and version history
@@ -32,11 +33,21 @@ An autonomous AI-powered testing platform that intelligently tests Linux kernels
 ## 🚀 Recent Updates
 
 **Latest:** December 5, 2025
+- ✅ **Task 12 Complete:** Fault Detection and Monitoring
+  - Kernel crash detector (panics, oops, NULL pointer dereferences, GPF)
+  - Hang detector with timeout monitoring and log-based detection
+  - Memory leak detector with KASAN integration (use-after-free, double-free, out-of-bounds)
+  - Data corruption detector (checksum errors, filesystem corruption, ECC errors)
+  - Unified fault detection system coordinating all detectors
+  - Stack trace extraction and crash type classification
+  - Comprehensive statistics tracking
+  - 9 property-based tests (100+ iterations each) - All passing ✅
+  - Validates Requirements 3.2
 - ✅ **Task 8 Complete:** Physical Hardware Lab Interface
   - Hardware reservation system with time-based expiration
   - SSH-based test execution on physical boards
   - Serial console (telnet) test execution for early boot and debugging
-  - **NEW: Bootloader deployment and verification (U-Boot, GRUB, UEFI)**
+  - **Bootloader deployment and verification (U-Boot, GRUB, UEFI)**
     - TFTP, storage (USB/SD/eMMC), and serial console deployment methods
     - Comprehensive verification with 5 checks: version, commands, environment, boot script, kernel loading
     - Support for custom bootloaders with flexible configuration
@@ -61,9 +72,12 @@ An autonomous AI-powered testing platform that intelligently tests Linux kernels
 - ✅ **Task 3 Complete:** Code analysis and diff parsing with subsystem identification
 - ✅ **Task 2 Complete:** Core data models and interfaces with comprehensive validation
 - ✅ **Task 1 Complete:** Project structure and core infrastructure
-- ✅ **Testing Framework:** pytest and Hypothesis configured with 130+ tests passing
+- ✅ **Task 11 Complete:** Fault injection system
+- ✅ **Task 10 Complete:** Compatibility matrix generator
+- ✅ **Task 9 Complete:** Test execution engine
+- ✅ **Testing Framework:** pytest and Hypothesis configured with 140+ tests passing
 - ✅ **Configuration System:** Comprehensive settings system with pydantic-settings
-- 📋 **Ready for Task 9:** Test execution engine
+- 📋 **Ready for Task 13:** Concurrency testing support
 
 ---
 
