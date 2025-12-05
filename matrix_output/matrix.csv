@@ -1,0 +1,7 @@
+Architecture,CPU Model,Memory (MB),Type,Status,Pass Rate,Total Tests,Passed,Failed,Errors
+arm,ARM Cortex-A53,2048,Physical,passed,1.0000,1,1,0,0
+arm64,ARM Cortex-A72,4096,Virtual,mixed,0.6667,3,2,1,0
+arm64,ARM Cortex-A76,4096,Physical,failed,0.0000,2,0,2,0
+riscv64,SiFive U74,2048,Virtual,not_tested,0.0000,0,0,0,0
+x86_64,AMD Ryzen 9 5900X,16384,Virtual,mixed,0.7500,4,3,1,0
+x86_64,Intel Core i7-9700K,8192,Virtual,passed,1.0000,3,3,0,0

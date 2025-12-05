@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html><head>
+<title>Compatibility Matrix</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; }
+table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+th { background-color: #4CAF50; color: white; }
+.passed { background-color: #d4edda; }
+.failed { background-color: #f8d7da; }
+.mixed { background-color: #fff3cd; }
+.not-tested { background-color: #e2e3e5; }
+.error { background-color: #f5c6cb; }
+.summary { margin-bottom: 20px; }
+</style>
+</head><body>
+<h1>Compatibility Matrix</h1>
+<div class='summary'>
+<p><strong>Total Configurations:</strong> 6</p>
+<p><strong>Architectures:</strong> x86_64, arm64, arm, riscv64</p>
+<p><strong>Overall Pass Rate:</strong> 69.23%</p>
+<p><strong>Updated:</strong> 2025-12-05T12:07:08.209034</p>
+</div>
+<table>
+<tr>
+<th>Architecture</th>
+<th>CPU Model</th>
+<th>Memory (MB)</th>
+<th>Type</th>
+<th>Status</th>
+<th>Pass Rate</th>
+<th>Tests</th>
+</tr>
+<tr class='passed'>
+<td>arm</td>
+<td>ARM Cortex-A53</td>
+<td>2048</td>
+<td>Physical</td>
+<td>passed</td>
+<td>100.0%</td>
+<td>1</td>
+</tr>
+<tr class='mixed'>
+<td>arm64</td>
+<td>ARM Cortex-A72</td>
+<td>4096</td>
+<td>Virtual</td>
+<td>mixed</td>
+<td>66.7%</td>
+<td>3</td>
+</tr>
+<tr class='failed'>
+<td>arm64</td>
+<td>ARM Cortex-A76</td>
+<td>4096</td>
+<td>Physical</td>
+<td>failed</td>
+<td>0.0%</td>
+<td>2</td>
+</tr>
+<tr class='not-tested'>
+<td>riscv64</td>
+<td>SiFive U74</td>
+<td>2048</td>
+<td>Virtual</td>
+<td>not_tested</td>
+<td>0.0%</td>
+<td>0</td>
+</tr>
+<tr class='mixed'>
+<td>x86_64</td>
+<td>AMD Ryzen 9 5900X</td>
+<td>16384</td>
+<td>Virtual</td>
+<td>mixed</td>
+<td>75.0%</td>
+<td>4</td>
+</tr>
+<tr class='passed'>
+<td>x86_64</td>
+<td>Intel Core i7-9700K</td>
+<td>8192</td>
+<td>Virtual</td>
+<td>passed</td>
+<td>100.0%</td>
+<td>3</td>
+</tr>
+</table>
+</body></html>
