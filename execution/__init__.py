@@ -9,6 +9,16 @@ from execution.hardware_config import (
     HardwareCapability
 )
 
+from execution.concurrency_testing import (
+    ThreadScheduler,
+    ThreadScheduleConfig,
+    SchedulingStrategy,
+    ConcurrencyTimingInjector,
+    ConcurrencyTestRunner,
+    ConcurrencyTestResult,
+    ConcurrencyTestRun
+)
+
 __version__ = "0.1.0"
 
 __all__ = [
@@ -17,5 +27,12 @@ __all__ = [
     'HardwareCapabilityDetector',
     'HardwareClassifier',
     'TestMatrix',
-    'HardwareCapability'
+    'HardwareCapability',
+    'ThreadScheduler',
+    'ThreadScheduleConfig',
+    'SchedulingStrategy',
+    'ConcurrencyTimingInjector',
+    'ConcurrencyTestRunner',
+    'ConcurrencyTestResult',
+    'ConcurrencyTestRun'
 ]
