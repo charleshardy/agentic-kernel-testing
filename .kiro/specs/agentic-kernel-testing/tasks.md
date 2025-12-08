@@ -186,7 +186,7 @@
   - **Property 14: Issue reproducibility**
   - **Validates: Requirements 3.4**
 
-- [ ] 15. Implement root cause analyzer core
+- [x] 15. Implement root cause analyzer core
   - Set up LLM integration for log analysis (OpenAI/Anthropic/Amazon Q via Bedrock)
   - Reuse LLM provider abstraction layer from task 4
   - Create stack trace parser and symbolication
@@ -194,11 +194,11 @@
   - Implement failure signature generation
   - _Requirements: 4.1, 4.3, 4.4_
 
-- [ ] 15.1 Write property test for failure grouping
+- [x] 15.1 Write property test for failure grouping
   - **Property 18: Failure grouping consistency**
   - **Validates: Requirements 4.3**
 
-- [ ] 15.2 Write property test for root cause report completeness
+- [x] 15.2 Write property test for root cause report completeness
   - **Property 19: Root cause report completeness**
   - **Validates: Requirements 4.4**
 
