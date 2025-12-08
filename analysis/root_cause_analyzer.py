@@ -15,6 +15,10 @@ from ai_generator.models import (
     TestStatus, FailureInfo
 )
 from ai_generator.llm_providers import BaseLLMProvider, LLMProviderFactory, LLMProvider
+from ai_generator.llm_providers_extended import (
+    ExtendedLLMProviderFactory, ExtendedLLMProvider,
+    AmazonQDeveloperProvider, KiroProvider
+)
 
 
 class StackTraceParser:
@@ -238,35 +242,82 @@ class FailureSignatureGenerator:
 
 
 class RootCauseAnalyzer(IRootCauseAnalyzer):
-    """AI-powered root cause analyzer for test failures."""
+    """AI-powered root cause analyzer for test failures.
+    
+    Supports multiple LLM providers for log analysis:
+    - OpenAI (GPT-4, GPT-3.5)
+    - Anthropic (Claude)
+    - Amazon Bedrock (Claude via Bedrock)
+    - Amazon Q Developer Pro (AWS's AI coding assistant)
+    - Kiro AI (AI-powered IDE)
+    """
     
     def __init__(
         self,
         llm_provider: Optional[BaseLLMProvider] = None,
-        provider_type: Optional[LLMProvider] = None,
+        provider_type: Optional[str] = None,
         api_key: Optional[str] = None,
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        **provider_kwargs
     ):
         """Initialize root cause analyzer.
         
         Args:
             llm_provider: Pre-configured LLM provider (optional)
-            provider_type: Type of LLM provider to create if llm_provider not provided
+            provider_type: Type of LLM provider ("openai", "anthropic", "bedrock", "amazon_q", "kiro")
             api_key: API key for LLM provider
             model: Model name to use
+            **provider_kwargs: Additional provider-specific parameters:
+                - For Amazon Q: region, profile, use_sso, sso_start_url, sso_region
+                - For Kiro: api_url, use_sso, client_id, client_secret
+                - For Bedrock: region
+        
+        Examples:
+            # Using Amazon Q Developer Pro
+            analyzer = RootCauseAnalyzer(
+                provider_type="amazon_q",
+                region="us-east-1",
+                use_sso=True,
+                sso_start_url="https://my-sso.awsapps.com/start"
+            )
+            
+            # Using Kiro AI
+            analyzer = RootCauseAnalyzer(
+                provider_type="kiro",
+                api_key="your-kiro-key"
+            )
+            
+            # Using OpenAI (default)
+            analyzer = RootCauseAnalyzer(
+                provider_type="openai",
+                api_key="your-openai-key"
+            )
         """
         if llm_provider:
             self.llm_provider = llm_provider
-        elif provider_type and api_key:
-            # Only create LLM provider if explicitly requested with credentials
+        elif provider_type:
+            # Try to create LLM provider with extended support
             try:
-                self.llm_provider = LLMProviderFactory.create(
-                    provider=provider_type,
-                    api_key=api_key,
-                    model=model
-                )
-            except (ImportError, Exception):
+                # Use extended factory for Amazon Q and Kiro support
+                if provider_type in ["amazon_q", "kiro"]:
+                    self.llm_provider = ExtendedLLMProviderFactory.create(
+                        provider=ExtendedLLMProvider(provider_type),
+                        api_key=api_key,
+                        model=model,
+                        **provider_kwargs
+                    )
+                else:
+                    # Use standard factory for OpenAI, Anthropic, Bedrock
+                    self.llm_provider = ExtendedLLMProviderFactory.create(
+                        provider=ExtendedLLMProvider(provider_type),
+                        api_key=api_key,
+                        model=model,
+                        **provider_kwargs
+                    )
+            except (ImportError, Exception) as e:
                 # Fall back to pattern-based analysis if LLM unavailable
+                print(f"Warning: Could not initialize LLM provider: {e}")
+                print("Falling back to pattern-based analysis")
                 self.llm_provider = None
         else:
             # No LLM provider - use pattern-based analysis only
