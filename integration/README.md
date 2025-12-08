@@ -542,3 +542,417 @@ build.register_build_handler(handle_build_complete)
 ## License
 
 See LICENSE file in project root.
+
+
+---
+
+# Notification System
+
+This module provides comprehensive notification capabilities for sending alerts through multiple channels (Email, Slack, Microsoft Teams).
+
+## Features
+
+- **Multi-Channel Support**: Email, Slack, Microsoft Teams
+- **Severity-Based Routing**: Automatic channel selection based on severity
+- **Flexible Filtering**: Filter notifications by severity threshold
+- **Rich Formatting**: HTML emails, Slack attachments, Teams cards
+- **Metadata Support**: Include additional context in notifications
+- **Configurable**: Enable/disable channels via configuration
+
+## Quick Start
+
+### Installation
+
+```python
+from integration.notification_service import NotificationDispatcher
+from integration.notification_models import (
+    Notification,
+    NotificationSeverity,
+    NotificationChannel,
+    NotificationRecipient
+)
+```
+
+### Basic Usage
+
+```python
+from integration.notification_service import NotificationDispatcher
+from integration.notification_models import (
+    Notification,
+    NotificationSeverity,
+    NotificationChannel,
+    NotificationRecipient
+)
+
+# Initialize dispatcher
+dispatcher = NotificationDispatcher()
+
+# Create a notification
+notification = Notification(
+    id="test_001",
+    title="Test Execution Started",
+    message="Test suite for kernel module xyz has started execution.",
+    severity=NotificationSeverity.INFO,
+    channels=[NotificationChannel.SLACK],
+    recipients=[
+        NotificationRecipient(
+            name="Developer",
+            email="dev@example.com",
+            slack_user_id="U12345"
+        )
+    ],
+    test_id="test_xyz_001"
+)
+
+# Send notification
+results = dispatcher.send_notification(notification)
+
+for result in results:
+    print(f"Channel: {result.channel.value}, Success: {result.success}")
+```
+
+### Critical Failure Notification
+
+```python
+# Send critical failure notification (convenience method)
+results = dispatcher.send_critical_failure_notification(
+    title="Kernel Panic Detected",
+    message="A kernel panic was detected during test execution.",
+    test_id="test_network_driver_042",
+    failure_id="failure_20231208_001",
+    recipients=[
+        NotificationRecipient(
+            name="Kernel Team Lead",
+            email="kernel-lead@example.com"
+        )
+    ],
+    metadata={
+        "subsystem": "network",
+        "driver": "e1000e",
+        "kernel_version": "6.5.0",
+        "crash_type": "NULL pointer dereference"
+    }
+)
+```
+
+## Components
+
+### Notification Models (`notification_models.py`)
+
+Data models for notifications:
+- `Notification`: Complete notification with title, message, severity, channels, recipients
+- `NotificationRecipient`: Recipient information (name, email, Slack/Teams IDs)
+- `NotificationResult`: Result of sending a notification
+- `NotificationSeverity`: Severity levels (INFO, WARNING, ERROR, CRITICAL)
+- `NotificationChannel`: Delivery channels (EMAIL, SLACK, TEAMS, WEBHOOK)
+
+### Notification Service (`notification_service.py`)
+
+Notification delivery service:
+- `NotificationDispatcher`: Main dispatcher for sending notifications
+- `EmailChannel`: Email notification handler
+- `SlackChannel`: Slack notification handler
+- `TeamsChannel`: Microsoft Teams notification handler
+
+## Severity Levels
+
+Notifications support four severity levels:
+
+- `NotificationSeverity.INFO`: Informational messages
+- `NotificationSeverity.WARNING`: Warning messages
+- `NotificationSeverity.ERROR`: Error messages
+- `NotificationSeverity.CRITICAL`: Critical failures requiring immediate attention
+
+## Notification Channels
+
+### Email
+
+Send notifications via SMTP:
+
+**Configuration:**
+```bash
+NOTIFICATION__EMAIL_ENABLED=true
+NOTIFICATION__EMAIL_SMTP_HOST=smtp.gmail.com
+NOTIFICATION__EMAIL_SMTP_PORT=587
+NOTIFICATION__EMAIL_FROM=noreply@example.com
+```
+
+**Features:**
+- Plain text and HTML formatting
+- Severity-based color coding
+- Metadata display
+- Test and failure ID inclusion
+
+### Slack
+
+Send notifications to Slack via webhooks:
+
+**Configuration:**
+```bash
+NOTIFICATION__SLACK_ENABLED=true
+NOTIFICATION__SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+```
+
+**Features:**
+- Rich message attachments
+- Severity-based emojis and colors
+- Structured field display
+- Metadata support
+
+### Microsoft Teams
+
+Send notifications to Teams via webhooks:
+
+**Configuration:**
+```python
+# Teams webhook URL passed to dispatcher
+dispatcher = NotificationDispatcher(
+    teams_webhook_url="https://outlook.office.com/webhook/..."
+)
+```
+
+**Features:**
+- MessageCard format
+- Severity-based color coding
+- Structured facts display
+- Metadata support
+
+## Automatic Routing
+
+The dispatcher can automatically route notifications to appropriate channels based on severity:
+
+```python
+# Default routing rules
+routing_rules = {
+    NotificationSeverity.INFO: [NotificationChannel.SLACK],
+    NotificationSeverity.WARNING: [NotificationChannel.SLACK],
+    NotificationSeverity.ERROR: [NotificationChannel.SLACK, NotificationChannel.EMAIL],
+    NotificationSeverity.CRITICAL: [
+        NotificationChannel.SLACK,
+        NotificationChannel.EMAIL,
+        NotificationChannel.TEAMS
+    ]
+}
+
+# Apply routing
+notification = dispatcher.route_notification(notification)
+```
+
+### Custom Routing
+
+Define custom routing rules:
+
+```python
+custom_rules = {
+    NotificationSeverity.INFO: [NotificationChannel.SLACK],
+    NotificationSeverity.WARNING: [NotificationChannel.EMAIL],
+    NotificationSeverity.ERROR: [NotificationChannel.EMAIL, NotificationChannel.TEAMS],
+    NotificationSeverity.CRITICAL: [
+        NotificationChannel.EMAIL,
+        NotificationChannel.SLACK,
+        NotificationChannel.TEAMS
+    ]
+}
+
+notification = dispatcher.route_notification(notification, custom_rules)
+```
+
+## Severity Filtering
+
+Filter notifications by minimum severity:
+
+```python
+# Only send ERROR and CRITICAL notifications
+min_severity = NotificationSeverity.ERROR
+
+if dispatcher.filter_by_severity(notification, min_severity):
+    results = dispatcher.send_notification(notification)
+```
+
+## Metadata Enrichment
+
+Include additional context in notifications:
+
+```python
+notification = Notification(
+    id="perf_001",
+    title="Performance Regression Detected",
+    message="A performance regression was detected in the I/O subsystem.",
+    severity=NotificationSeverity.WARNING,
+    test_id="perf_io_test_001",
+    metadata={
+        "subsystem": "I/O",
+        "benchmark": "FIO sequential write",
+        "baseline_throughput": "500 MB/s",
+        "current_throughput": "350 MB/s",
+        "regression_percentage": "30%",
+        "commit_range": "abc123..def456"
+    }
+)
+```
+
+## Configuration
+
+Configure notification channels in `.env`:
+
+```bash
+# Enable notifications
+NOTIFICATION__ENABLED=true
+
+# Email configuration
+NOTIFICATION__EMAIL_ENABLED=true
+NOTIFICATION__EMAIL_SMTP_HOST=smtp.gmail.com
+NOTIFICATION__EMAIL_SMTP_PORT=587
+NOTIFICATION__EMAIL_FROM=noreply@example.com
+
+# Slack configuration
+NOTIFICATION__SLACK_ENABLED=true
+NOTIFICATION__SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+```
+
+Or configure programmatically:
+
+```python
+from config import get_settings
+
+settings = get_settings()
+settings.notification.email_enabled = True
+settings.notification.slack_enabled = True
+```
+
+## Examples
+
+See `examples/notification_examples.py` for comprehensive examples:
+1. Basic notification
+2. Critical failure notification
+3. Severity-based routing
+4. Custom routing rules
+5. Severity filtering
+6. Metadata enrichment
+
+## Testing
+
+Run property-based tests:
+
+```bash
+# Test critical failure notification
+pytest tests/property/test_critical_failure_notification.py -v
+```
+
+The test suite validates:
+- Critical failures trigger notifications
+- All configured channels receive notifications
+- Notification content is complete
+- Severity routing works correctly
+- Filtering by severity works
+- Multiple recipients are supported
+
+## API Reference
+
+### NotificationDispatcher
+
+Main notification dispatcher class.
+
+**Methods:**
+- `send_notification(notification)`: Send notification through specified channels
+- `route_notification(notification, routing_rules)`: Route based on severity
+- `filter_by_severity(notification, min_severity)`: Check severity threshold
+- `send_critical_failure_notification(...)`: Convenience method for critical failures
+
+### Notification
+
+Notification data model.
+
+**Fields:**
+- `id`: Unique notification identifier
+- `title`: Notification title
+- `message`: Notification message
+- `severity`: Severity level
+- `channels`: List of delivery channels
+- `recipients`: List of recipients
+- `metadata`: Additional context
+- `timestamp`: Notification timestamp
+- `test_id`: Associated test ID (optional)
+- `failure_id`: Associated failure ID (optional)
+
+### NotificationRecipient
+
+Recipient information.
+
+**Fields:**
+- `name`: Recipient name
+- `email`: Email address (for email channel)
+- `slack_user_id`: Slack user ID (for Slack channel)
+- `teams_user_id`: Teams user ID (for Teams channel)
+
+### NotificationResult
+
+Result of sending a notification.
+
+**Fields:**
+- `notification_id`: Notification ID
+- `channel`: Channel used
+- `success`: Whether sending succeeded
+- `error_message`: Error message if failed
+- `timestamp`: Result timestamp
+
+## Integration with Test System
+
+Integrate notifications with test execution:
+
+```python
+from integration.notification_service import NotificationDispatcher
+from integration.notification_models import (
+    Notification,
+    NotificationSeverity,
+    NotificationRecipient
+)
+
+dispatcher = NotificationDispatcher()
+
+# When test fails
+def handle_test_failure(test_result):
+    if test_result.failure_info and test_result.failure_info.kernel_panic:
+        # Send critical notification for kernel panic
+        dispatcher.send_critical_failure_notification(
+            title=f"Kernel Panic in {test_result.test_id}",
+            message=test_result.failure_info.error_message,
+            test_id=test_result.test_id,
+            recipients=[
+                NotificationRecipient(
+                    name="Kernel Team",
+                    email="kernel-team@example.com"
+                )
+            ],
+            metadata={
+                "environment": test_result.environment.id,
+                "kernel_version": test_result.environment.kernel_version,
+                "execution_time": test_result.execution_time
+            }
+        )
+```
+
+## Error Handling
+
+- Channel configuration errors are logged and returned in results
+- Network errors are caught and reported
+- Missing recipients are handled gracefully
+- Invalid configurations prevent sending
+
+## Security
+
+- SMTP credentials should be stored securely
+- Webhook URLs should be kept confidential
+- Email addresses are validated
+- API tokens are never logged
+
+## Requirements
+
+- Python 3.10+
+- requests (for Slack/Teams webhooks)
+- pydantic (for data models)
+- smtplib (built-in, for email)
+
+## License
+
+See LICENSE file in project root.
