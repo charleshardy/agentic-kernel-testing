@@ -265,18 +265,18 @@
   - **Property 50: Resource metrics collection**
   - **Validates: Requirements 10.5**
 
-- [ ] 21. Implement version control system integration
+- [x] 21. Implement version control system integration
   - Create webhook handlers for GitHub/GitLab
   - Build event parser for commits, PRs, branch updates
   - Implement automatic test triggering
   - Add status reporting back to VCS
   - _Requirements: 5.1, 5.2_
 
-- [ ] 21.1 Write property test for VCS trigger responsiveness
+- [x] 21.1 Write property test for VCS trigger responsiveness
   - **Property 21: VCS trigger responsiveness**
   - **Validates: Requirements 5.1**
 
-- [ ] 21.2 Write property test for result reporting
+- [x] 21.2 Write property test for result reporting
   - **Property 22: Result reporting completeness**
   - **Validates: Requirements 5.2**
 
