@@ -301,14 +301,14 @@
   - **Property 24: Critical failure notification**
   - **Validates: Requirements 5.4**
 
-- [ ] 24. Implement coverage analyzer
+- [x] 24. Implement coverage analyzer
   - Create gcov/lcov integration for coverage collection
   - Build coverage data parser and merger
   - Implement line, branch, and function coverage calculation
   - Add coverage data storage and retrieval
   - _Requirements: 6.1_
 
-- [ ] 24.1 Write property test for coverage metric completeness
+- [x] 24.1 Write property test for coverage metric completeness
   - **Property 26: Coverage metric completeness**
   - **Validates: Requirements 6.1**
 
