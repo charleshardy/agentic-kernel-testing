@@ -33,6 +33,16 @@ An autonomous AI-powered testing platform that intelligently tests Linux kernels
 ## 🚀 Recent Updates
 
 **Latest:** December 5, 2025
+- ✅ **Task 13 Complete:** Concurrency Testing Support
+  - Thread scheduling variation system with 4 strategies (RANDOM, ROUND_ROBIN, PRIORITY_BASED, STRESS)
+  - Timing variation injector for race condition detection
+  - Multiple execution runs with different thread schedules
+  - Execution order tracking and variation analysis
+  - Race condition, deadlock, and data race detection
+  - Seed-based reproducibility for debugging
+  - High-level ConcurrencyTestRunner interface
+  - 9 property-based tests (30-50 iterations each) - All passing ✅
+  - Validates Requirements 3.3 and Property 13
 - ✅ **Task 12 Complete:** Fault Detection and Monitoring
   - Kernel crash detector (panics, oops, NULL pointer dereferences, GPF)
   - Hang detector with timeout monitoring and log-based detection
@@ -75,9 +85,10 @@ An autonomous AI-powered testing platform that intelligently tests Linux kernels
 - ✅ **Task 11 Complete:** Fault injection system
 - ✅ **Task 10 Complete:** Compatibility matrix generator
 - ✅ **Task 9 Complete:** Test execution engine
-- ✅ **Testing Framework:** pytest and Hypothesis configured with 140+ tests passing
+- ✅ **Task 13 Complete:** Concurrency testing support
+- ✅ **Testing Framework:** pytest and Hypothesis configured with 149+ tests passing
 - ✅ **Configuration System:** Comprehensive settings system with pydantic-settings
-- 📋 **Ready for Task 13:** Concurrency testing support
+- 📋 **Ready for Task 14:** Reproducible test case generation
 
 ---
 
@@ -89,8 +100,8 @@ AI agents analyze code changes and automatically generate targeted test cases co
 ### 🖥️ Multi-Hardware Testing
 Execute tests across virtual environments (QEMU, KVM) and physical hardware boards to ensure compatibility across x86_64, ARM, and RISC-V architectures. Supports SSH-based execution, serial console (telnet) access for early boot testing and kernel debugging, and bootloader deployment/verification (U-Boot, GRUB, UEFI) for pre-boot testing.
 
-### 💥 Intelligent Fault Injection
-Stress testing with memory failures, I/O errors, and timing variations to discover edge cases and race conditions. Detects crashes, hangs, memory leaks, and data corruption.
+### 💥 Intelligent Fault Injection & Concurrency Testing
+Stress testing with memory failures, I/O errors, and timing variations to discover edge cases and race conditions. Advanced concurrency testing varies thread scheduling and timing across multiple runs to expose race conditions, deadlocks, and data races. Detects crashes, hangs, memory leaks, and data corruption.
 
 ### 🔍 Root Cause Analysis
 AI-powered failure analysis that correlates issues with code changes, groups related failures, and provides suggested fixes with references to similar historical issues.
