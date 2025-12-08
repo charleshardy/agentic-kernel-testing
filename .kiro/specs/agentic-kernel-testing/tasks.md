@@ -202,13 +202,13 @@
   - **Property 19: Root cause report completeness**
   - **Validates: Requirements 4.4**
 
-- [ ] 16. Implement git bisect automation for regression identification
+- [x] 16. Implement git bisect automation for regression identification
   - Create automated git bisect runner
   - Build commit correlation algorithm
   - Implement suspicious commit ranking
   - _Requirements: 4.2_
 
-- [ ] 16.1 Write property test for failure correlation
+- [x] 16.1 Write property test for failure correlation
   - **Property 17: Failure correlation accuracy**
   - **Validates: Requirements 4.2**
 
