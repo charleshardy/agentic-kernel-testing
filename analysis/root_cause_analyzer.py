@@ -595,6 +595,9 @@ FIX_3: <description>
     def correlate_with_changes(self, failure: TestResult, commits: List[Commit]) -> List[Commit]:
         """Correlate failure with recent code changes.
         
+        This method uses the CommitCorrelator to rank commits by their likelihood
+        of causing the failure.
+        
         Args:
             failure: TestResult with failure information
             commits: List of recent Commit objects
@@ -605,6 +608,27 @@ FIX_3: <description>
         if not commits:
             return []
         
+        # Use the new commit correlation system
+        try:
+            from analysis.git_bisect_runner import SuspiciousCommitRanker
+            ranker = SuspiciousCommitRanker()
+            ranked_commits = ranker.rank_commits(commits, failure)
+            # Return only commits with score > 0
+            return [commit for commit, score, rationale in ranked_commits if score > 0]
+        except ImportError:
+            # Fallback to old implementation if git_bisect_runner not available
+            return self._legacy_correlate_with_changes(failure, commits)
+    
+    def _legacy_correlate_with_changes(self, failure: TestResult, commits: List[Commit]) -> List[Commit]:
+        """Legacy implementation of commit correlation.
+        
+        Args:
+            failure: TestResult with failure information
+            commits: List of recent Commit objects
+            
+        Returns:
+            List of suspicious Commit objects, sorted by suspicion score
+        """
         # Parse stack trace to get affected files/functions
         if failure.failure_info and failure.failure_info.stack_trace:
             parsed_stack = self.stack_parser.parse_stack_trace(

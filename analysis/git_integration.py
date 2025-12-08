@@ -235,3 +235,128 @@ class GitRepository:
             raise RuntimeError(f"Git rev-parse failed: {stderr}")
         
         return stdout.strip()
+    
+    def get_commits_between(self, start: str, end: str) -> List[Commit]:
+        """Get all commits between two references.
+        
+        Args:
+            start: Starting commit reference (exclusive)
+            end: Ending commit reference (inclusive)
+            
+        Returns:
+            List of Commit objects between start and end
+        """
+        stdout, stderr, returncode = self._run_git_command([
+            "log", f"{start}..{end}", "--format=%H"
+        ])
+        
+        if returncode != 0:
+            raise RuntimeError(f"Git log failed: {stderr}")
+        
+        shas = [sha for sha in stdout.strip().split('\n') if sha]
+        
+        commits = []
+        for sha in shas:
+            try:
+                commit = self.get_commit_info(sha)
+                commits.append(commit)
+            except Exception:
+                # Skip commits that fail to parse
+                continue
+        
+        return commits
+    
+    def checkout(self, commit_ref: str) -> None:
+        """Checkout a specific commit.
+        
+        Args:
+            commit_ref: Commit reference to checkout
+        """
+        stdout, stderr, returncode = self._run_git_command([
+            "checkout", commit_ref
+        ])
+        
+        if returncode != 0:
+            raise RuntimeError(f"Git checkout failed: {stderr}")
+    
+    def bisect_start(self, bad: str, good: str) -> None:
+        """Start a git bisect session.
+        
+        Args:
+            bad: Known bad commit reference
+            good: Known good commit reference
+        """
+        # Reset any existing bisect
+        self._run_git_command(["bisect", "reset"])
+        
+        # Start bisect
+        stdout, stderr, returncode = self._run_git_command([
+            "bisect", "start", bad, good
+        ])
+        
+        if returncode != 0:
+            raise RuntimeError(f"Git bisect start failed: {stderr}")
+    
+    def bisect_good(self) -> Optional[str]:
+        """Mark current commit as good in bisect.
+        
+        Returns:
+            Next commit SHA to test, or None if bisect is complete
+        """
+        stdout, stderr, returncode = self._run_git_command([
+            "bisect", "good"
+        ])
+        
+        # Check if bisect is complete
+        if "is the first bad commit" in stdout:
+            return None
+        
+        # Extract next commit to test
+        return self.get_current_commit_sha()
+    
+    def bisect_bad(self) -> Optional[str]:
+        """Mark current commit as bad in bisect.
+        
+        Returns:
+            Next commit SHA to test, or None if bisect is complete
+        """
+        stdout, stderr, returncode = self._run_git_command([
+            "bisect", "bad"
+        ])
+        
+        # Check if bisect is complete
+        if "is the first bad commit" in stdout:
+            return None
+        
+        # Extract next commit to test
+        return self.get_current_commit_sha()
+    
+    def bisect_reset(self) -> None:
+        """Reset/end a git bisect session."""
+        self._run_git_command(["bisect", "reset"])
+    
+    def get_bisect_result(self) -> Optional[Commit]:
+        """Get the result of a completed bisect.
+        
+        Returns:
+            Commit object for the first bad commit, or None if bisect not complete
+        """
+        stdout, stderr, returncode = self._run_git_command([
+            "bisect", "log"
+        ])
+        
+        if returncode != 0:
+            return None
+        
+        # Parse bisect log to find first bad commit
+        # Look for pattern: "# first bad commit: [SHA]"
+        import re
+        match = re.search(r'first bad commit:\s*\[([0-9a-f]+)\]', stdout)
+        if match:
+            sha = match.group(1)
+            try:
+                return self.get_commit_info(sha)
+            except Exception:
+                return None
+        
+        return None
