@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Concurrency Testing Support (Task 13 Complete)** - 2025-12-05
+  - Thread scheduling variation system with 4 strategies:
+    - RANDOM: Random delays for maximum variation
+    - ROUND_ROBIN: Sequential delays with predictable ordering
+    - PRIORITY_BASED: Priority-driven scheduling with configurable priorities
+    - STRESS: Maximum contention with simultaneous thread starts
+  - ConcurrencyTimingInjector for timing variation to expose race conditions
+  - Multiple execution runs with different thread schedules
+  - Execution order tracking and variation analysis across runs
+  - Race condition, deadlock, and data race detection
+  - Seed-based reproducibility for debugging and regression testing
+  - High-level ConcurrencyTestRunner interface for easy integration
+  - Comprehensive data structures: ConcurrencyTestRun, ConcurrencyTestResult
+  - 9 property-based tests (30-50 iterations each) - All passing
+  - Complete implementation in execution/concurrency_testing.py (450+ lines)
+  - Validates Requirements 3.3 (Race condition detection) and Property 13 (Concurrency testing variation)
+  - Documentation: TASK13_CONCURRENCY_TESTING_SUMMARY.md
+
 - **Physical Hardware Lab Interface (Task 8 Complete)** - 2025-12-05
   - Hardware reservation system with time-based expiration and automatic cleanup
   - SSH-based test execution on physical boards with timeout handling

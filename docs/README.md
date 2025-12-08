@@ -34,6 +34,19 @@ Resources for contributors and developers:
 
 ---
 
+## 🔧 Feature Guides
+
+Detailed guides for specific features:
+
+- **[Fault Detection Guide](FAULT_DETECTION_GUIDE.md)** - Comprehensive fault detection and monitoring
+- **[Concurrency Testing Guide](CONCURRENCY_TESTING_GUIDE.md)** - Race condition detection through thread scheduling variation
+- **[Physical Hardware Lab Guide](PHYSICAL_HARDWARE_LAB_GUIDE.md)** - Physical hardware testing and management
+- **[Bootloader Deployment Guide](BOOTLOADER_DEPLOYMENT_GUIDE.md)** - Bootloader deployment and verification
+- **[SSO Authentication Guide](SSO_AUTHENTICATION_GUIDE.md)** - SSO setup for Amazon Q and Kiro
+- **[Amazon Q & Kiro Integration](AMAZON_Q_AND_KIRO_INTEGRATION.md)** - LLM provider integration
+
+---
+
 ## 📚 Additional Resources
 
 - **[Main README](../README.md)** - Project overview and quick reference
@@ -74,7 +87,12 @@ Resources for contributors and developers:
 | Complete Overview | ✅ Complete | Dec 3, 2025 |
 | Requirements | ✅ Complete | Dec 3, 2025 |
 | Design | ✅ Complete | Dec 3, 2025 |
-| Tasks | ✅ Updated | Dec 3, 2025 |
+| Tasks | ✅ Updated | Dec 5, 2025 |
+| Fault Detection Guide | ✅ Complete | Dec 5, 2025 |
+| Concurrency Testing Guide | ✅ Complete | Dec 5, 2025 |
+| Physical Hardware Lab Guide | ✅ Complete | Dec 5, 2025 |
+| Bootloader Deployment Guide | ✅ Complete | Dec 5, 2025 |
+| SSO Authentication Guide | ✅ Complete | Dec 5, 2025 |
 
 ---
 
