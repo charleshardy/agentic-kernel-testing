@@ -218,3 +218,327 @@ VCS API client.
 ## License
 
 See LICENSE file in project root.
+
+
+---
+
+# Build System Integration
+
+This module provides comprehensive build system integration for automatic test triggering when builds complete.
+
+## Features
+
+- **Multi-System Support**: Jenkins, GitLab CI, GitHub Actions
+- **Build Completion Detection**: Automatically detect when builds finish
+- **Automatic Test Triggering**: Trigger tests for successful builds
+- **Artifact Handling**: Extract kernel images and BSP packages
+- **Build Caching**: Cache build information for retrieval
+- **Multiple Handlers**: Support multiple test handlers per build
+
+## Quick Start
+
+### Installation
+
+```python
+from integration import BuildIntegration
+from integration.build_models import BuildSystem, BuildType
+```
+
+### Basic Usage
+
+```python
+from integration import BuildIntegration
+
+# Initialize build integration
+integration = BuildIntegration()
+
+# Register build completion handler
+def handle_build_complete(build_event):
+    build_info = build_event.build_info
+    print(f"Build {build_info.build_id} completed successfully")
+    
+    # Extract kernel image if available
+    kernel_image = integration.extract_kernel_image(build_info)
+    if kernel_image:
+        print(f"Kernel {kernel_image.version} ready for testing")
+        # Trigger kernel tests...
+    
+    # Extract BSP package if available
+    bsp_package = integration.extract_bsp_package(build_info)
+    if bsp_package:
+        print(f"BSP {bsp_package.name} ready for testing")
+        # Trigger BSP tests...
+
+integration.register_build_handler(handle_build_complete)
+
+# Parse Jenkins webhook
+jenkins_event = integration.parse_jenkins_event(jenkins_payload)
+integration.handle_build_event(jenkins_event)
+
+# Parse GitLab CI webhook
+gitlab_event = integration.parse_gitlab_ci_event(gitlab_payload)
+integration.handle_build_event(gitlab_event)
+
+# Parse GitHub Actions webhook
+github_event = integration.parse_github_actions_event(github_payload)
+integration.handle_build_event(github_event)
+```
+
+## Components
+
+### Build Models (`build_models.py`)
+
+Data models for build system integration:
+- `BuildEvent`: Build system event representation
+- `BuildInfo`: Detailed build information
+- `BuildArtifact`: Build artifact details
+- `KernelImage`: Kernel image information
+- `BSPPackage`: BSP package information
+- `BuildStatus`: Build status enumeration
+- `BuildType`: Build type enumeration
+- `BuildSystem`: Build system enumeration
+
+### Build Integration (`build_integration.py`)
+
+Main build integration handler:
+- `BuildIntegration.handle_build_event()`: Process build events
+- `BuildIntegration.register_build_handler()`: Register callbacks
+- `BuildIntegration.detect_build_completion()`: Check if build is complete
+- `BuildIntegration.should_trigger_tests()`: Determine if tests should run
+- `BuildIntegration.extract_kernel_image()`: Extract kernel from artifacts
+- `BuildIntegration.extract_bsp_package()`: Extract BSP from artifacts
+- `BuildIntegration.parse_jenkins_event()`: Parse Jenkins webhooks
+- `BuildIntegration.parse_gitlab_ci_event()`: Parse GitLab CI webhooks
+- `BuildIntegration.parse_github_actions_event()`: Parse GitHub Actions webhooks
+
+## Build Types
+
+The system supports different build types:
+
+- `BuildType.KERNEL`: Linux kernel builds
+- `BuildType.BSP`: Board Support Package builds
+- `BuildType.MODULE`: Kernel module builds
+- `BuildType.FULL_SYSTEM`: Complete system builds (kernel + BSP)
+
+## Build Status
+
+Build status states:
+
+- `BuildStatus.PENDING`: Build is queued
+- `BuildStatus.IN_PROGRESS`: Build is running
+- `BuildStatus.SUCCESS`: Build completed successfully
+- `BuildStatus.FAILURE`: Build failed
+- `BuildStatus.CANCELLED`: Build was cancelled
+
+## Automatic Test Triggering
+
+Tests are automatically triggered when:
+
+1. Build completes successfully (`BuildStatus.SUCCESS`)
+2. Build type is testable (kernel, BSP, full_system, or module with artifacts)
+3. Build has extractable artifacts (kernel images or BSP packages)
+
+The system will NOT trigger tests for:
+- Failed builds
+- Cancelled builds
+- In-progress builds
+- Module builds without artifacts
+
+## Artifact Extraction
+
+### Kernel Images
+
+Kernel images can be extracted from:
+- Direct `kernel_image` field in build info
+- Build artifacts with type `kernel_image`
+
+Extracted kernel images include:
+- Version
+- Architecture
+- Image path
+- Config path
+- Modules path
+- Build timestamp
+- Commit SHA
+
+### BSP Packages
+
+BSP packages can be extracted from:
+- Direct `bsp_package` field in build info
+- Build artifacts with type `bsp_package`
+
+Extracted BSP packages include:
+- Name and version
+- Target board
+- Architecture
+- Package path
+- Kernel version
+- Build timestamp
+- Commit SHA
+
+## Build System Support
+
+### Jenkins
+
+Parse Jenkins build notifications:
+
+```python
+jenkins_payload = {
+    "build": {
+        "number": 1234,
+        "status": "SUCCESS",
+        "timestamp": 1234567890000,
+        "duration": 300000,
+        "url": "https://jenkins.example.com/job/kernel/1234",
+        "artifacts": [...]
+    },
+    "scm": {
+        "commit": "abc123...",
+        "branch": "main"
+    }
+}
+
+event = integration.parse_jenkins_event(jenkins_payload)
+```
+
+### GitLab CI
+
+Parse GitLab CI pipeline webhooks:
+
+```python
+gitlab_payload = {
+    "build": {
+        "id": 5678,
+        "status": "success",
+        "started_at": "2024-01-01T12:00:00Z",
+        "finished_at": "2024-01-01T12:05:00Z",
+        "duration": 300,
+        "sha": "def456...",
+        "ref": "main"
+    }
+}
+
+event = integration.parse_gitlab_ci_event(gitlab_payload)
+```
+
+### GitHub Actions
+
+Parse GitHub Actions workflow run webhooks:
+
+```python
+github_payload = {
+    "workflow_run": {
+        "id": 9999,
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2024-01-01T12:00:00Z",
+        "updated_at": "2024-01-01T12:05:00Z",
+        "head_sha": "ghi789...",
+        "head_branch": "main"
+    }
+}
+
+event = integration.parse_github_actions_event(github_payload)
+```
+
+## Examples
+
+See `examples/build_integration_example.py` for comprehensive examples:
+1. Successful kernel build handling
+2. Successful BSP build handling
+3. Failed build handling (no tests triggered)
+4. Jenkins webhook parsing
+5. Artifact extraction
+
+## Testing
+
+Run property-based tests:
+
+```bash
+# Test build integration automation
+pytest tests/property/test_build_integration_automation.py -v
+```
+
+The test suite validates:
+- Successful builds trigger handlers
+- Failed builds do not trigger tests
+- Build completion detection
+- Test triggering logic
+- Multiple build handling
+- Kernel image extraction
+- BSP package extraction
+- Build caching
+- Multiple handler support
+- In-progress build handling
+
+## API Reference
+
+### BuildIntegration
+
+Main build integration class.
+
+**Methods:**
+- `register_build_handler(handler)`: Register build completion callback
+- `detect_build_completion(build_info)`: Check if build is complete
+- `should_trigger_tests(build_info)`: Determine if tests should run
+- `handle_build_event(build_event)`: Process build event
+- `extract_kernel_image(build_info)`: Extract kernel from build
+- `extract_bsp_package(build_info)`: Extract BSP from build
+- `parse_jenkins_event(payload)`: Parse Jenkins webhook
+- `parse_gitlab_ci_event(payload)`: Parse GitLab CI webhook
+- `parse_github_actions_event(payload)`: Parse GitHub Actions webhook
+- `get_build_info(build_id)`: Retrieve cached build info
+
+## Configuration
+
+Build integration works out of the box without configuration. Build events are parsed automatically based on the webhook payload structure.
+
+Optional metadata can be included in build payloads:
+- `build_type`: Explicitly specify build type
+- `kernel_version`: Kernel version being built
+- `architecture`: Target architecture
+- `target_board`: Target board for BSP builds
+- `bsp_version`: BSP version
+
+## Error Handling
+
+- Invalid build events are logged and skipped
+- Handler exceptions are caught and logged
+- Missing artifacts are handled gracefully
+- Build cache prevents duplicate processing
+
+## Integration with VCS
+
+Build integration works seamlessly with VCS integration:
+
+```python
+from integration import VCSIntegration, BuildIntegration
+
+vcs = VCSIntegration(...)
+build = BuildIntegration()
+
+# When VCS event triggers a build
+def handle_vcs_push(vcs_event):
+    # Trigger build...
+    pass
+
+# When build completes, trigger tests
+def handle_build_complete(build_event):
+    # Extract artifacts and run tests...
+    # Report results back to VCS
+    vcs.report_test_results(...)
+
+vcs.register_event_handler(EventType.PUSH, handle_vcs_push)
+build.register_build_handler(handle_build_complete)
+```
+
+## Requirements
+
+- Python 3.10+
+- pydantic
+- hypothesis (for testing)
+- pytest (for testing)
+
+## License
+
+See LICENSE file in project root.
