@@ -212,14 +212,14 @@
   - **Property 17: Failure correlation accuracy**
   - **Validates: Requirements 4.2**
 
-- [ ] 17. Implement historical failure database
+- [x] 17. Implement historical failure database
   - Create failure pattern storage
   - Build pattern matching algorithm
   - Implement historical issue lookup
   - Add resolution tracking and retrieval
   - _Requirements: 4.5_
 
-- [ ] 17.1 Write property test for historical pattern matching
+- [x] 17.1 Write property test for historical pattern matching
   - **Property 20: Historical pattern matching**
   - **Validates: Requirements 4.5**
 
