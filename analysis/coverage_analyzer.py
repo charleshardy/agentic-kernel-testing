@@ -5,6 +5,7 @@ This module provides functionality for:
 - Parsing and merging coverage data
 - Calculating line, branch, and function coverage
 - Storing and retrieving coverage data
+- Identifying coverage gaps and prioritizing them
 """
 
 import os
@@ -13,10 +14,78 @@ import subprocess
 from pathlib import Path
 from typing import List, Dict, Optional, Set, Tuple
 from dataclasses import dataclass, field
+from enum import Enum
 import json
 
 from ai_generator.models import CoverageData
 from config.settings import get_settings
+
+
+class GapType(str, Enum):
+    """Type of coverage gap."""
+    LINE = "line"
+    BRANCH = "branch"
+    FUNCTION = "function"
+
+
+class GapPriority(str, Enum):
+    """Priority level for coverage gaps."""
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+@dataclass
+class CoverageGap:
+    """Represents a gap in code coverage."""
+    gap_type: GapType
+    file_path: str
+    line_number: int
+    function_name: Optional[str] = None
+    branch_id: Optional[int] = None
+    priority: GapPriority = GapPriority.MEDIUM
+    context: str = ""
+    subsystem: str = ""
+    complexity_score: float = 0.0
+    
+    def to_dict(self) -> Dict:
+        """Convert to dictionary."""
+        return {
+            'gap_type': self.gap_type.value,
+            'file_path': self.file_path,
+            'line_number': self.line_number,
+            'function_name': self.function_name,
+            'branch_id': self.branch_id,
+            'priority': self.priority.value,
+            'context': self.context,
+            'subsystem': self.subsystem,
+            'complexity_score': self.complexity_score
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'CoverageGap':
+        """Create from dictionary."""
+        return cls(
+            gap_type=GapType(data['gap_type']),
+            file_path=data['file_path'],
+            line_number=data['line_number'],
+            function_name=data.get('function_name'),
+            branch_id=data.get('branch_id'),
+            priority=GapPriority(data.get('priority', 'medium')),
+            context=data.get('context', ''),
+            subsystem=data.get('subsystem', ''),
+            complexity_score=data.get('complexity_score', 0.0)
+        )
+    
+    def __str__(self) -> str:
+        """String representation."""
+        if self.gap_type == GapType.BRANCH:
+            return f"{self.file_path}:{self.line_number}:branch{self.branch_id} [{self.priority.value}]"
+        elif self.gap_type == GapType.FUNCTION:
+            return f"{self.file_path}:{self.function_name} [{self.priority.value}]"
+        else:
+            return f"{self.file_path}:{self.line_number} [{self.priority.value}]"
 
 
 @dataclass
@@ -543,3 +612,320 @@ class CoverageAnalyzer:
             'baseline_function_coverage': baseline.function_coverage,
             'current_function_coverage': current.function_coverage
         }
+    
+    def identify_coverage_gaps(self, coverage_data: CoverageData, 
+                              source_dir: Optional[str] = None) -> List[CoverageGap]:
+        """Identify all coverage gaps from coverage data.
+        
+        Args:
+            coverage_data: CoverageData object to analyze
+            source_dir: Optional source directory for reading code context
+            
+        Returns:
+            List of CoverageGap objects representing untested code
+        """
+        gaps = []
+        
+        # Identify line gaps
+        for line_ref in coverage_data.uncovered_lines:
+            gap = self._parse_line_gap(line_ref, source_dir)
+            if gap:
+                gaps.append(gap)
+        
+        # Identify branch gaps
+        for branch_ref in coverage_data.uncovered_branches:
+            gap = self._parse_branch_gap(branch_ref, source_dir)
+            if gap:
+                gaps.append(gap)
+        
+        return gaps
+    
+    def _parse_line_gap(self, line_ref: str, source_dir: Optional[str]) -> Optional[CoverageGap]:
+        """Parse a line reference into a CoverageGap.
+        
+        Args:
+            line_ref: Line reference in format "file_path:line_number"
+            source_dir: Optional source directory for reading context
+            
+        Returns:
+            CoverageGap object or None if parsing fails
+        """
+        try:
+            parts = line_ref.rsplit(':', 1)
+            if len(parts) != 2:
+                return None
+            
+            file_path, line_num_str = parts
+            line_number = int(line_num_str)
+            
+            # Extract context if source directory provided
+            context = ""
+            function_name = None
+            if source_dir:
+                context, function_name = self._extract_code_context(
+                    source_dir, file_path, line_number
+                )
+            
+            # Determine subsystem from file path
+            subsystem = self._determine_subsystem(file_path)
+            
+            return CoverageGap(
+                gap_type=GapType.LINE,
+                file_path=file_path,
+                line_number=line_number,
+                function_name=function_name,
+                context=context,
+                subsystem=subsystem
+            )
+        except (ValueError, IndexError):
+            return None
+    
+    def _parse_branch_gap(self, branch_ref: str, source_dir: Optional[str]) -> Optional[CoverageGap]:
+        """Parse a branch reference into a CoverageGap.
+        
+        Args:
+            branch_ref: Branch reference in format "file_path:line_number:branch_id"
+            source_dir: Optional source directory for reading context
+            
+        Returns:
+            CoverageGap object or None if parsing fails
+        """
+        try:
+            parts = branch_ref.rsplit(':', 2)
+            if len(parts) != 3:
+                return None
+            
+            file_path, line_num_str, branch_id_str = parts
+            line_number = int(line_num_str)
+            branch_id = int(branch_id_str)
+            
+            # Extract context if source directory provided
+            context = ""
+            function_name = None
+            if source_dir:
+                context, function_name = self._extract_code_context(
+                    source_dir, file_path, line_number
+                )
+            
+            # Determine subsystem from file path
+            subsystem = self._determine_subsystem(file_path)
+            
+            return CoverageGap(
+                gap_type=GapType.BRANCH,
+                file_path=file_path,
+                line_number=line_number,
+                branch_id=branch_id,
+                function_name=function_name,
+                context=context,
+                subsystem=subsystem
+            )
+        except (ValueError, IndexError):
+            return None
+    
+    def _extract_code_context(self, source_dir: str, file_path: str, 
+                             line_number: int) -> Tuple[str, Optional[str]]:
+        """Extract code context around a line.
+        
+        Args:
+            source_dir: Source directory
+            file_path: Relative file path
+            line_number: Line number
+            
+        Returns:
+            Tuple of (context string, function name)
+        """
+        full_path = Path(source_dir) / file_path
+        
+        if not full_path.exists():
+            return "", None
+        
+        try:
+            with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+            
+            if line_number < 1 or line_number > len(lines):
+                return "", None
+            
+            # Get context (3 lines before and after)
+            start = max(0, line_number - 4)
+            end = min(len(lines), line_number + 3)
+            context_lines = lines[start:end]
+            context = ''.join(context_lines).strip()
+            
+            # Try to find function name by looking backwards
+            function_name = None
+            for i in range(line_number - 1, max(0, line_number - 50), -1):
+                line = lines[i]
+                # Simple heuristic for function definitions
+                if re.match(r'^\s*(static\s+)?\w+\s+\w+\s*\(', line):
+                    match = re.search(r'\b(\w+)\s*\(', line)
+                    if match:
+                        function_name = match.group(1)
+                        break
+            
+            return context, function_name
+            
+        except (IOError, UnicodeDecodeError):
+            return "", None
+    
+    def _determine_subsystem(self, file_path: str) -> str:
+        """Determine subsystem from file path.
+        
+        Args:
+            file_path: File path
+            
+        Returns:
+            Subsystem name
+        """
+        # Extract subsystem from path (e.g., "drivers/net/..." -> "net")
+        parts = file_path.split('/')
+        
+        if len(parts) >= 2:
+            if parts[0] in ['drivers', 'fs', 'net', 'kernel', 'mm', 'arch']:
+                return parts[1] if len(parts) > 1 else parts[0]
+            return parts[0]
+        
+        return "unknown"
+    
+    def prioritize_gaps(self, gaps: List[CoverageGap], 
+                       source_dir: Optional[str] = None) -> List[CoverageGap]:
+        """Prioritize coverage gaps by importance.
+        
+        Args:
+            gaps: List of CoverageGap objects
+            source_dir: Optional source directory for analyzing code
+            
+        Returns:
+            List of CoverageGap objects sorted by priority
+        """
+        # Calculate priority for each gap
+        for gap in gaps:
+            gap.priority = self._calculate_gap_priority(gap, source_dir)
+            gap.complexity_score = self._estimate_complexity(gap, source_dir)
+        
+        # Sort by priority (critical first) and then by complexity
+        priority_order = {
+            GapPriority.CRITICAL: 0,
+            GapPriority.HIGH: 1,
+            GapPriority.MEDIUM: 2,
+            GapPriority.LOW: 3
+        }
+        
+        return sorted(gaps, key=lambda g: (priority_order[g.priority], -g.complexity_score))
+    
+    def _calculate_gap_priority(self, gap: CoverageGap, 
+                               source_dir: Optional[str]) -> GapPriority:
+        """Calculate priority for a coverage gap.
+        
+        Args:
+            gap: CoverageGap object
+            source_dir: Optional source directory
+            
+        Returns:
+            GapPriority level
+        """
+        # Critical subsystems get higher priority
+        critical_subsystems = {'security', 'crypto', 'auth', 'kernel', 'mm', 'fs'}
+        if any(sub in gap.subsystem.lower() for sub in critical_subsystems):
+            return GapPriority.CRITICAL
+        
+        # Error handling code gets high priority
+        if gap.context:
+            error_keywords = ['error', 'fail', 'panic', 'bug', 'warn', 'exception']
+            if any(keyword in gap.context.lower() for keyword in error_keywords):
+                return GapPriority.HIGH
+        
+        # Branch gaps are generally more important than line gaps
+        if gap.gap_type == GapType.BRANCH:
+            return GapPriority.HIGH
+        
+        # Network and driver code gets medium priority
+        medium_subsystems = {'net', 'drivers', 'block'}
+        if any(sub in gap.subsystem.lower() for sub in medium_subsystems):
+            return GapPriority.MEDIUM
+        
+        return GapPriority.LOW
+    
+    def _estimate_complexity(self, gap: CoverageGap, 
+                            source_dir: Optional[str]) -> float:
+        """Estimate complexity of code at gap location.
+        
+        Args:
+            gap: CoverageGap object
+            source_dir: Optional source directory
+            
+        Returns:
+            Complexity score (0.0 to 1.0)
+        """
+        if not source_dir or not gap.context:
+            return 0.5  # Default medium complexity
+        
+        # Simple heuristics for complexity
+        complexity = 0.0
+        
+        # Count control flow statements
+        control_keywords = ['if', 'else', 'while', 'for', 'switch', 'case']
+        for keyword in control_keywords:
+            complexity += gap.context.lower().count(keyword) * 0.1
+        
+        # Count function calls
+        complexity += len(re.findall(r'\w+\s*\(', gap.context)) * 0.05
+        
+        # Count pointer operations
+        complexity += gap.context.count('->') * 0.05
+        complexity += gap.context.count('*') * 0.02
+        
+        # Normalize to 0-1 range
+        return min(1.0, complexity)
+    
+    def generate_gap_report(self, gaps: List[CoverageGap], 
+                           output_file: Optional[str] = None) -> str:
+        """Generate a human-readable report of coverage gaps.
+        
+        Args:
+            gaps: List of CoverageGap objects
+            output_file: Optional file path to write report
+            
+        Returns:
+            Report as string
+        """
+        lines = []
+        lines.append("=" * 80)
+        lines.append("COVERAGE GAP ANALYSIS REPORT")
+        lines.append("=" * 80)
+        lines.append(f"\nTotal Gaps: {len(gaps)}")
+        
+        # Group by priority
+        by_priority = {}
+        for gap in gaps:
+            if gap.priority not in by_priority:
+                by_priority[gap.priority] = []
+            by_priority[gap.priority].append(gap)
+        
+        for priority in [GapPriority.CRITICAL, GapPriority.HIGH, 
+                        GapPriority.MEDIUM, GapPriority.LOW]:
+            if priority in by_priority:
+                lines.append(f"\n{priority.value.upper()} Priority: {len(by_priority[priority])} gaps")
+                lines.append("-" * 80)
+                
+                for gap in by_priority[priority][:10]:  # Show top 10 per priority
+                    lines.append(f"\n  {gap}")
+                    if gap.function_name:
+                        lines.append(f"    Function: {gap.function_name}")
+                    if gap.subsystem:
+                        lines.append(f"    Subsystem: {gap.subsystem}")
+                    if gap.complexity_score > 0:
+                        lines.append(f"    Complexity: {gap.complexity_score:.2f}")
+                
+                if len(by_priority[priority]) > 10:
+                    lines.append(f"\n  ... and {len(by_priority[priority]) - 10} more")
+        
+        lines.append("\n" + "=" * 80)
+        
+        report = '\n'.join(lines)
+        
+        if output_file:
+            with open(output_file, 'w') as f:
+                f.write(report)
+        
+        return report
