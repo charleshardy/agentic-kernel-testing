@@ -250,18 +250,18 @@
   - **Property 48: Priority-based scheduling under contention**
   - **Validates: Requirements 10.3**
 
-- [ ] 20. Implement resource management and cleanup
+- [x] 20. Implement resource management and cleanup
   - Create idle resource detector
   - Build resource release and power-down logic
   - Implement resource cost tracking
   - Add resource utilization metrics collection
   - _Requirements: 10.2, 10.4, 10.5_
 
-- [ ] 20.1 Write property test for idle resource cleanup
+- [x] 20.1 Write property test for idle resource cleanup
   - **Property 47: Idle resource cleanup**
   - **Validates: Requirements 10.2**
 
-- [ ] 20.2 Write property test for resource metrics collection
+- [x] 20.2 Write property test for resource metrics collection
   - **Property 50: Resource metrics collection**
   - **Validates: Requirements 10.5**
 
