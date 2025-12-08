@@ -433,6 +433,7 @@ class RootCauseAnalyzer(IRootCauseAnalyzer):
             
         except Exception as e:
             # Fallback to pattern-based analysis if LLM fails
+            print(f"Warning: LLM analysis failed: {e}")
             return self._fallback_analysis(failure_info, patterns)
     
     def _build_analysis_prompt(
@@ -729,3 +730,59 @@ FIX_3: <description>
             groups[signature].append(failure)
         
         return groups
+    
+    def analyze_and_suggest_fixes(
+        self,
+        failure: TestResult,
+        commits: Optional[List[Commit]] = None,
+        code_context: Optional[Any] = None
+    ) -> FailureAnalysis:
+        """Analyze failure and generate fix suggestions.
+        
+        This is a convenience method that combines root cause analysis
+        with fix suggestion generation using the FixSuggestionGenerator.
+        
+        Args:
+            failure: TestResult with failure information
+            commits: Optional list of recent commits
+            code_context: Optional CodeContext for targeted suggestions
+            
+        Returns:
+            FailureAnalysis with suggested fixes populated
+            
+        Note:
+            This method requires the fix_suggestion_generator module.
+            If not available, it will return analysis without fix suggestions.
+        """
+        # Perform root cause analysis
+        analysis = self.analyze_failure(failure)
+        
+        # Try to generate fix suggestions if LLM provider available
+        if self.llm_provider:
+            try:
+                from analysis.fix_suggestion_generator import FixSuggestionGenerator
+                
+                # Create fix suggestion generator with same LLM provider
+                fix_generator = FixSuggestionGenerator(
+                    llm_provider=self.llm_provider,
+                    max_suggestions=3
+                )
+                
+                # Generate fix suggestions
+                suggestions = fix_generator.generate_fix_suggestions(
+                    analysis,
+                    code_context=code_context,
+                    commits=commits
+                )
+                
+                # Update analysis with suggestions
+                analysis.suggested_fixes = suggestions
+                
+            except ImportError:
+                # Fix suggestion generator not available
+                pass
+            except Exception as e:
+                # Log error but don't fail
+                print(f"Warning: Fix suggestion generation failed: {e}")
+        
+        return analysis
