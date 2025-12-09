@@ -1,0 +1,20 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-7.4.4, pluggy-1.4.0 -- /usr/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: /home/wruser/opensource/aats4lk
+configfile: pytest.ini
+plugins: hypothesis-6.148.5
+collecting ... collected 8 items
+
+tests/property/test_security_report_completeness.py::test_report_contains_all_findings PASSED [ 12%]
+tests/property/test_security_report_completeness.py::test_report_contains_pocs_for_high_severity PASSED [ 25%]
+tests/property/test_security_report_completeness.py::test_report_contains_remediation_for_all_issues PASSED [ 37%]
+tests/property/test_security_report_completeness.py::test_report_has_complete_structure PASSED [ 50%]
+tests/property/test_security_report_completeness.py::test_report_exports_to_all_formats PASSED [ 62%]
+tests/property/test_security_report_completeness.py::test_poc_contains_required_elements PASSED [ 75%]
+tests/property/test_security_report_completeness.py::test_remediation_priority_matches_severity PASSED [ 87%]
+tests/property/test_security_report_completeness.py::test_risk_assessment_reflects_findings PASSED [100%]
+
+============================== 8 passed in 1.82s ===============================
+Exit code: 0

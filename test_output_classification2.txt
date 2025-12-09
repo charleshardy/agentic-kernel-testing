@@ -1,0 +1,50 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-7.4.4, pluggy-1.4.0 -- /usr/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: /home/wruser/opensource/aats4lk
+configfile: pytest.ini
+plugins: hypothesis-6.148.5
+collecting ... collected 13 items
+
+tests/property/test_security_issue_classification.py::test_classification_completeness PASSED [  7%]
+tests/property/test_security_issue_classification.py::test_batch_classification PASSED [ 15%]
+tests/property/test_security_issue_classification.py::test_vulnerability_type_consistency PASSED [ 23%]
+tests/property/test_security_issue_classification.py::test_confidence_affects_exploitability PASSED [ 30%]
+tests/property/test_security_issue_classification.py::test_cvss_score_bounds PASSED [ 38%]
+tests/property/test_security_issue_classification.py::test_severity_rating_consistency FAILED [ 46%]
+tests/property/test_security_issue_classification.py::test_high_severity_vulnerabilities PASSED [ 53%]
+tests/property/test_security_issue_classification.py::test_low_severity_vulnerabilities PASSED [ 61%]
+tests/property/test_security_issue_classification.py::test_classification_serialization PASSED [ 69%]
+tests/property/test_security_issue_classification.py::test_severity_upgrade PASSED [ 76%]
+tests/property/test_security_issue_classification.py::test_exploitability_levels PASSED [ 84%]
+tests/property/test_security_issue_classification.py::test_classification_metadata_preservation PASSED [ 92%]
+tests/property/test_security_issue_classification.py::test_classification_statistics PASSED [100%]
+
+=================================== FAILURES ===================================
+_______________________ test_severity_rating_consistency _______________________
+tests/property/test_security_issue_classification.py:222: in test_severity_rating_consistency
+    @settings(max_examples=100, deadline=None)
+tests/property/test_security_issue_classification.py:246: in test_severity_rating_consistency
+    assert cvss.severity_rating == "Medium", \
+E   AssertionError: Score 4.0 should be 'Medium', got 'Low'
+E   assert 'Low' == 'Medium'
+E     - Medium
+E     + Low
+E   Falsifying example: test_severity_rating_consistency(
+E       issue=SecurityIssue(vulnerability_type=<VulnerabilityType.NULL_POINTER_DEREFERENCE: 'null_pointer_dereference'>,
+E        severity=<Severity.LOW: 'low'>,
+E        file_path='00000',
+E        line_number=1,
+E        description='0000000000',
+E        code_snippet=None,
+E        recommendation='',
+E        cwe_id=None,
+E        confidence=0.234375,
+E        metadata={},
+E        timestamp=datetime.datetime(2025, 12, 9, 14, 43, 41, 472723),
+E        classification=None),
+E   )
+=========================== short test summary info ============================
+FAILED tests/property/test_security_issue_classification.py::test_severity_rating_consistency
+========================= 1 failed, 12 passed in 0.85s =========================

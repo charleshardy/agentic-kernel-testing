@@ -1,0 +1,146 @@
+
+======================================================================
+  Resource Management and Cleanup Demo
+======================================================================
+
+✓ Resource manager initialized
+  - Idle threshold: 5 seconds
+  - Cleanup interval: 3 seconds
+  - Virtual cost rate: $0.10/hour
+  - Physical cost rate: $1.00/hour
+
+======================================================================
+  1. Creating Test Environments
+======================================================================
+
+✓ Created and registered environment: env-1
+✓ Created and registered environment: env-2
+✓ Created and registered environment: env-3
+
+======================================================================
+  2. Simulating Resource Usage
+======================================================================
+
+Environment 1: Simulating active test execution...
+✓ Test completed on env-1
+
+Environment 2: Running multiple tests...
+✓ 3 tests completed on env-2
+
+Environment 3: Remaining idle...
+✓ env-3 has been idle for 10 seconds
+
+======================================================================
+  3. Resource Metrics Collection
+======================================================================
+
+
+env-1 Metrics:
+  - Total uptime: 1.10s
+  - Busy time: 0.00s
+  - Idle time: 1.10s
+  - Utilization rate: 0.0%
+  - Idle rate: 100.0%
+  - Test executions: 1
+
+env-2 Metrics:
+  - Total uptime: 1.10s
+  - Busy time: 0.00s
+  - Idle time: 1.10s
+  - Utilization rate: 0.0%
+  - Idle rate: 100.0%
+  - Test executions: 3
+
+env-3 Metrics:
+  - Total uptime: 1.10s
+  - Busy time: 0.00s
+  - Idle time: 1.10s
+  - Utilization rate: 0.0%
+  - Idle rate: 100.0%
+  - Test executions: 0
+
+======================================================================
+  4. Resource Cost Tracking
+======================================================================
+
+
+env-1 Cost:
+  - Hourly rate: $0.10/hour
+  - Total runtime: 0.0003 hours
+  - Total cost: $0.0000
+
+env-2 Cost:
+  - Hourly rate: $0.10/hour
+  - Total runtime: 0.0003 hours
+  - Total cost: $0.0000
+
+env-3 Cost:
+  - Hourly rate: $0.10/hour
+  - Total runtime: 0.0003 hours
+  - Total cost: $0.0000
+
+──────────────────────────────────────────────────────────────────────
+Total cost across all resources: $0.0001
+
+======================================================================
+  5. Utilization Summary
+======================================================================
+
+Total resources: 3
+Average utilization: 0.0%
+Average idle rate: 100.0%
+Total test executions: 4
+Total uptime: 0.0009 hours
+Total busy time: 0.0000 hours
+Total idle time: 0.0009 hours
+
+======================================================================
+  6. Idle Resource Detection
+======================================================================
+
+Detected 1 idle resource(s):
+  - env-3
+
+======================================================================
+  7. Resource Cleanup
+======================================================================
+
+Cleaning up idle resources...
+✓ Cleaned up 1 resource(s)
+  - env-3: Power state = off
+
+======================================================================
+  8. Final State
+======================================================================
+
+Remaining active resources: 3
+
+env-1:
+  - Utilization: 0.0%
+  - Test executions: 1
+
+env-2:
+  - Utilization: 0.0%
+  - Test executions: 3
+
+env-3:
+  - Utilization: 0.0%
+  - Test executions: 0
+
+======================================================================
+  9. Shutdown
+======================================================================
+
+Shutting down resource manager...
+✓ Resource manager shut down successfully
+
+======================================================================
+  Demo Complete
+======================================================================
+
+Successfully demonstrated:
+  ✓ Idle resource detection
+  ✓ Resource release and power-down
+  ✓ Cost tracking
+  ✓ Metrics collection
+

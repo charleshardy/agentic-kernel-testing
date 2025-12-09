@@ -1,0 +1,17 @@
+Base Score: 4.0
+Impact Score: 5.5
+Exploitability Score: 1.6
+Severity Rating: Low
+
+Base Impact: 5.5
+Base Exploitability: 7.0
+
+Manual calculation:
+  Impact: 5.5
+  Exploitability (adjusted): 1.640625
+  Base: 3.95625
+  Rounded: 4.0
+
+Expected rating: Low
+Actual rating: Low
+Match: True
