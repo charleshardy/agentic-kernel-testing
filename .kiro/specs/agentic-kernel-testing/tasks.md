@@ -354,14 +354,14 @@
   - **Property 30: Coverage visualization completeness**
   - **Validates: Requirements 6.5**
 
-- [ ] 29. Implement security scanner with static analysis
+- [x] 29. Implement security scanner with static analysis
   - Integrate Coccinelle for pattern-based analysis
   - Create vulnerability pattern library (buffer overflow, use-after-free, integer overflow)
   - Build static analysis runner
   - Implement result parsing and reporting
   - _Requirements: 7.3_
 
-- [ ] 29.1 Write property test for vulnerability pattern detection
+- [x] 29.1 Write property test for vulnerability pattern detection
   - **Property 33: Vulnerability pattern detection**
   - **Validates: Requirements 7.3**
 
