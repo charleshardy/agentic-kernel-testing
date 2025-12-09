@@ -391,14 +391,14 @@
   - **Property 34: Security issue classification**
   - **Validates: Requirements 7.4**
 
-- [ ] 32. Implement security report generator
+- [x] 32. Implement security report generator
   - Create comprehensive security report builder
   - Build proof-of-concept exploit generator
   - Implement remediation recommendation system
   - Add security report export in multiple formats
   - _Requirements: 7.5_
 
-- [ ] 32.1 Write property test for security report completeness
+- [x] 32.1 Write property test for security report completeness
   - **Property 35: Security report completeness**
   - **Validates: Requirements 7.5**
 

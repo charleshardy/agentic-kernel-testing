@@ -1,0 +1,19 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-7.4.4, pluggy-1.4.0 -- /usr/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: /home/wruser/opensource/aats4lk
+configfile: pytest.ini
+plugins: hypothesis-6.148.5
+collecting ... collected 8 items
+
+tests/property/test_resource_metrics_collection.py::test_metrics_collection_completeness_property PASSED [ 12%]
+tests/property/test_resource_metrics_collection.py::test_test_execution_tracking_property PASSED [ 25%]
+tests/property/test_resource_metrics_collection.py::test_utilization_rate_bounds_property PASSED [ 37%]
+tests/property/test_resource_metrics_collection.py::test_utilization_summary_aggregation_property PASSED [ 50%]
+tests/property/test_resource_metrics_collection.py::test_metrics_persistence_across_updates_property PASSED [ 62%]
+tests/property/test_resource_metrics_collection.py::test_cost_tracking_property PASSED [ 75%]
+tests/property/test_resource_metrics_collection.py::test_metrics_collection_example PASSED [ 87%]
+tests/property/test_resource_metrics_collection.py::test_metrics_to_dict_serialization PASSED [100%]
+
+============================== 8 passed in 10.93s ==============================

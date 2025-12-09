@@ -1,0 +1,89 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-7.4.4, pluggy-1.4.0 -- /usr/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: /home/wruser/opensource/aats4lk
+configfile: pytest.ini
+plugins: hypothesis-6.148.5
+collecting ... collected 10 items
+
+tests/property/test_vulnerability_pattern_detection.py::test_buffer_overflow_detection FAILED [ 10%]
+tests/property/test_vulnerability_pattern_detection.py::test_use_after_free_detection FAILED [ 20%]
+tests/property/test_vulnerability_pattern_detection.py::test_integer_overflow_detection PASSED [ 30%]
+tests/property/test_vulnerability_pattern_detection.py::test_multiple_vulnerability_detection FAILED [ 40%]
+tests/property/test_vulnerability_pattern_detection.py::test_detection_count_accuracy FAILED [ 50%]
+tests/property/test_vulnerability_pattern_detection.py::test_no_false_positives_on_safe_code PASSED [ 60%]
+tests/property/test_vulnerability_pattern_detection.py::test_report_generation_completeness PASSED [ 70%]
+tests/property/test_vulnerability_pattern_detection.py::test_scanner_statistics PASSED [ 80%]
+tests/property/test_vulnerability_pattern_detection.py::test_null_pointer_dereference_detection FAILED [ 90%]
+tests/property/test_vulnerability_pattern_detection.py::test_format_string_detection PASSED [100%]
+
+=================================== FAILURES ===================================
+________________________ test_buffer_overflow_detection ________________________
+tests/property/test_vulnerability_pattern_detection.py:200: in test_buffer_overflow_detection
+    @settings(max_examples=100, deadline=None)
+tests/property/test_vulnerability_pattern_detection.py:233: in test_buffer_overflow_detection
+    assert "buffer" in issue.description.lower() or "overflow" in issue.description.lower()
+E   AssertionError: assert ('buffer' in 'use of unsafe strcpy function' or 'overflow' in 'use of unsafe strcpy function')
+E    +  where 'use of unsafe strcpy function' = <built-in method lower of str object at 0x76789894ec90>()
+E    +    where <built-in method lower of str object at 0x76789894ec90> = 'Use of unsafe strcpy function'.lower
+E    +      where 'Use of unsafe strcpy function' = SecurityIssue(vulnerability_type=<VulnerabilityType.BUFFER_OVERFLOW: 'buffer_overflow'>, severity=<Severity.CRITICAL: 'critical'>, file_path='/tmp/tmpo8hxoj5h.c', line_number=4, description='Use of unsafe strcpy function', code_snippet='strcpy(buffer, input);  // Buffer overflow', recommendation='Use bounded string functions (strncpy, snprintf, etc.)', cwe_id='CWE-120', confidence=0.6, metadata={'tool': 'regex'}, timestamp=datetime.datetime(2025, 12, 9, 13, 24, 8, 367061)).description
+E    +  and   'use of unsafe strcpy function' = <built-in method lower of str object at 0x76789894ec90>()
+E    +    where <built-in method lower of str object at 0x76789894ec90> = 'Use of unsafe strcpy function'.lower
+E    +      where 'Use of unsafe strcpy function' = SecurityIssue(vulnerability_type=<VulnerabilityType.BUFFER_OVERFLOW: 'buffer_overflow'>, severity=<Severity.CRITICAL: 'critical'>, file_path='/tmp/tmpo8hxoj5h.c', line_number=4, description='Use of unsafe strcpy function', code_snippet='strcpy(buffer, input);  // Buffer overflow', recommendation='Use bounded string functions (strncpy, snprintf, etc.)', cwe_id='CWE-120', confidence=0.6, metadata={'tool': 'regex'}, timestamp=datetime.datetime(2025, 12, 9, 13, 24, 8, 367061)).description
+E   Falsifying example: test_buffer_overflow_detection(
+E       code='\nvoid vulnerable_function(char *input) {{\n    char buffer[64];\n    strcpy(buffer, input);  // Buffer overflow\n    return;\n}}\n',
+E   )
+________________________ test_use_after_free_detection _________________________
+tests/property/test_vulnerability_pattern_detection.py:241: in test_use_after_free_detection
+    @settings(max_examples=100, deadline=None)
+tests/property/test_vulnerability_pattern_detection.py:264: in test_use_after_free_detection
+    assert len(uaf_issues) > 0, \
+E   AssertionError: Failed to detect use-after-free vulnerability
+E   assert 0 > 0
+E    +  where 0 = len([])
+E   Falsifying example: test_use_after_free_detection(
+E       code='\nvoid vulnerable_free(struct data *ptr) {{\n    kfree(ptr);\n    ptr->value = 10;  // Use after free\n    return;\n}}\n',
+E   )
+____________________ test_multiple_vulnerability_detection _____________________
+tests/property/test_vulnerability_pattern_detection.py:321: in test_multiple_vulnerability_detection
+    @settings(max_examples=50, deadline=None)
+tests/property/test_vulnerability_pattern_detection.py:353: in test_multiple_vulnerability_detection
+    assert VulnerabilityType.USE_AFTER_FREE in detected_types, \
+E   AssertionError: Failed to detect use-after-free when present
+E   assert <VulnerabilityType.USE_AFTER_FREE: 'use_after_free'> in {<VulnerabilityType.BUFFER_OVERFLOW: 'buffer_overflow'>, <VulnerabilityType.FORMAT_STRING: 'format_string'>, <VulnerabilityType.INTEGER_OVERFLOW: 'integer_overflow'>}
+E    +  where <VulnerabilityType.USE_AFTER_FREE: 'use_after_free'> = VulnerabilityType.USE_AFTER_FREE
+E   Falsifying example: test_multiple_vulnerability_detection(
+E       code='\n\nvoid vulnerable_function(char *input) {{\n    char buffer[64];\n    strcpy(buffer, input);  // Buffer overflow\n    return;\n}}\n\n\n\nvoid vulnerable_free(struct data *ptr) {{\n    kfree(ptr);\n    ptr->value = 10;  // Use after free\n    return;\n}}\n\n\n\nint calculate_size(int a, int b) {{\n    int result = a + b;  // Integer overflow\n    return result;\n}}\n\n\n\nvoid process_data(void) {{\n    struct data *ptr = kmalloc(sizeof(*ptr), GFP_KERNEL);\n    ptr->value = 42;  // Null pointer dereference\n    return;\n}}\n\n\n\nvoid log_message(char *msg) {{\n    printk(msg);  // Format string vulnerability\n}}\n\n',  # or any other generated value
+E   )
+________________________ test_detection_count_accuracy _________________________
+tests/property/test_vulnerability_pattern_detection.py:375: in test_detection_count_accuracy
+    buffer_count=st.integers(min_value=1, max_value=3),
+tests/property/test_vulnerability_pattern_detection.py:446: in test_detection_count_accuracy
+    assert detected_uaf >= uaf_count, \
+E   AssertionError: Expected at least 1 use-after-free, detected 0
+E   assert 0 >= 1
+E   Falsifying example: test_detection_count_accuracy(
+E       # The test always failed when commented parts were varied together.
+E       buffer_count=1,  # or any other generated value
+E       uaf_count=1,  # or any other generated value
+E       overflow_count=1,  # or any other generated value
+E   )
+___________________ test_null_pointer_dereference_detection ____________________
+tests/property/test_vulnerability_pattern_detection.py:614: in test_null_pointer_dereference_detection
+    @settings(max_examples=100, deadline=None)
+tests/property/test_vulnerability_pattern_detection.py:637: in test_null_pointer_dereference_detection
+    assert len(null_deref_issues) > 0, \
+E   AssertionError: Failed to detect null pointer dereference vulnerability
+E   assert 0 > 0
+E    +  where 0 = len([])
+E   Falsifying example: test_null_pointer_dereference_detection(
+E       code='\nvoid process_data(void) {{\n    struct data *ptr = kmalloc(sizeof(*ptr), GFP_KERNEL);\n    ptr->value = 42;  // Null pointer dereference\n    return;\n}}\n',
+E   )
+=========================== short test summary info ============================
+FAILED tests/property/test_vulnerability_pattern_detection.py::test_buffer_overflow_detection
+FAILED tests/property/test_vulnerability_pattern_detection.py::test_use_after_free_detection
+FAILED tests/property/test_vulnerability_pattern_detection.py::test_multiple_vulnerability_detection
+FAILED tests/property/test_vulnerability_pattern_detection.py::test_detection_count_accuracy
+FAILED tests/property/test_vulnerability_pattern_detection.py::test_null_pointer_dereference_detection
+========================= 5 failed, 5 passed in 1.84s ==========================

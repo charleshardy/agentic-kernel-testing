@@ -1,0 +1,24 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-7.4.4, pluggy-1.4.0 -- /usr/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: /home/wruser/opensource/aats4lk
+configfile: pytest.ini
+plugins: hypothesis-6.148.5
+collecting ... collected 13 items
+
+tests/property/test_idle_resource_cleanup.py::test_idle_resource_cleanup_property PASSED [  7%]
+tests/property/test_idle_resource_cleanup.py::test_idle_detection_threshold_property PASSED [ 15%]
+tests/property/test_idle_resource_cleanup.py::test_only_idle_resources_cleaned_property PASSED [ 23%]
+tests/property/test_idle_resource_cleanup.py::test_resource_release_idempotent_property PASSED [ 30%]
+tests/property/test_idle_resource_cleanup.py::test_idle_cleanup_example PASSED [ 38%]
+tests/property/test_resource_metrics_collection.py::test_metrics_collection_completeness_property PASSED [ 46%]
+tests/property/test_resource_metrics_collection.py::test_test_execution_tracking_property PASSED [ 53%]
+tests/property/test_resource_metrics_collection.py::test_utilization_rate_bounds_property PASSED [ 61%]
+tests/property/test_resource_metrics_collection.py::test_utilization_summary_aggregation_property PASSED [ 69%]
+tests/property/test_resource_metrics_collection.py::test_metrics_persistence_across_updates_property PASSED [ 76%]
+tests/property/test_resource_metrics_collection.py::test_cost_tracking_property PASSED [ 84%]
+tests/property/test_resource_metrics_collection.py::test_metrics_collection_example PASSED [ 92%]
+tests/property/test_resource_metrics_collection.py::test_metrics_to_dict_serialization PASSED [100%]
+
+============================= 13 passed in 12.35s ==============================
