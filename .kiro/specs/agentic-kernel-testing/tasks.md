@@ -343,14 +343,14 @@
   - **Property 29: Coverage regression detection**
   - **Validates: Requirements 6.4**
 
-- [ ] 28. Implement coverage visualization
+- [x] 28. Implement coverage visualization
   - Create coverage report generator
   - Build HTML/visual coverage display
   - Implement covered/uncovered region highlighting
   - Add interactive coverage browser
   - _Requirements: 6.5_
 
-- [ ] 28.1 Write property test for coverage visualization
+- [x] 28.1 Write property test for coverage visualization
   - **Property 30: Coverage visualization completeness**
   - **Validates: Requirements 6.5**
 
