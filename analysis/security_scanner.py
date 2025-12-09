@@ -35,6 +35,84 @@ class Severity(str, Enum):
     CRITICAL = "critical"
 
 
+class Exploitability(str, Enum):
+    """Exploitability levels for vulnerabilities."""
+    NONE = "none"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+@dataclass
+class CVSSScore:
+    """CVSS-like scoring for security issues."""
+    base_score: float  # 0.0 to 10.0
+    impact_score: float  # 0.0 to 10.0
+    exploitability_score: float  # 0.0 to 10.0
+    severity_rating: str  # None, Low, Medium, High, Critical
+    
+    def __post_init__(self):
+        """Validate CVSS score."""
+        if not 0.0 <= self.base_score <= 10.0:
+            raise ValueError("base_score must be between 0.0 and 10.0")
+        if not 0.0 <= self.impact_score <= 10.0:
+            raise ValueError("impact_score must be between 0.0 and 10.0")
+        if not 0.0 <= self.exploitability_score <= 10.0:
+            raise ValueError("exploitability_score must be between 0.0 and 10.0")
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "base_score": self.base_score,
+            "impact_score": self.impact_score,
+            "exploitability_score": self.exploitability_score,
+            "severity_rating": self.severity_rating
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'CVSSScore':
+        """Create from dictionary."""
+        return cls(**data)
+
+
+@dataclass
+class SecurityClassification:
+    """Classification metadata for a security issue."""
+    cvss_score: CVSSScore
+    exploitability: Exploitability
+    attack_vector: str  # Local, Adjacent, Network
+    attack_complexity: str  # Low, High
+    privileges_required: str  # None, Low, High
+    user_interaction: str  # None, Required
+    scope: str  # Unchanged, Changed
+    confidentiality_impact: str  # None, Low, High
+    integrity_impact: str  # None, Low, High
+    availability_impact: str  # None, Low, High
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "cvss_score": self.cvss_score.to_dict(),
+            "exploitability": self.exploitability.value,
+            "attack_vector": self.attack_vector,
+            "attack_complexity": self.attack_complexity,
+            "privileges_required": self.privileges_required,
+            "user_interaction": self.user_interaction,
+            "scope": self.scope,
+            "confidentiality_impact": self.confidentiality_impact,
+            "integrity_impact": self.integrity_impact,
+            "availability_impact": self.availability_impact
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'SecurityClassification':
+        """Create from dictionary."""
+        cvss_data = data.pop('cvss_score')
+        cvss_score = CVSSScore.from_dict(cvss_data)
+        return cls(cvss_score=cvss_score, **data)
+
+
 @dataclass
 class SecurityIssue:
     """Represents a detected security vulnerability."""
@@ -49,6 +127,7 @@ class SecurityIssue:
     confidence: float = 1.0
     metadata: Dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=datetime.now)
+    classification: Optional[SecurityClassification] = None
     
     def __post_init__(self):
         """Validate security issue."""
@@ -61,7 +140,7 @@ class SecurityIssue:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
-        return {
+        data = {
             "vulnerability_type": self.vulnerability_type.value,
             "severity": self.severity.value,
             "file_path": self.file_path,
@@ -74,6 +153,9 @@ class SecurityIssue:
             "metadata": self.metadata,
             "timestamp": self.timestamp.isoformat()
         }
+        if self.classification:
+            data["classification"] = self.classification.to_dict()
+        return data
 
 
 class VulnerabilityPatternLibrary:
@@ -631,6 +713,319 @@ class StaticAnalysisRunner:
         return '\n'.join(snippet_lines)
 
 
+class SecurityIssueClassifier:
+    """Classifier for security issues with CVSS-like scoring."""
+    
+    # Vulnerability type to base metrics mapping
+    VULNERABILITY_METRICS = {
+        VulnerabilityType.BUFFER_OVERFLOW: {
+            "attack_vector": "Local",
+            "attack_complexity": "Low",
+            "privileges_required": "Low",
+            "user_interaction": "None",
+            "scope": "Changed",
+            "confidentiality_impact": "High",
+            "integrity_impact": "High",
+            "availability_impact": "High",
+            "base_impact": 9.0,
+            "base_exploitability": 8.5
+        },
+        VulnerabilityType.USE_AFTER_FREE: {
+            "attack_vector": "Local",
+            "attack_complexity": "Low",
+            "privileges_required": "Low",
+            "user_interaction": "None",
+            "scope": "Changed",
+            "confidentiality_impact": "High",
+            "integrity_impact": "High",
+            "availability_impact": "High",
+            "base_impact": 9.0,
+            "base_exploitability": 8.0
+        },
+        VulnerabilityType.INTEGER_OVERFLOW: {
+            "attack_vector": "Local",
+            "attack_complexity": "Medium",
+            "privileges_required": "Low",
+            "user_interaction": "None",
+            "scope": "Unchanged",
+            "confidentiality_impact": "Low",
+            "integrity_impact": "High",
+            "availability_impact": "High",
+            "base_impact": 7.0,
+            "base_exploitability": 6.5
+        },
+        VulnerabilityType.NULL_POINTER_DEREFERENCE: {
+            "attack_vector": "Local",
+            "attack_complexity": "Low",
+            "privileges_required": "Low",
+            "user_interaction": "None",
+            "scope": "Unchanged",
+            "confidentiality_impact": "None",
+            "integrity_impact": "None",
+            "availability_impact": "High",
+            "base_impact": 5.5,
+            "base_exploitability": 7.0
+        },
+        VulnerabilityType.MEMORY_LEAK: {
+            "attack_vector": "Local",
+            "attack_complexity": "Low",
+            "privileges_required": "Low",
+            "user_interaction": "None",
+            "scope": "Unchanged",
+            "confidentiality_impact": "None",
+            "integrity_impact": "None",
+            "availability_impact": "Low",
+            "base_impact": 3.0,
+            "base_exploitability": 5.0
+        },
+        VulnerabilityType.RACE_CONDITION: {
+            "attack_vector": "Local",
+            "attack_complexity": "High",
+            "privileges_required": "Low",
+            "user_interaction": "None",
+            "scope": "Changed",
+            "confidentiality_impact": "High",
+            "integrity_impact": "High",
+            "availability_impact": "High",
+            "base_impact": 8.5,
+            "base_exploitability": 5.5
+        },
+        VulnerabilityType.FORMAT_STRING: {
+            "attack_vector": "Local",
+            "attack_complexity": "Low",
+            "privileges_required": "Low",
+            "user_interaction": "None",
+            "scope": "Changed",
+            "confidentiality_impact": "High",
+            "integrity_impact": "High",
+            "availability_impact": "High",
+            "base_impact": 9.0,
+            "base_exploitability": 8.5
+        },
+        VulnerabilityType.UNINITIALIZED_VARIABLE: {
+            "attack_vector": "Local",
+            "attack_complexity": "Medium",
+            "privileges_required": "Low",
+            "user_interaction": "None",
+            "scope": "Unchanged",
+            "confidentiality_impact": "Low",
+            "integrity_impact": "Low",
+            "availability_impact": "Low",
+            "base_impact": 4.0,
+            "base_exploitability": 5.5
+        }
+    }
+    
+    def classify_issue(self, issue: SecurityIssue) -> SecurityIssue:
+        """Classify a security issue with CVSS-like scoring.
+        
+        Args:
+            issue: Security issue to classify
+            
+        Returns:
+            Security issue with classification metadata
+        """
+        # Get base metrics for vulnerability type
+        metrics = self.VULNERABILITY_METRICS.get(
+            issue.vulnerability_type,
+            self._get_default_metrics()
+        )
+        
+        # Calculate CVSS score
+        cvss_score = self._calculate_cvss_score(metrics, issue)
+        
+        # Determine exploitability
+        exploitability = self._determine_exploitability(
+            cvss_score.exploitability_score,
+            issue.vulnerability_type
+        )
+        
+        # Create classification
+        classification = SecurityClassification(
+            cvss_score=cvss_score,
+            exploitability=exploitability,
+            attack_vector=metrics["attack_vector"],
+            attack_complexity=metrics["attack_complexity"],
+            privileges_required=metrics["privileges_required"],
+            user_interaction=metrics["user_interaction"],
+            scope=metrics["scope"],
+            confidentiality_impact=metrics["confidentiality_impact"],
+            integrity_impact=metrics["integrity_impact"],
+            availability_impact=metrics["availability_impact"]
+        )
+        
+        # Update issue with classification
+        issue.classification = classification
+        
+        # Update severity based on CVSS score if needed
+        cvss_severity = self._cvss_to_severity(cvss_score.base_score)
+        if self._severity_to_numeric(cvss_severity) > self._severity_to_numeric(issue.severity):
+            issue.severity = cvss_severity
+        
+        return issue
+    
+    def _get_default_metrics(self) -> Dict[str, Any]:
+        """Get default metrics for unknown vulnerability types."""
+        return {
+            "attack_vector": "Local",
+            "attack_complexity": "Medium",
+            "privileges_required": "Low",
+            "user_interaction": "None",
+            "scope": "Unchanged",
+            "confidentiality_impact": "Low",
+            "integrity_impact": "Low",
+            "availability_impact": "Low",
+            "base_impact": 5.0,
+            "base_exploitability": 5.0
+        }
+    
+    def _calculate_cvss_score(
+        self,
+        metrics: Dict[str, Any],
+        issue: SecurityIssue
+    ) -> CVSSScore:
+        """Calculate CVSS-like score for an issue.
+        
+        Args:
+            metrics: Base metrics for vulnerability type
+            issue: Security issue
+            
+        Returns:
+            CVSS score
+        """
+        # Base impact and exploitability from metrics
+        impact_score = metrics["base_impact"]
+        exploitability_score = metrics["base_exploitability"]
+        
+        # Adjust based on confidence
+        exploitability_score *= issue.confidence
+        
+        # Adjust based on code context (if available in metadata)
+        if "in_critical_path" in issue.metadata and issue.metadata["in_critical_path"]:
+            impact_score = min(10.0, impact_score * 1.2)
+        
+        if "user_controlled_input" in issue.metadata and issue.metadata["user_controlled_input"]:
+            exploitability_score = min(10.0, exploitability_score * 1.3)
+        
+        # Calculate base score (simplified CVSS formula)
+        # Base = Impact + Exploitability - 1.5
+        base_score = (impact_score * 0.6 + exploitability_score * 0.4)
+        base_score = max(0.0, min(10.0, base_score))
+        
+        # Round scores first
+        rounded_base_score = round(base_score, 1)
+        rounded_impact_score = round(impact_score, 1)
+        rounded_exploitability_score = round(exploitability_score, 1)
+        
+        # Determine severity rating from rounded score
+        severity_rating = self._score_to_rating(rounded_base_score)
+        
+        return CVSSScore(
+            base_score=rounded_base_score,
+            impact_score=rounded_impact_score,
+            exploitability_score=rounded_exploitability_score,
+            severity_rating=severity_rating
+        )
+    
+    def _determine_exploitability(
+        self,
+        exploitability_score: float,
+        vuln_type: VulnerabilityType
+    ) -> Exploitability:
+        """Determine exploitability level.
+        
+        Args:
+            exploitability_score: Exploitability score (0-10)
+            vuln_type: Vulnerability type
+            
+        Returns:
+            Exploitability level
+        """
+        # High exploitability vulnerabilities
+        high_exploit_types = {
+            VulnerabilityType.BUFFER_OVERFLOW,
+            VulnerabilityType.FORMAT_STRING,
+            VulnerabilityType.USE_AFTER_FREE
+        }
+        
+        if vuln_type in high_exploit_types and exploitability_score >= 7.0:
+            return Exploitability.CRITICAL
+        elif exploitability_score >= 8.0:
+            return Exploitability.HIGH
+        elif exploitability_score >= 6.0:
+            return Exploitability.MEDIUM
+        elif exploitability_score >= 3.0:
+            return Exploitability.LOW
+        else:
+            return Exploitability.NONE
+    
+    def _score_to_rating(self, score: float) -> str:
+        """Convert CVSS score to severity rating.
+        
+        Args:
+            score: CVSS base score (0-10)
+            
+        Returns:
+            Severity rating string
+        """
+        if score == 0.0:
+            return "None"
+        elif score < 4.0:
+            return "Low"
+        elif score < 7.0:
+            return "Medium"
+        elif score < 9.0:
+            return "High"
+        else:
+            return "Critical"
+    
+    def _cvss_to_severity(self, score: float) -> Severity:
+        """Convert CVSS score to Severity enum.
+        
+        Args:
+            score: CVSS base score (0-10)
+            
+        Returns:
+            Severity enum value
+        """
+        if score < 4.0:
+            return Severity.LOW
+        elif score < 7.0:
+            return Severity.MEDIUM
+        elif score < 9.0:
+            return Severity.HIGH
+        else:
+            return Severity.CRITICAL
+    
+    def _severity_to_numeric(self, severity: Severity) -> int:
+        """Convert severity to numeric value for comparison.
+        
+        Args:
+            severity: Severity enum value
+            
+        Returns:
+            Numeric value (0-3)
+        """
+        severity_map = {
+            Severity.LOW: 0,
+            Severity.MEDIUM: 1,
+            Severity.HIGH: 2,
+            Severity.CRITICAL: 3
+        }
+        return severity_map.get(severity, 0)
+    
+    def classify_issues(self, issues: List[SecurityIssue]) -> List[SecurityIssue]:
+        """Classify multiple security issues.
+        
+        Args:
+            issues: List of security issues
+            
+        Returns:
+            List of classified security issues
+        """
+        return [self.classify_issue(issue) for issue in issues]
+
+
 class SecurityScanner:
     """Main security scanner interface."""
     
@@ -641,18 +1036,24 @@ class SecurityScanner:
             coccinelle_path: Path to Coccinelle binary
         """
         self.static_analyzer = StaticAnalysisRunner(coccinelle_path)
+        self.classifier = SecurityIssueClassifier()
         self.scan_history: List[Dict[str, Any]] = []
     
-    def scan_file(self, file_path: str) -> List[SecurityIssue]:
+    def scan_file(self, file_path: str, classify: bool = True) -> List[SecurityIssue]:
         """Scan a single file for vulnerabilities.
         
         Args:
             file_path: Path to source file
+            classify: Whether to classify issues with CVSS scoring
             
         Returns:
             List of detected security issues
         """
         issues = self.static_analyzer.analyze_file(file_path)
+        
+        # Classify issues if requested
+        if classify:
+            issues = self.classifier.classify_issues(issues)
         
         # Record scan
         self.scan_history.append({
@@ -666,13 +1067,15 @@ class SecurityScanner:
     def scan_directory(
         self,
         directory: str,
-        extensions: Optional[List[str]] = None
+        extensions: Optional[List[str]] = None,
+        classify: bool = True
     ) -> Dict[str, List[SecurityIssue]]:
         """Scan all files in a directory.
         
         Args:
             directory: Directory path to scan
             extensions: File extensions to scan (default: ['.c', '.h'])
+            classify: Whether to classify issues with CVSS scoring
             
         Returns:
             Dictionary mapping file paths to lists of issues
@@ -686,7 +1089,7 @@ class SecurityScanner:
         for ext in extensions:
             for file_path in dir_path.rglob(f'*{ext}'):
                 if file_path.is_file():
-                    issues = self.scan_file(str(file_path))
+                    issues = self.scan_file(str(file_path), classify=classify)
                     if issues:
                         results[str(file_path)] = issues
         
@@ -717,11 +1120,31 @@ class SecurityScanner:
         # Count by vulnerability type
         vuln_type_counts = {}
         
+        # Count by exploitability
+        exploitability_counts = {
+            Exploitability.CRITICAL: 0,
+            Exploitability.HIGH: 0,
+            Exploitability.MEDIUM: 0,
+            Exploitability.LOW: 0,
+            Exploitability.NONE: 0
+        }
+        
+        # Track CVSS scores
+        cvss_scores = []
+        
         for issues in scan_results.values():
             for issue in issues:
                 severity_counts[issue.severity] += 1
                 vuln_type = issue.vulnerability_type.value
                 vuln_type_counts[vuln_type] = vuln_type_counts.get(vuln_type, 0) + 1
+                
+                # Classification statistics
+                if issue.classification:
+                    exploitability_counts[issue.classification.exploitability] += 1
+                    cvss_scores.append(issue.classification.cvss_score.base_score)
+        
+        # Calculate average CVSS score
+        avg_cvss = sum(cvss_scores) / len(cvss_scores) if cvss_scores else 0.0
         
         report = {
             "scan_timestamp": datetime.now().isoformat(),
@@ -732,6 +1155,18 @@ class SecurityScanner:
                 "high": severity_counts[Severity.HIGH],
                 "medium": severity_counts[Severity.MEDIUM],
                 "low": severity_counts[Severity.LOW]
+            },
+            "exploitability_breakdown": {
+                "critical": exploitability_counts[Exploitability.CRITICAL],
+                "high": exploitability_counts[Exploitability.HIGH],
+                "medium": exploitability_counts[Exploitability.MEDIUM],
+                "low": exploitability_counts[Exploitability.LOW],
+                "none": exploitability_counts[Exploitability.NONE]
+            },
+            "cvss_statistics": {
+                "average_score": round(avg_cvss, 1),
+                "max_score": max(cvss_scores) if cvss_scores else 0.0,
+                "min_score": min(cvss_scores) if cvss_scores else 0.0
             },
             "vulnerability_types": vuln_type_counts,
             "files_with_issues": {

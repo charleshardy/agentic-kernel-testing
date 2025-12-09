@@ -380,14 +380,14 @@
   - **Property 32: Crash input minimization**
   - **Validates: Requirements 7.2**
 
-- [ ] 31. Implement security issue classification
+- [x] 31. Implement security issue classification
   - Create severity scoring algorithm
   - Build exploitability analyzer
   - Implement CVSS-like scoring system
   - Add classification metadata to issues
   - _Requirements: 7.4_
 
-- [ ] 31.1 Write property test for security issue classification
+- [x] 31.1 Write property test for security issue classification
   - **Property 34: Security issue classification**
   - **Validates: Requirements 7.4**
 
