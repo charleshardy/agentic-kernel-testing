@@ -339,7 +339,7 @@
   - Add trend visualization
   - _Requirements: 6.4_
 
-- [ ] 27.1 Write property test for coverage regression detection
+- [x] 27.1 Write property test for coverage regression detection
   - **Property 29: Coverage regression detection**
   - **Validates: Requirements 6.4**
 
