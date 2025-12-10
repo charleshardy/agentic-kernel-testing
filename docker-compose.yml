@@ -54,6 +54,18 @@ services:
       - agentic-network
     command: redis-server --appendonly yes
 
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - agentic-network
+
   nginx:
     image: nginx:alpine
     ports:
@@ -64,6 +76,7 @@ services:
       - ./nginx/ssl:/etc/nginx/ssl
     depends_on:
       - api
+      - dashboard
     restart: unless-stopped
     networks:
       - agentic-network
