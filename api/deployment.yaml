@@ -1,0 +1,165 @@
+# Kubernetes deployment configuration for the API
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentic-api
+  labels:
+    app: agentic-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: agentic-api
+  template:
+    metadata:
+      labels:
+        app: agentic-api
+    spec:
+      containers:
+      - name: api
+        image: agentic-testing/api:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: API__HOST
+          value: "0.0.0.0"
+        - name: API__PORT
+          value: "8000"
+        - name: API__SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-secrets
+              key: secret-key
+        - name: DATABASE__TYPE
+          value: "postgresql"
+        - name: DATABASE__HOST
+          value: "postgres-service"
+        - name: DATABASE__PORT
+          value: "5432"
+        - name: DATABASE__NAME
+          value: "agentic_testing"
+        - name: DATABASE__USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: username
+        - name: DATABASE__PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: password
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: artifacts-storage
+          mountPath: /app/artifacts
+        - name: logs-storage
+          mountPath: /app/logs
+      volumes:
+      - name: artifacts-storage
+        persistentVolumeClaim:
+          claimName: artifacts-pvc
+      - name: logs-storage
+        persistentVolumeClaim:
+          claimName: logs-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentic-api-service
+spec:
+  selector:
+    app: agentic-api
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8000
+  type: LoadBalancer
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-secrets
+type: Opaque
+data:
+  secret-key: eW91ci1zZWNyZXQta2V5LWNoYW5nZS1pbi1wcm9kdWN0aW9u  # base64 encoded
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secrets
+type: Opaque
+data:
+  username: cG9zdGdyZXM=  # base64 encoded 'postgres'
+  password: cG9zdGdyZXM=  # base64 encoded 'postgres'
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: artifacts-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: logs-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: agentic-api-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+spec:
+  tls:
+  - hosts:
+    - api.agentic-testing.com
+    secretName: api-tls
+  rules:
+  - host: api.agentic-testing.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: agentic-api-service
+            port:
+              number: 80
