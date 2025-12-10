@@ -506,13 +506,13 @@
   - **Property 45: Configuration usage analysis**
   - **Validates: Requirements 9.5**
 
-- [ ] 42. Implement hardware failure isolation diagnostics
+- [x] 42. Implement hardware failure isolation diagnostics
   - Create hardware-specific diagnostic collector
   - Build failure-to-hardware correlator
   - Implement diagnostic report generator
   - _Requirements: 2.3_
 
-- [ ] 42.1 Write property test for hardware failure isolation
+- [x] 42.1 Write property test for hardware failure isolation
   - **Property 8: Hardware failure isolation**
   - **Validates: Requirements 2.3**
 
