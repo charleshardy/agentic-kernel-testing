@@ -447,14 +447,14 @@
   - **Property 39: Regression profiling data**
   - **Validates: Requirements 8.4**
 
-- [ ] 37. Implement performance trend reporting
+- [x] 37. Implement performance trend reporting
   - Create performance history storage
   - Build trend visualization
   - Implement trend analysis and forecasting
   - Add performance dashboard
   - _Requirements: 8.5_
 
-- [ ] 37.1 Write property test for performance trend reporting
+- [x] 37.1 Write property test for performance trend reporting
   - **Property 40: Performance trend reporting**
   - **Validates: Requirements 8.5**
 
