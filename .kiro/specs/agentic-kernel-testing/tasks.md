@@ -402,7 +402,7 @@
   - **Property 35: Security report completeness**
   - **Validates: Requirements 7.5**
 
-- [ ] 33. Implement performance monitoring system
+- [x] 33. Implement performance monitoring system
   - Integrate LMBench for system call latency
   - Add FIO for I/O performance benchmarks
   - Integrate Netperf for network throughput
@@ -410,18 +410,18 @@
   - Build benchmark result collector
   - _Requirements: 8.1_
 
-- [ ] 33.1 Write property test for performance metric coverage
+- [x] 33.1 Write property test for performance metric coverage
   - **Property 36: Performance metric coverage**
   - **Validates: Requirements 8.1**
 
-- [ ] 34. Implement performance baseline management
+- [x] 34. Implement performance baseline management
   - Create baseline storage and retrieval
   - Build baseline comparison algorithm
   - Implement baseline update mechanism
   - Add baseline versioning by kernel version
   - _Requirements: 8.2_
 
-- [ ] 34.1 Write property test for baseline comparison
+- [x] 34.1 Write property test for baseline comparison
   - **Property 37: Baseline comparison execution**
   - **Validates: Requirements 8.2**
 
