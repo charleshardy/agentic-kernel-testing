@@ -95,6 +95,22 @@ class NotificationConfig(BaseModel):
     email_from: Optional[str] = Field(default=None, description="From email address")
 
 
+class APIConfig(BaseModel):
+    """API server configuration."""
+    
+    host: str = Field(default="0.0.0.0", description="API server host")
+    port: int = Field(default=8000, description="API server port")
+    debug: bool = Field(default=False, description="API debug mode")
+    secret_key: str = Field(default="your-secret-key-change-in-production", description="JWT secret key")
+    algorithm: str = Field(default="HS256", description="JWT algorithm")
+    token_expire_hours: int = Field(default=24, description="Token expiration in hours")
+    cors_origins: List[str] = Field(default=["*"], description="CORS allowed origins")
+    rate_limit_enabled: bool = Field(default=True, description="Enable rate limiting")
+    rate_limit_requests: int = Field(default=1000, description="Requests per hour limit")
+    max_request_size: int = Field(default=10485760, description="Max request size in bytes (10MB)")
+    docs_enabled: bool = Field(default=True, description="Enable API documentation")
+
+
 class Settings(BaseSettings):
     """Main application settings."""
     
@@ -111,6 +127,7 @@ class Settings(BaseSettings):
     security: SecurityConfig = Field(default_factory=SecurityConfig)
     performance: PerformanceConfig = Field(default_factory=PerformanceConfig)
     notification: NotificationConfig = Field(default_factory=NotificationConfig)
+    api: APIConfig = Field(default_factory=APIConfig)
     
     # CI/CD integration
     vcs_webhook_secret: Optional[str] = Field(default=None, description="VCS webhook secret")
