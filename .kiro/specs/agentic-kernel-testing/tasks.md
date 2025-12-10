@@ -436,14 +436,14 @@
   - **Property 38: Regression detection and attribution**
   - **Validates: Requirements 8.3**
 
-- [ ] 36. Implement performance profiling
+- [x] 36. Implement performance profiling
   - Integrate perf tool for kernel profiling
   - Create flamegraph generator
   - Build hotspot identifier
   - Implement profiling data analysis
   - _Requirements: 8.4_
 
-- [ ] 36.1 Write property test for regression profiling data
+- [x] 36.1 Write property test for regression profiling data
   - **Property 39: Regression profiling data**
   - **Validates: Requirements 8.4**
 

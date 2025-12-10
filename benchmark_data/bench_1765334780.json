@@ -1,0 +1,37 @@
+{
+  "benchmark_id": "bench_1765334780",
+  "kernel_version": "5.15.0",
+  "timestamp": "2025-12-10T10:46:20.411456",
+  "metrics": [],
+  "profiling_data": {
+    "profile_id": "profile_1765334780",
+    "command": "/tmp/tmp9pc47a8t.sh",
+    "duration_seconds": 0.0,
+    "samples": 0,
+    "events": [
+      "cycles",
+      "instructions",
+      "cache-misses",
+      "branch-misses",
+      "page-faults",
+      "context-switches",
+      "cpu-migrations",
+      "syscalls:sys_enter_*"
+    ],
+    "hotspots": [],
+    "flamegraph_path": null,
+    "raw_data_path": null,
+    "metadata": {
+      "error": "Command '['/usr/bin/perf', 'record', '-o', '/tmp/tmp8q5ldys4/profile_1765334780.data', '-g', '--call-graph', 'dwarf', '-F', '99', '-e', 'cycles', '-e', 'instructions', '-e', 'cache-misses', '-e', 'branch-misses', '-e', 'page-faults', '-e', 'context-switches', '-e', 'cpu-migrations', '-e', 'syscalls:sys_enter_*', '/tmp/tmp9pc47a8t.sh']' returned non-zero exit status 2."
+    }
+  },
+  "environment": {
+    "suite": "io",
+    "kernel_image": "/boot/vmlinuz-5.15.0",
+    "profiling_enabled": true
+  },
+  "metadata": {
+    "total_metrics": 0,
+    "benchmark_types": []
+  }
+}
