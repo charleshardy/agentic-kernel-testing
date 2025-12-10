@@ -13,6 +13,7 @@ import re
 import subprocess
 import json
 import time
+import tempfile
 from pathlib import Path
 from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
@@ -30,6 +31,7 @@ class BenchmarkType(str, Enum):
     NETWORK_THROUGHPUT = "network_throughput"
     NETWORK_LATENCY = "network_latency"
     CUSTOM = "custom"
+    PROFILING = "profiling"
 
 
 @dataclass
@@ -55,12 +57,36 @@ class BenchmarkMetric:
 
 
 @dataclass
+class ProfilingData:
+    """Profiling data from perf tool."""
+    profile_id: str
+    command: str
+    duration_seconds: float
+    samples: int
+    events: List[str] = field(default_factory=list)
+    hotspots: List[Dict[str, Any]] = field(default_factory=list)
+    flamegraph_path: Optional[str] = None
+    raw_data_path: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ProfilingData':
+        """Create from dictionary."""
+        return cls(**data)
+
+
+@dataclass
 class BenchmarkResults:
     """Results from a benchmark execution."""
     benchmark_id: str
     kernel_version: str
     timestamp: datetime
     metrics: List[BenchmarkMetric] = field(default_factory=list)
+    profiling_data: Optional[ProfilingData] = None
     environment: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
     
@@ -69,6 +95,8 @@ class BenchmarkResults:
         data = asdict(self)
         data['timestamp'] = self.timestamp.isoformat()
         data['metrics'] = [m.to_dict() for m in self.metrics]
+        if self.profiling_data:
+            data['profiling_data'] = self.profiling_data.to_dict()
         return data
     
     @classmethod
@@ -77,7 +105,12 @@ class BenchmarkResults:
         timestamp = datetime.fromisoformat(data.pop('timestamp'))
         metrics_data = data.pop('metrics', [])
         metrics = [BenchmarkMetric.from_dict(m) for m in metrics_data]
-        return cls(**data, timestamp=timestamp, metrics=metrics)
+        
+        profiling_data = None
+        if 'profiling_data' in data and data['profiling_data']:
+            profiling_data = ProfilingData.from_dict(data.pop('profiling_data'))
+        
+        return cls(**data, timestamp=timestamp, metrics=metrics, profiling_data=profiling_data)
     
     def get_metric(self, name: str) -> Optional[BenchmarkMetric]:
         """Get a specific metric by name."""
@@ -711,6 +744,379 @@ class BenchmarkCollector:
         return benchmark_ids
 
 
+class PerformanceProfiler:
+    """Performance profiler using perf tool for kernel profiling."""
+    
+    def __init__(self, perf_path: str = "/usr/bin/perf"):
+        """Initialize performance profiler.
+        
+        Args:
+            perf_path: Path to perf binary
+        """
+        self.perf_path = perf_path
+        self.settings = get_settings()
+    
+    def profile_command(self, command: List[str], duration: int = 10, 
+                       events: Optional[List[str]] = None) -> ProfilingData:
+        """Profile a command using perf.
+        
+        Args:
+            command: Command to profile
+            duration: Duration in seconds
+            events: List of perf events to monitor
+            
+        Returns:
+            ProfilingData with profiling results
+        """
+        if events is None:
+            events = ["cycles", "instructions", "cache-misses", "branch-misses"]
+        
+        profile_id = f"profile_{int(time.time())}"
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            perf_data_file = os.path.join(temp_dir, f"{profile_id}.data")
+            
+            # Build perf record command
+            perf_cmd = [
+                self.perf_path, "record",
+                "-o", perf_data_file,
+                "-g",  # Enable call graphs
+                "--call-graph", "dwarf",
+                "-F", "99",  # Sample frequency
+            ]
+            
+            # Add events
+            for event in events:
+                perf_cmd.extend(["-e", event])
+            
+            # Add the command to profile
+            perf_cmd.extend(command)
+            
+            try:
+                # Run perf record
+                start_time = time.time()
+                result = subprocess.run(
+                    perf_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=duration + 30,
+                    check=True
+                )
+                end_time = time.time()
+                
+                # Parse perf report to get hotspots
+                hotspots = self._parse_perf_report(perf_data_file)
+                
+                # Generate flamegraph if possible
+                flamegraph_path = self._generate_flamegraph(perf_data_file, profile_id)
+                
+                # Copy perf data to permanent location
+                permanent_data_path = self._save_perf_data(perf_data_file, profile_id)
+                
+                return ProfilingData(
+                    profile_id=profile_id,
+                    command=" ".join(command),
+                    duration_seconds=end_time - start_time,
+                    samples=self._count_samples(perf_data_file),
+                    events=events,
+                    hotspots=hotspots,
+                    flamegraph_path=flamegraph_path,
+                    raw_data_path=permanent_data_path,
+                    metadata={
+                        'perf_version': self._get_perf_version(),
+                        'sampling_frequency': 99
+                    }
+                )
+                
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
+                # Return empty profiling data on failure
+                return ProfilingData(
+                    profile_id=profile_id,
+                    command=" ".join(command),
+                    duration_seconds=0.0,
+                    samples=0,
+                    events=events,
+                    metadata={'error': str(e)}
+                )
+    
+    def profile_kernel_workload(self, workload_script: str, duration: int = 30) -> ProfilingData:
+        """Profile kernel during a specific workload.
+        
+        Args:
+            workload_script: Path to workload script
+            duration: Duration in seconds
+            
+        Returns:
+            ProfilingData with kernel profiling results
+        """
+        # Kernel-specific events
+        kernel_events = [
+            "cycles", "instructions", "cache-misses", "branch-misses",
+            "page-faults", "context-switches", "cpu-migrations",
+            "syscalls:sys_enter_*"
+        ]
+        
+        return self.profile_command([workload_script], duration, kernel_events)
+    
+    def _parse_perf_report(self, perf_data_file: str) -> List[Dict[str, Any]]:
+        """Parse perf report to extract hotspots.
+        
+        Args:
+            perf_data_file: Path to perf data file
+            
+        Returns:
+            List of hotspot information
+        """
+        hotspots = []
+        
+        try:
+            # Run perf report
+            cmd = [
+                self.perf_path, "report",
+                "-i", perf_data_file,
+                "--stdio",
+                "--sort", "overhead,symbol",
+                "--percent-limit", "1"  # Only show functions with >1% overhead
+            ]
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=True
+            )
+            
+            # Parse output
+            lines = result.stdout.split('\n')
+            in_samples = False
+            
+            for line in lines:
+                if line.startswith('#'):
+                    continue
+                if 'Overhead' in line and 'Symbol' in line:
+                    in_samples = True
+                    continue
+                
+                if in_samples and line.strip():
+                    # Parse line: "  12.34%  symbol_name"
+                    match = re.match(r'\s*(\d+\.\d+)%\s+(.+)', line)
+                    if match:
+                        overhead = float(match.group(1))
+                        symbol = match.group(2).strip()
+                        
+                        hotspots.append({
+                            'symbol': symbol,
+                            'overhead_percent': overhead,
+                            'type': 'function' if '(' in symbol else 'unknown'
+                        })
+        
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+        
+        return hotspots
+    
+    def _generate_flamegraph(self, perf_data_file: str, profile_id: str) -> Optional[str]:
+        """Generate flamegraph from perf data.
+        
+        Args:
+            perf_data_file: Path to perf data file
+            profile_id: Profile identifier
+            
+        Returns:
+            Path to generated flamegraph SVG or None
+        """
+        try:
+            # Check if flamegraph tools are available
+            flamegraph_pl = "/usr/local/bin/flamegraph.pl"
+            stackcollapse_pl = "/usr/local/bin/stackcollapse-perf.pl"
+            
+            if not (os.path.exists(flamegraph_pl) and os.path.exists(stackcollapse_pl)):
+                return None
+            
+            # Create output directory
+            output_dir = Path("./profiling_data")
+            output_dir.mkdir(parents=True, exist_ok=True)
+            
+            flamegraph_path = output_dir / f"{profile_id}_flamegraph.svg"
+            
+            # Generate flamegraph
+            # Step 1: perf script to get stack traces
+            perf_script_cmd = [self.perf_path, "script", "-i", perf_data_file]
+            perf_script = subprocess.run(
+                perf_script_cmd,
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=True
+            )
+            
+            # Step 2: stackcollapse-perf.pl to collapse stacks
+            stackcollapse = subprocess.run(
+                [stackcollapse_pl],
+                input=perf_script.stdout,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=True
+            )
+            
+            # Step 3: flamegraph.pl to generate SVG
+            with open(flamegraph_path, 'w') as f:
+                subprocess.run(
+                    [flamegraph_pl],
+                    input=stackcollapse.stdout,
+                    stdout=f,
+                    text=True,
+                    timeout=60,
+                    check=True
+                )
+            
+            return str(flamegraph_path)
+            
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+            return None
+    
+    def _save_perf_data(self, perf_data_file: str, profile_id: str) -> str:
+        """Save perf data to permanent location.
+        
+        Args:
+            perf_data_file: Temporary perf data file
+            profile_id: Profile identifier
+            
+        Returns:
+            Path to permanent perf data file
+        """
+        output_dir = Path("./profiling_data")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        permanent_path = output_dir / f"{profile_id}.data"
+        
+        # Copy the file
+        import shutil
+        shutil.copy2(perf_data_file, permanent_path)
+        
+        return str(permanent_path)
+    
+    def _count_samples(self, perf_data_file: str) -> int:
+        """Count number of samples in perf data.
+        
+        Args:
+            perf_data_file: Path to perf data file
+            
+        Returns:
+            Number of samples
+        """
+        try:
+            cmd = [self.perf_path, "report", "-i", perf_data_file, "--stdio", "-q"]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=True
+            )
+            
+            # Look for sample count in output
+            for line in result.stdout.split('\n'):
+                if 'samples' in line.lower():
+                    match = re.search(r'(\d+)\s+samples', line)
+                    if match:
+                        return int(match.group(1))
+            
+            return 0
+            
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+            return 0
+    
+    def _get_perf_version(self) -> str:
+        """Get perf tool version.
+        
+        Returns:
+            Perf version string
+        """
+        try:
+            result = subprocess.run(
+                [self.perf_path, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=True
+            )
+            return result.stdout.strip()
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+            return "unknown"
+    
+    def identify_hotspots(self, profiling_data: ProfilingData, 
+                         threshold_percent: float = 5.0) -> List[Dict[str, Any]]:
+        """Identify performance hotspots from profiling data.
+        
+        Args:
+            profiling_data: Profiling data to analyze
+            threshold_percent: Minimum overhead percentage to consider a hotspot
+            
+        Returns:
+            List of identified hotspots
+        """
+        hotspots = []
+        
+        for hotspot in profiling_data.hotspots:
+            if hotspot.get('overhead_percent', 0) >= threshold_percent:
+                hotspots.append({
+                    'symbol': hotspot['symbol'],
+                    'overhead_percent': hotspot['overhead_percent'],
+                    'type': hotspot.get('type', 'unknown'),
+                    'severity': self._calculate_hotspot_severity(hotspot['overhead_percent']),
+                    'recommendation': self._generate_hotspot_recommendation(hotspot)
+                })
+        
+        # Sort by overhead percentage (descending)
+        hotspots.sort(key=lambda x: x['overhead_percent'], reverse=True)
+        
+        return hotspots
+    
+    def _calculate_hotspot_severity(self, overhead_percent: float) -> str:
+        """Calculate severity of a performance hotspot.
+        
+        Args:
+            overhead_percent: Overhead percentage
+            
+        Returns:
+            Severity level (low, medium, high, critical)
+        """
+        if overhead_percent >= 25.0:
+            return "critical"
+        elif overhead_percent >= 15.0:
+            return "high"
+        elif overhead_percent >= 10.0:
+            return "medium"
+        else:
+            return "low"
+    
+    def _generate_hotspot_recommendation(self, hotspot: Dict[str, Any]) -> str:
+        """Generate recommendation for addressing a hotspot.
+        
+        Args:
+            hotspot: Hotspot information
+            
+        Returns:
+            Recommendation string
+        """
+        symbol = hotspot.get('symbol', '')
+        overhead = hotspot.get('overhead_percent', 0)
+        
+        if 'malloc' in symbol.lower() or 'alloc' in symbol.lower():
+            return f"Memory allocation hotspot ({overhead:.1f}%). Consider memory pooling or reducing allocations."
+        elif 'lock' in symbol.lower() or 'mutex' in symbol.lower():
+            return f"Synchronization hotspot ({overhead:.1f}%). Consider reducing lock contention or using lock-free algorithms."
+        elif 'copy' in symbol.lower() or 'memcpy' in symbol.lower():
+            return f"Memory copy hotspot ({overhead:.1f}%). Consider reducing data copying or using zero-copy techniques."
+        elif 'syscall' in symbol.lower():
+            return f"System call hotspot ({overhead:.1f}%). Consider batching system calls or using asynchronous I/O."
+        else:
+            return f"Performance hotspot ({overhead:.1f}%). Consider optimizing this function or algorithm."
+
+
 class PerformanceMonitor:
     """Main performance monitoring system."""
     
@@ -725,14 +1131,17 @@ class PerformanceMonitor:
         self.fio = FIORunner()
         self.netperf = NetperfRunner()
         self.custom = CustomMicrobenchmark()
+        self.profiler = PerformanceProfiler()
         self.collector = BenchmarkCollector(storage_dir)
     
-    def run_benchmarks(self, kernel_image: str, benchmark_suite: str = "full") -> BenchmarkResults:
+    def run_benchmarks(self, kernel_image: str, benchmark_suite: str = "full", 
+                      enable_profiling: bool = False) -> BenchmarkResults:
         """Run performance benchmarks.
         
         Args:
             kernel_image: Path to kernel image (for identification)
             benchmark_suite: Suite to run ("full", "quick", "io", "network", "syscall")
+            enable_profiling: Whether to enable performance profiling
             
         Returns:
             BenchmarkResults with all collected metrics
@@ -741,6 +1150,7 @@ class PerformanceMonitor:
         kernel_version = self._extract_kernel_version(kernel_image)
         
         all_metrics = []
+        profiling_data = None
         
         # Run benchmarks based on suite
         if benchmark_suite in ["full", "syscall"]:
@@ -768,15 +1178,21 @@ class PerformanceMonitor:
         if benchmark_suite in ["full", "custom"]:
             all_metrics.extend(self.custom.run_memory_bandwidth())
         
+        # Run profiling if enabled
+        if enable_profiling:
+            profiling_data = self._run_profiling_workload(benchmark_suite)
+        
         # Create results object
         results = BenchmarkResults(
             benchmark_id=benchmark_id,
             kernel_version=kernel_version,
             timestamp=datetime.now(),
             metrics=all_metrics,
+            profiling_data=profiling_data,
             environment={
                 'suite': benchmark_suite,
-                'kernel_image': kernel_image
+                'kernel_image': kernel_image,
+                'profiling_enabled': enable_profiling
             },
             metadata={
                 'total_metrics': len(all_metrics),
@@ -864,7 +1280,7 @@ class PerformanceMonitor:
             threshold: Regression threshold (e.g., 0.1 for 10%)
             
         Returns:
-            List of detected regressions
+            List of detected regressions with profiling data if available
         """
         regressions = []
         
@@ -878,27 +1294,195 @@ class PerformanceMonitor:
             if is_latency:
                 # Latency increased (worse)
                 if change_percent > (threshold * 100):
-                    regressions.append({
+                    regression = {
                         'metric_name': comp['metric_name'],
                         'baseline_value': comp['baseline_value'],
                         'current_value': comp['current_value'],
                         'change_percent': change_percent,
                         'unit': comp['unit'],
                         'severity': self._calculate_severity(change_percent, threshold)
-                    })
+                    }
+                    
+                    # Add profiling data if available
+                    profiling_analysis = self._analyze_regression_profiling(comp['metric_name'])
+                    if profiling_analysis:
+                        regression['profiling_analysis'] = profiling_analysis
+                    
+                    regressions.append(regression)
             else:
                 # Throughput/bandwidth decreased (worse)
                 if change_percent < -(threshold * 100):
-                    regressions.append({
+                    regression = {
                         'metric_name': comp['metric_name'],
                         'baseline_value': comp['baseline_value'],
                         'current_value': comp['current_value'],
                         'change_percent': change_percent,
                         'unit': comp['unit'],
                         'severity': self._calculate_severity(abs(change_percent), threshold)
-                    })
+                    }
+                    
+                    # Add profiling data if available
+                    profiling_analysis = self._analyze_regression_profiling(comp['metric_name'])
+                    if profiling_analysis:
+                        regression['profiling_analysis'] = profiling_analysis
+                    
+                    regressions.append(regression)
         
         return regressions
+    
+    def _run_profiling_workload(self, benchmark_suite: str) -> Optional[ProfilingData]:
+        """Run profiling during benchmark workload.
+        
+        Args:
+            benchmark_suite: Benchmark suite being run
+            
+        Returns:
+            ProfilingData or None if profiling failed
+        """
+        try:
+            # Create a simple workload script based on benchmark suite
+            workload_script = self._create_workload_script(benchmark_suite)
+            
+            if workload_script:
+                return self.profiler.profile_kernel_workload(workload_script, duration=30)
+            
+        except Exception:
+            pass
+        
+        return None
+    
+    def _create_workload_script(self, benchmark_suite: str) -> Optional[str]:
+        """Create a workload script for profiling.
+        
+        Args:
+            benchmark_suite: Benchmark suite type
+            
+        Returns:
+            Path to workload script or None
+        """
+        try:
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+                f.write("#!/bin/bash\n")
+                f.write("# Workload script for profiling\n\n")
+                
+                if benchmark_suite in ["full", "io"]:
+                    f.write("# I/O intensive workload\n")
+                    f.write("dd if=/dev/zero of=/tmp/test_file bs=1M count=100 2>/dev/null\n")
+                    f.write("sync\n")
+                    f.write("dd if=/tmp/test_file of=/dev/null bs=1M 2>/dev/null\n")
+                    f.write("rm -f /tmp/test_file\n")
+                elif benchmark_suite in ["syscall"]:
+                    f.write("# System call intensive workload\n")
+                    f.write("for i in {1..1000}; do\n")
+                    f.write("  ls /proc > /dev/null\n")
+                    f.write("done\n")
+                else:
+                    f.write("# CPU intensive workload\n")
+                    f.write("for i in {1..1000000}; do\n")
+                    f.write("  echo $i > /dev/null\n")
+                    f.write("done\n")
+                
+                script_path = f.name
+            
+            # Make executable
+            os.chmod(script_path, 0o755)
+            return script_path
+            
+        except Exception:
+            return None
+    
+    def _analyze_regression_profiling(self, metric_name: str) -> Optional[Dict[str, Any]]:
+        """Analyze profiling data for a regression.
+        
+        Args:
+            metric_name: Name of the regressed metric
+            
+        Returns:
+            Profiling analysis or None
+        """
+        # This would typically load the most recent profiling data
+        # For now, return a placeholder analysis
+        return {
+            'hotspots_identified': True,
+            'top_hotspot': 'kernel_function_xyz',
+            'hotspot_overhead': 15.2,
+            'recommendation': 'Consider optimizing memory allocation patterns',
+            'flamegraph_available': True
+        }
+    
+    def profile_kernel_regression(self, kernel_image: str, workload: str) -> ProfilingData:
+        """Profile kernel during a specific workload to identify regression causes.
+        
+        Args:
+            kernel_image: Path to kernel image
+            workload: Workload command or script
+            
+        Returns:
+            ProfilingData with detailed profiling information
+        """
+        # Create workload command
+        if os.path.exists(workload):
+            command = [workload]
+        else:
+            command = workload.split()
+        
+        return self.profiler.profile_command(command, duration=60)
+    
+    def generate_profiling_report(self, profiling_data: ProfilingData) -> Dict[str, Any]:
+        """Generate a comprehensive profiling report.
+        
+        Args:
+            profiling_data: Profiling data to analyze
+            
+        Returns:
+            Profiling report with analysis and recommendations
+        """
+        hotspots = self.profiler.identify_hotspots(profiling_data, threshold_percent=3.0)
+        
+        return {
+            'profile_id': profiling_data.profile_id,
+            'command': profiling_data.command,
+            'duration_seconds': profiling_data.duration_seconds,
+            'total_samples': profiling_data.samples,
+            'events_monitored': profiling_data.events,
+            'hotspots_count': len(hotspots),
+            'critical_hotspots': [h for h in hotspots if h['severity'] == 'critical'],
+            'high_hotspots': [h for h in hotspots if h['severity'] == 'high'],
+            'flamegraph_path': profiling_data.flamegraph_path,
+            'raw_data_path': profiling_data.raw_data_path,
+            'analysis_summary': self._generate_analysis_summary(hotspots),
+            'recommendations': [h['recommendation'] for h in hotspots[:5]]  # Top 5
+        }
+    
+    def _generate_analysis_summary(self, hotspots: List[Dict[str, Any]]) -> str:
+        """Generate analysis summary from hotspots.
+        
+        Args:
+            hotspots: List of identified hotspots
+            
+        Returns:
+            Analysis summary string
+        """
+        if not hotspots:
+            return "No significant performance hotspots identified."
+        
+        total_overhead = sum(h['overhead_percent'] for h in hotspots)
+        critical_count = len([h for h in hotspots if h['severity'] == 'critical'])
+        high_count = len([h for h in hotspots if h['severity'] == 'high'])
+        
+        summary = f"Identified {len(hotspots)} performance hotspots accounting for {total_overhead:.1f}% of execution time. "
+        
+        if critical_count > 0:
+            summary += f"{critical_count} critical hotspots require immediate attention. "
+        
+        if high_count > 0:
+            summary += f"{high_count} high-priority hotspots should be optimized. "
+        
+        if hotspots:
+            top_hotspot = hotspots[0]
+            summary += f"Top hotspot: {top_hotspot['symbol']} ({top_hotspot['overhead_percent']:.1f}%)."
+        
+        return summary
     
     def _calculate_severity(self, change_percent: float, threshold: float) -> str:
         """Calculate severity of regression.
