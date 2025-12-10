@@ -425,14 +425,14 @@
   - **Property 37: Baseline comparison execution**
   - **Validates: Requirements 8.2**
 
-- [ ] 35. Implement performance regression detection
+- [x] 35. Implement performance regression detection
   - Create threshold-based regression detector
   - Build statistical significance testing
   - Implement commit range identification via bisection
   - Add regression severity classification
   - _Requirements: 8.3_
 
-- [ ] 35.1 Write property test for regression detection and attribution
+- [x] 35.1 Write property test for regression detection and attribution
   - **Property 38: Regression detection and attribution**
   - **Validates: Requirements 8.3**
 
