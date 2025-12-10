@@ -102,15 +102,18 @@ class BenchmarkResults:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'BenchmarkResults':
         """Create from dictionary."""
-        timestamp = datetime.fromisoformat(data.pop('timestamp'))
-        metrics_data = data.pop('metrics', [])
+        data_copy = data.copy()  # Don't modify original data
+        timestamp = datetime.fromisoformat(data_copy.pop('timestamp'))
+        metrics_data = data_copy.pop('metrics', [])
         metrics = [BenchmarkMetric.from_dict(m) for m in metrics_data]
         
         profiling_data = None
-        if 'profiling_data' in data and data['profiling_data']:
-            profiling_data = ProfilingData.from_dict(data.pop('profiling_data'))
+        if 'profiling_data' in data_copy and data_copy['profiling_data']:
+            profiling_data = ProfilingData.from_dict(data_copy.pop('profiling_data'))
+        else:
+            data_copy.pop('profiling_data', None)  # Remove if present but None
         
-        return cls(**data, timestamp=timestamp, metrics=metrics, profiling_data=profiling_data)
+        return cls(**data_copy, timestamp=timestamp, metrics=metrics, profiling_data=profiling_data)
     
     def get_metric(self, name: str) -> Optional[BenchmarkMetric]:
         """Get a specific metric by name."""
