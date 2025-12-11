@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "agentic-kernel-testing"
-version = "0.1.0"
-description = "Agentic AI Testing System for Linux Kernel and BSP"
+version = "1.0.0"
+description = "Agentic AI Testing System for Linux Kernel and BSP - Production Ready"
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
 packages = [
