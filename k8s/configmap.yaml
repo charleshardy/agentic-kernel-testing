@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentic-config
+  namespace: agentic-testing
+data:
+  # Database Configuration
+  DATABASE__TYPE: "postgresql"
+  DATABASE__HOST: "postgres-service"
+  DATABASE__PORT: "5432"
+  DATABASE__NAME: "agentic_testing"
+  DATABASE__USER: "postgres"
+  
+  # API Configuration
+  API__HOST: "0.0.0.0"
+  API__PORT: "8000"
+  API__DEBUG: "false"
+  
+  # LLM Configuration
+  LLM__PROVIDER: "openai"
+  LLM__MODEL: "gpt-4"
+  LLM__TEMPERATURE: "0.7"
+  LLM__MAX_TOKENS: "2000"
+  
+  # Execution Configuration
+  EXECUTION__MAX_PARALLEL_TESTS: "10"
+  EXECUTION__TEST_TIMEOUT: "300"
+  EXECUTION__VIRTUAL_ENV_ENABLED: "true"
+  EXECUTION__PHYSICAL_HW_ENABLED: "false"
+  
+  # Coverage Configuration
+  COVERAGE__ENABLED: "true"
+  COVERAGE__MIN_LINE_COVERAGE: "0.7"
+  COVERAGE__MIN_BRANCH_COVERAGE: "0.6"
+  
+  # Security Configuration
+  SECURITY__FUZZING_ENABLED: "true"
+  SECURITY__STATIC_ANALYSIS_ENABLED: "true"
+  SECURITY__MAX_FUZZ_TIME: "3600"
+  
+  # Performance Configuration
+  PERFORMANCE__ENABLED: "true"
+  PERFORMANCE__REGRESSION_THRESHOLD: "0.1"
+  PERFORMANCE__BENCHMARK_ITERATIONS: "5"
+  
+  # Notification Configuration
+  NOTIFICATION__ENABLED: "true"
+  NOTIFICATION__EMAIL_ENABLED: "false"
+  NOTIFICATION__SLACK_ENABLED: "false"

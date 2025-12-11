@@ -1,0 +1,41 @@
+{
+  "smtp": {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "use_tls": true,
+    "username": "",
+    "password": "",
+    "from_email": "kernel-monitor@windriver.com"
+  },
+  "monitoring": {
+    "default_recipient": "le.liu@windriver.com",
+    "check_interval_hours": 24,
+    "analysis_days": 7,
+    "minimum_significance_score": 15
+  },
+  "keywords": {
+    "major_features": [
+      "new driver",
+      "new filesystem", 
+      "new architecture",
+      "major rewrite",
+      "significant improvement",
+      "performance boost",
+      "security enhancement",
+      "vulnerability fix",
+      "CVE",
+      "new subsystem",
+      "API change",
+      "ABI change"
+    ],
+    "security_indicators": [
+      "cve",
+      "security",
+      "vulnerability", 
+      "exploit",
+      "mitigation",
+      "hardening",
+      "lockdown"
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agentic-testing
+  labels:
+    name: agentic-testing
+    app: agentic-ai-testing-system

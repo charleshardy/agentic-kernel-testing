@@ -1,0 +1,47 @@
+{
+  "tests": [
+    {
+      "name": "Example Unit Test",
+      "description": "Example unit test for memory management",
+      "test_type": "unit",
+      "target_subsystem": "mm",
+      "execution_time_estimate": 300,
+      "priority": 5,
+      "code_paths": [
+        "mm/page_alloc.c:alloc_pages",
+        "mm/slab.c:kmalloc"
+      ],
+      "required_hardware": {
+        "architecture": "x86_64",
+        "cpu_model": "generic",
+        "memory_mb": 2048,
+        "storage_type": "ssd",
+        "peripherals": [],
+        "is_virtual": true
+      },
+      "metadata": {
+        "author": "test-author",
+        "category": "memory",
+        "tags": [
+          "unit",
+          "mm",
+          "allocation"
+        ]
+      },
+      "test_script": "#!/bin/bash\n# Test script content here\necho 'Running memory allocation test'\n# Add your test commands\nexit 0"
+    },
+    {
+      "name": "Example Integration Test",
+      "description": "Example integration test for network stack",
+      "test_type": "integration",
+      "target_subsystem": "net",
+      "execution_time_estimate": 600,
+      "priority": 3,
+      "script_file": "./scripts/network_test.sh",
+      "metadata": {
+        "author": "test-author",
+        "category": "networking"
+      }
+    }
+  ]
+}
