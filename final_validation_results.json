@@ -1,0 +1,141 @@
+{
+  "timestamp": 1765438693.7528815,
+  "overall_success": false,
+  "validation_results": [
+    {
+      "name": "Core imports",
+      "passed": true,
+      "error": null,
+      "duration": 0.09693121910095215,
+      "details": {}
+    },
+    {
+      "name": "AI test generation",
+      "passed": false,
+      "error": "openai package not installed. Install with: pip install openai",
+      "duration": 0.000492095947265625,
+      "details": {}
+    },
+    {
+      "name": "Multi-hardware testing",
+      "passed": true,
+      "error": null,
+      "duration": 8.797645568847656e-05,
+      "details": {
+        "total_environments": 3,
+        "architectures": [
+          "arm64",
+          "x86_64"
+        ],
+        "virtual_environments": 2,
+        "physical_environments": 1
+      }
+    },
+    {
+      "name": "Fault injection and stress testing",
+      "passed": false,
+      "error": "cannot import name 'ConcurrencyTestingSystem' from 'execution.concurrency_testing' (/home/wruser/opensource/aats4lk/execution/concurrency_testing.py)",
+      "duration": 0.0014812946319580078,
+      "details": {}
+    },
+    {
+      "name": "Root cause analysis",
+      "passed": false,
+      "error": "FailureInfo.__init__() got an unexpected keyword argument 'signal'",
+      "duration": 0.0014717578887939453,
+      "details": {}
+    },
+    {
+      "name": "CI/CD integration",
+      "passed": true,
+      "error": null,
+      "duration": 0.0022192001342773438,
+      "details": {
+        "vcs_integration_available": true,
+        "build_integration_available": true,
+        "notification_service_available": true,
+        "priority_levels": 4
+      }
+    },
+    {
+      "name": "Coverage analysis",
+      "passed": false,
+      "error": "openai package not installed. Install with: pip install openai",
+      "duration": 0.0030281543731689453,
+      "details": {}
+    },
+    {
+      "name": "Security testing",
+      "passed": false,
+      "error": "cannot import name 'KernelFuzzingSystem' from 'execution.kernel_fuzzer' (/home/wruser/opensource/aats4lk/execution/kernel_fuzzer.py)",
+      "duration": 0.0015482902526855469,
+      "details": {}
+    },
+    {
+      "name": "Performance monitoring",
+      "passed": false,
+      "error": "PerformanceMonitor missing run_benchmark_suite method",
+      "duration": 0.005587339401245117,
+      "details": {}
+    },
+    {
+      "name": "Configuration testing",
+      "passed": false,
+      "error": "cannot import name 'KernelConfigurationTester' from 'execution.kernel_config_testing' (/home/wruser/opensource/aats4lk/execution/kernel_config_testing.py)",
+      "duration": 0.0015590190887451172,
+      "details": {}
+    },
+    {
+      "name": "Resource management",
+      "passed": false,
+      "error": "ResourceManager missing get_available_resources method",
+      "duration": 0.001184225082397461,
+      "details": {}
+    },
+    {
+      "name": "Property-based tests",
+      "passed": true,
+      "error": null,
+      "duration": 7.991340160369873,
+      "details": {
+        "property_tests_run": 5,
+        "property_tests_passed": 4,
+        "pass_rate": 0.8
+      }
+    },
+    {
+      "name": "Integration tests",
+      "passed": false,
+      "error": null,
+      "duration": 17.52705669403076,
+      "details": {
+        "return_code": 1,
+        "output_summary": "E   assert <TestStatus.ERROR: 'error'> in [<TestStatus.PASSED: 'passed'>, <TestStatus.FAILED: 'failed'>]"
+      }
+    }
+  ],
+  "requirements_validated": [
+    "5.1",
+    "5.2",
+    "5.4",
+    "2.3",
+    "5.5",
+    "5.3",
+    "2.2",
+    "2.4",
+    "2.1",
+    "2.5"
+  ],
+  "properties_validated": [
+    "24",
+    "10",
+    "6",
+    "8",
+    "21",
+    "22",
+    "9",
+    "7",
+    "23",
+    "25"
+  ]
+}
