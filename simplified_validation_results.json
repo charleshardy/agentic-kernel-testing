@@ -1,0 +1,154 @@
+{
+  "timestamp": 1765438818.7292714,
+  "overall_success": false,
+  "validation_results": [
+    {
+      "name": "Core system imports",
+      "passed": true,
+      "error": null,
+      "duration": 0.08889341354370117,
+      "details": {
+        "core_models_imported": true,
+        "ai_components_imported": true,
+        "execution_components_imported": true,
+        "analysis_components_imported": true,
+        "integration_components_imported": true
+      }
+    },
+    {
+      "name": "Data models",
+      "passed": true,
+      "error": null,
+      "duration": 0.000164031982421875,
+      "details": {
+        "test_case_created": true,
+        "hardware_config_created": true,
+        "environment_created": true,
+        "test_result_created": true,
+        "serialization_works": true,
+        "deserialization_works": true
+      }
+    },
+    {
+      "name": "Test generation basic",
+      "passed": false,
+      "error": "openai package not installed. Install with: pip install openai",
+      "duration": 0.00039649009704589844,
+      "details": {}
+    },
+    {
+      "name": "Orchestrator basic",
+      "passed": true,
+      "error": null,
+      "duration": 0.00031638145446777344,
+      "details": {
+        "orchestrator_created": true,
+        "environment_added": true,
+        "job_submitted": true,
+        "queue_status_available": true,
+        "pending_jobs": 0,
+        "running_jobs": 1
+      }
+    },
+    {
+      "name": "Coverage analysis basic",
+      "passed": false,
+      "error": "CoverageAnalyzer missing analyze_coverage method",
+      "duration": 3.7670135498046875e-05,
+      "details": {}
+    },
+    {
+      "name": "Fault systems basic",
+      "passed": true,
+      "error": null,
+      "duration": 0.00041604042053222656,
+      "details": {
+        "fault_injection_system_created": true,
+        "fault_detection_system_created": true,
+        "fault_types_available": 3,
+        "fault_types": [
+          "memory_allocation_failure",
+          "io_error",
+          "timing_variation"
+        ]
+      }
+    },
+    {
+      "name": "Integration components",
+      "passed": true,
+      "error": null,
+      "duration": 0.0023391246795654297,
+      "details": {
+        "vcs_integration_created": true,
+        "notification_service_created": true,
+        "build_integration_created": true
+      }
+    },
+    {
+      "name": "Unit tests sample",
+      "passed": true,
+      "error": null,
+      "duration": 0.6929943561553955,
+      "details": {
+        "unit_tests_run": 3,
+        "unit_tests_passed": 3,
+        "pass_rate": 1.0
+      }
+    },
+    {
+      "name": "Property tests sample",
+      "passed": false,
+      "error": null,
+      "duration": 5.169713497161865,
+      "details": {
+        "property_tests_run": 3,
+        "property_tests_passed": 1,
+        "pass_rate": 0.3333333333333333
+      }
+    },
+    {
+      "name": "System completeness",
+      "passed": true,
+      "error": null,
+      "duration": 8.20159912109375e-05,
+      "details": {
+        "total_directories": 9,
+        "missing_directories": 0,
+        "total_files": 4,
+        "missing_files": 0,
+        "directory_completeness": 1.0,
+        "file_completeness": 1.0
+      }
+    }
+  ],
+  "requirements_validated": [
+    "4.1",
+    "2.1",
+    "10.3",
+    "5.2",
+    "3.1",
+    "1.1",
+    "10.1",
+    "5.3",
+    "5.4",
+    "3.2",
+    "5.5",
+    "5.1"
+  ],
+  "properties_validated": [
+    "7",
+    "1",
+    "16",
+    "46",
+    "48",
+    "21",
+    "11",
+    "10",
+    "6",
+    "12",
+    "22",
+    "25",
+    "23",
+    "24"
+  ]
+}
