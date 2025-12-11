@@ -1,0 +1,43 @@
+tests:
+- code_paths:
+  - mm/page_alloc.c:alloc_pages
+  - mm/slab.c:kmalloc
+  description: Example unit test for memory management
+  execution_time_estimate: 300
+  metadata:
+    author: test-author
+    category: memory
+    tags:
+    - unit
+    - mm
+    - allocation
+  name: Example Unit Test
+  priority: 5
+  required_hardware:
+    architecture: x86_64
+    cpu_model: generic
+    is_virtual: true
+    memory_mb: 2048
+    peripherals: []
+    storage_type: ssd
+  target_subsystem: mm
+  test_script: '#!/bin/bash
+
+    # Test script content here
+
+    echo ''Running memory allocation test''
+
+    # Add your test commands
+
+    exit 0'
+  test_type: unit
+- description: Example integration test for network stack
+  execution_time_estimate: 600
+  metadata:
+    author: test-author
+    category: networking
+  name: Example Integration Test
+  priority: 3
+  script_file: ./scripts/network_test.sh
+  target_subsystem: net
+  test_type: integration

@@ -1,0 +1,65 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: agentic-ingress
+  namespace: agentic-testing
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - agentic-testing.example.com
+    - api.agentic-testing.example.com
+    secretName: agentic-tls
+  rules:
+  - host: agentic-testing.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dashboard-service
+            port:
+              number: 80
+  - host: api.agentic-testing.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8000
+      - path: /orchestrator
+        pathType: Prefix
+        backend:
+          service:
+            name: orchestrator-service
+            port:
+              number: 8001
+      - path: /execution
+        pathType: Prefix
+        backend:
+          service:
+            name: execution-service
+            port:
+              number: 8002
+      - path: /analysis
+        pathType: Prefix
+        backend:
+          service:
+            name: analysis-service
+            port:
+              number: 8003
+      - path: /ai-generator
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-generator-service
+            port:
+              number: 8004

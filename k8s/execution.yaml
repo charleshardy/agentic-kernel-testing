@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: execution
+  namespace: agentic-testing
+spec:
+  replicas: 3  # Multiple execution workers
+  selector:
+    matchLabels:
+      app: execution
+  template:
+    metadata:
+      labels:
+        app: execution
+    spec:
+      containers:
+      - name: execution
+        image: agentic-testing/execution:latest
+        ports:
+        - containerPort: 8002
+        envFrom:
+        - configMapRef:
+            name: agentic-config
+        - secretRef:
+            name: agentic-secrets
+        volumeMounts:
+        - name: artifacts-storage
+          mountPath: /app/artifacts
+        - name: logs-storage
+          mountPath: /app/logs
+        - name: environments-storage
+          mountPath: /app/environments
+        securityContext:
+          privileged: true  # Required for KVM/QEMU
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: artifacts-storage
+        persistentVolumeClaim:
+          claimName: artifacts-pvc
+      - name: logs-storage
+        persistentVolumeClaim:
+          claimName: logs-pvc
+      - name: environments-storage
+        persistentVolumeClaim:
+          claimName: environments-pvc
+      nodeSelector:
+        # Only schedule on nodes with virtualization support
+        node.kubernetes.io/instance-type: "compute-optimized"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: execution-service
+  namespace: agentic-testing
+spec:
+  selector:
+    app: execution
+  ports:
+  - port: 8002
+    targetPort: 8002
+  type: ClusterIP

@@ -1,0 +1,130 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: agentic-testing
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+      - name: api
+        image: agentic-testing/api:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: API__HOST
+          valueFrom:
+            configMapKeyRef:
+              name: agentic-config
+              key: API__HOST
+        - name: API__PORT
+          valueFrom:
+            configMapKeyRef:
+              name: agentic-config
+              key: API__PORT
+        - name: API__DEBUG
+          valueFrom:
+            configMapKeyRef:
+              name: agentic-config
+              key: API__DEBUG
+        - name: API__SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: agentic-secrets
+              key: API__SECRET_KEY
+        - name: DATABASE__TYPE
+          valueFrom:
+            configMapKeyRef:
+              name: agentic-config
+              key: DATABASE__TYPE
+        - name: DATABASE__HOST
+          valueFrom:
+            configMapKeyRef:
+              name: agentic-config
+              key: DATABASE__HOST
+        - name: DATABASE__PORT
+          valueFrom:
+            configMapKeyRef:
+              name: agentic-config
+              key: DATABASE__PORT
+        - name: DATABASE__NAME
+          valueFrom:
+            configMapKeyRef:
+              name: agentic-config
+              key: DATABASE__NAME
+        - name: DATABASE__USER
+          valueFrom:
+            configMapKeyRef:
+              name: agentic-config
+              key: DATABASE__USER
+        - name: DATABASE__PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: agentic-secrets
+              key: DATABASE__PASSWORD
+        - name: LLM__PROVIDER
+          valueFrom:
+            configMapKeyRef:
+              name: agentic-config
+              key: LLM__PROVIDER
+        - name: LLM__API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: agentic-secrets
+              key: LLM__API_KEY
+        - name: LLM__MODEL
+          valueFrom:
+            configMapKeyRef:
+              name: agentic-config
+              key: LLM__MODEL
+        volumeMounts:
+        - name: artifacts-storage
+          mountPath: /app/artifacts
+        - name: logs-storage
+          mountPath: /app/logs
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: artifacts-storage
+        persistentVolumeClaim:
+          claimName: artifacts-pvc
+      - name: logs-storage
+        persistentVolumeClaim:
+          claimName: logs-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: agentic-testing
+spec:
+  selector:
+    app: api
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: ClusterIP

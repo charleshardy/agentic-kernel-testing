@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # Core API Service
   api:
     build:
       context: .
@@ -10,8 +11,40 @@ services:
     environment:
       - API__HOST=0.0.0.0
       - API__PORT=8000
-      - API__DEBUG=false
+      - API__DEBUG=${DEBUG:-false}
       - API__SECRET_KEY=${API_SECRET_KEY:-your-secret-key-change-in-production}
+      - DATABASE__TYPE=postgresql
+      - DATABASE__HOST=db
+      - DATABASE__PORT=5432
+      - DATABASE__NAME=agentic_testing
+      - DATABASE__USER=postgres
+      - DATABASE__PASSWORD=${DB_PASSWORD:-postgres}
+      - LLM__PROVIDER=${LLM__PROVIDER:-openai}
+      - LLM__API_KEY=${LLM__API_KEY}
+      - LLM__MODEL=${LLM__MODEL:-gpt-4}
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./logs:/app/logs
+      - ./coverage_data:/app/coverage_data
+    restart: unless-stopped
+    networks:
+      - agentic-network
+
+  # AI Test Generator Service
+  ai-generator:
+    build:
+      context: .
+      dockerfile: ai_generator/Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - LLM__PROVIDER=${LLM__PROVIDER:-openai}
+      - LLM__API_KEY=${LLM__API_KEY}
+      - LLM__MODEL=${LLM__MODEL:-gpt-4}
+      - LLM__TEMPERATURE=${LLM__TEMPERATURE:-0.7}
       - DATABASE__TYPE=postgresql
       - DATABASE__HOST=db
       - DATABASE__PORT=5432
@@ -22,8 +55,93 @@ services:
       - db
       - redis
     volumes:
+      - ./generated_tests:/app/generated_tests
+      - ./test_templates:/app/test_templates
+    restart: unless-stopped
+    networks:
+      - agentic-network
+
+  # Test Orchestrator Service
+  orchestrator:
+    build:
+      context: .
+      dockerfile: orchestrator/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE__TYPE=postgresql
+      - DATABASE__HOST=db
+      - DATABASE__PORT=5432
+      - DATABASE__NAME=agentic_testing
+      - DATABASE__USER=postgres
+      - DATABASE__PASSWORD=${DB_PASSWORD:-postgres}
+      - EXECUTION__MAX_PARALLEL_TESTS=${EXECUTION__MAX_PARALLEL_TESTS:-10}
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - agentic-network
+
+  # Test Execution Service
+  execution:
+    build:
+      context: .
+      dockerfile: execution/Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - DATABASE__TYPE=postgresql
+      - DATABASE__HOST=db
+      - DATABASE__PORT=5432
+      - DATABASE__NAME=agentic_testing
+      - DATABASE__USER=postgres
+      - DATABASE__PASSWORD=${DB_PASSWORD:-postgres}
+      - EXECUTION__VIRTUAL_ENV_ENABLED=${EXECUTION__VIRTUAL_ENV_ENABLED:-true}
+      - EXECUTION__PHYSICAL_HW_ENABLED=${EXECUTION__PHYSICAL_HW_ENABLED:-false}
+      - EXECUTION__TEST_TIMEOUT=${EXECUTION__TEST_TIMEOUT:-300}
+    depends_on:
+      - db
+      - redis
+    volumes:
       - ./artifacts:/app/artifacts
       - ./logs:/app/logs
+      - ./environments:/app/environments
+      - /var/run/libvirt:/var/run/libvirt
+    privileged: true  # Required for KVM/QEMU
+    restart: unless-stopped
+    networks:
+      - agentic-network
+
+  # Analysis Service
+  analysis:
+    build:
+      context: .
+      dockerfile: analysis/Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - DATABASE__TYPE=postgresql
+      - DATABASE__HOST=db
+      - DATABASE__PORT=5432
+      - DATABASE__NAME=agentic_testing
+      - DATABASE__USER=postgres
+      - DATABASE__PASSWORD=${DB_PASSWORD:-postgres}
+      - COVERAGE__ENABLED=${COVERAGE__ENABLED:-true}
+      - PERFORMANCE__ENABLED=${PERFORMANCE__ENABLED:-true}
+      - SECURITY__FUZZING_ENABLED=${SECURITY__FUZZING_ENABLED:-true}
+      - LLM__PROVIDER=${LLM__PROVIDER:-openai}
+      - LLM__API_KEY=${LLM__API_KEY}
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./coverage_data:/app/coverage_data
+      - ./performance_data:/app/performance_data
+      - ./security_reports:/app/security_reports
+      - ./artifacts:/app/artifacts
     restart: unless-stopped
     networks:
       - agentic-network
@@ -54,17 +172,50 @@ services:
       - agentic-network
     command: redis-server --appendonly yes
 
+  # Web Dashboard
   dashboard:
     build:
       context: ./dashboard
       dockerfile: Dockerfile
     ports:
       - "3000:80"
+    environment:
+      - REACT_APP_API_URL=http://api:8000
+      - REACT_APP_ORCHESTRATOR_URL=http://orchestrator:8001
+      - REACT_APP_EXECUTION_URL=http://execution:8002
+      - REACT_APP_ANALYSIS_URL=http://analysis:8003
     depends_on:
       - api
+      - orchestrator
+      - execution
+      - analysis
     restart: unless-stopped
     networks:
       - agentic-network
+
+  # CLI Service (for interactive use)
+  cli:
+    build:
+      context: .
+      dockerfile: cli/Dockerfile
+    environment:
+      - API_URL=http://api:8000
+      - DATABASE__TYPE=postgresql
+      - DATABASE__HOST=db
+      - DATABASE__PORT=5432
+      - DATABASE__NAME=agentic_testing
+      - DATABASE__USER=postgres
+      - DATABASE__PASSWORD=${DB_PASSWORD:-postgres}
+    depends_on:
+      - api
+      - orchestrator
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./logs:/app/logs
+    networks:
+      - agentic-network
+    profiles:
+      - cli  # Only start when explicitly requested
 
   nginx:
     image: nginx:alpine
@@ -101,7 +252,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     ports:
-      - "3000:3000"
+      - "3001:3000"  # Changed port to avoid conflict with dashboard
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
     volumes:
@@ -113,6 +264,8 @@ services:
     restart: unless-stopped
     networks:
       - agentic-network
+    profiles:
+      - monitoring  # Only start when explicitly requested
 
 volumes:
   postgres_data:
