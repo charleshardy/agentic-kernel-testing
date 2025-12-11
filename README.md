@@ -118,22 +118,45 @@ Seamless integration with GitHub, GitLab, and Jenkins. Automatic test triggering
 
 ## Project Structure
 
+The project has been organized into a clean, professional structure:
+
+### Core Application
 ```
-├── ai_generator/       # AI-powered test generation (✅ Structure created)
-├── orchestrator/       # Test scheduling and resource management (✅ Structure created)
-├── execution/          # Test runners and environment managers (✅ Structure created)
-├── analysis/           # Coverage, performance, security analysis (✅ Structure created)
-├── integration/        # CI/CD hooks and VCS integration (✅ Structure created)
-├── api/               # REST API server
-├── dashboard/         # Web UI for monitoring
-├── cli/               # Command-line interface
-├── config/            # Configuration management (✅ Settings system implemented)
-├── tests/             # Unit, property-based, and integration tests (✅ Framework configured)
-├── docs/              # Comprehensive documentation (✅ Created)
-└── .kiro/
-    ├── specs/         # Feature specifications (✅ Complete)
-    └── steering/      # AI assistant guidance (✅ Complete)
+├── ai_generator/       # AI-powered test generation ✅
+├── orchestrator/       # Test scheduling and resource management ✅
+├── execution/          # Test runners and environment managers ✅
+├── analysis/           # Coverage, performance, security analysis ✅
+├── integration/        # CI/CD hooks and VCS integration ✅
+├── api/               # REST API server ✅
+├── dashboard/         # Web UI for monitoring ✅
+├── cli/               # Command-line interface ✅
+├── config/            # Configuration management ✅
+├── tests/             # Production test suite ✅
+└── docs/              # Complete documentation ✅
 ```
+
+### Development & Archive
+```
+├── dev-scripts/       # Organized development scripts
+│   ├── demos/        # Demo scripts showing capabilities
+│   ├── debug/        # Debug and diagnostic utilities
+│   ├── test-runners/ # Test execution scripts
+│   ├── verification/ # System verification scripts
+│   └── validation/   # Final validation scripts
+├── task-summaries/   # Implementation task documentation
+├── test-outputs/     # Historical test results and outputs
+└── archive/          # Legacy scripts and files
+```
+
+### Specifications & Deployment
+```
+├── .kiro/specs/      # System specifications ✅
+├── k8s/              # Kubernetes deployment manifests ✅
+├── scripts/          # Deployment and utility scripts ✅
+└── examples/         # Usage examples and demos ✅
+```
+
+See **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** for complete details.
 
 ## LLM Provider Support
 
