@@ -2,7 +2,7 @@
 name = "agentic-kernel-testing"
 version = "1.0.0"
 description = "Agentic AI Testing System for Linux Kernel and BSP - Production Ready"
-authors = ["Your Name <you@example.com>"]
+authors = ["Charles Liu <le.liu@windriver.com>"]
 readme = "README.md"
 packages = [
     { include = "ai_generator" },
@@ -67,12 +67,11 @@ markers = [
 
 [tool.hypothesis]
 max_examples = 100
-deadline = None
+# deadline = None
 
 [tool.black]
 line-length = 100
 target-version = ["py310"]
-include = '\.pyi?$'
 
 [tool.isort]
 profile = "black"
