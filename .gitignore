@@ -67,6 +67,9 @@ Thumbs.db
 *.core
 core.*
 
+# Poetry
+poetry.lock
+
 # MCP settings with secrets
 .kiro/settings/mcp.json
 
