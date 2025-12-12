@@ -167,6 +167,52 @@ class WebhookEvent(BaseModel):
     data: Dict[str, Any] = Field(..., description="Event-specific data")
 
 
+class CoverageReport(BaseModel):
+    """Model for coverage report."""
+    line_coverage: float = Field(..., ge=0.0, le=1.0, description="Line coverage percentage")
+    branch_coverage: float = Field(..., ge=0.0, le=1.0, description="Branch coverage percentage")
+    function_coverage: float = Field(..., ge=0.0, le=1.0, description="Function coverage percentage")
+    covered_lines: List[str] = Field(..., description="List of covered code lines")
+    uncovered_lines: List[str] = Field(..., description="List of uncovered code lines")
+    coverage_gaps: List[Dict[str, Any]] = Field(..., description="Identified coverage gaps")
+    report_url: Optional[str] = Field(None, description="URL to detailed coverage report")
+
+
+class FailureAnalysisResponse(BaseModel):
+    """Response model for failure analysis."""
+    failure_id: str = Field(..., description="Unique failure ID")
+    root_cause: str = Field(..., description="Identified root cause")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Analysis confidence")
+    suspicious_commits: List[Dict[str, Any]] = Field(..., description="Suspicious commits")
+    error_pattern: str = Field(..., description="Error pattern")
+    stack_trace: Optional[str] = Field(None, description="Stack trace")
+    suggested_fixes: List[Dict[str, Any]] = Field(..., description="Suggested fixes")
+    related_failures: List[str] = Field(..., description="Related failure IDs")
+    reproducibility: float = Field(..., ge=0.0, le=1.0, description="Reproducibility score")
+
+
+class HealthStatus(BaseModel):
+    """Model for system health status."""
+    status: str = Field(..., description="Overall system status")
+    version: str = Field(..., description="API version")
+    uptime: float = Field(..., description="System uptime in seconds")
+    components: Dict[str, Dict[str, Any]] = Field(..., description="Component health status")
+    metrics: Dict[str, Any] = Field(..., description="System metrics")
+    timestamp: datetime = Field(..., description="Health check timestamp")
+
+
+class SystemMetrics(BaseModel):
+    """Model for system metrics."""
+    active_tests: int = Field(..., description="Number of currently active tests")
+    queued_tests: int = Field(..., description="Number of queued tests")
+    available_environments: int = Field(..., description="Number of available environments")
+    total_environments: int = Field(..., description="Total number of environments")
+    cpu_usage: float = Field(..., ge=0.0, le=1.0, description="CPU usage percentage")
+    memory_usage: float = Field(..., ge=0.0, le=1.0, description="Memory usage percentage")
+    disk_usage: float = Field(..., ge=0.0, le=1.0, description="Disk usage percentage")
+    network_io: Dict[str, float] = Field(..., description="Network I/O statistics")
+
+
 class TestExecutionRequest(BaseModel):
     """Request model for test execution."""
     test_case_ids: List[str] = Field(..., min_length=1, description="List of test case IDs to execute")
