@@ -4,11 +4,28 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 from enum import Enum
 from pydantic import BaseModel, Field
-from ai_generator.models import TestType, TestStatus, TestCase, TestResult, CodeAnalysis
-from execution.hardware_config import HardwareConfig
-from analysis.coverage_models import CoverageData
-from analysis.performance_models import PerformanceMetric
-from analysis.security_models import SecurityVulnerability
+from ai_generator.models import (
+    TestType, TestStatus, TestCase, TestResult, CodeAnalysis,
+    CoverageData, HardwareConfig, RiskLevel, EnvironmentStatus
+)
+
+
+class APIResponse(BaseModel):
+    """Standard API response format."""
+    success: bool = Field(..., description="Whether the request was successful")
+    message: str = Field(..., description="Human-readable message")
+    data: Optional[Dict[str, Any]] = Field(None, description="Response data")
+    errors: Optional[List[str]] = Field(None, description="List of error messages")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Response timestamp")
+
+
+class ErrorResponse(BaseModel):
+    """Error response format."""
+    success: bool = Field(False, description="Always false for errors")
+    message: str = Field(..., description="Error message")
+    error_code: str = Field(..., description="Machine-readable error code")
+    details: Optional[Dict[str, Any]] = Field(None, description="Additional error details")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Error timestamp")
 
 
 class TestStatusEnum(str, Enum):
