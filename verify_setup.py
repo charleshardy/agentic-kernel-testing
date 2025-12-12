@@ -125,8 +125,8 @@ def check_core_dependencies() -> List[Tuple[str, bool, Optional[str]]]:
         'sqlalchemy',
         'requests',
         'aiohttp',
-        'gitpython',
-        'pyyaml'
+        'git',  # GitPython imports as 'git'
+        'yaml'  # PyYAML imports as 'yaml'
     ]
     
     results = []
