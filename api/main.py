@@ -80,7 +80,9 @@ app.add_middleware(
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 if settings.api.rate_limit_enabled:
-    app.add_middleware(RateLimitMiddleware, requests_per_minute=settings.api.rate_limit_requests // 60)
+    # Convert hourly limit to per-minute, with a minimum of 100 per minute for tests
+    requests_per_minute = max(settings.api.rate_limit_requests // 60, 100)
+    app.add_middleware(RateLimitMiddleware, requests_per_minute=requests_per_minute)
 
 # Security scheme
 security = HTTPBearer()

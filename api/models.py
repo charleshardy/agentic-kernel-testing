@@ -226,7 +226,7 @@ class TestExecutionRequest(BaseModel):
 class TestResultResponse(BaseModel):
     """Response model for test results."""
     id: str = Field(..., description="Test result ID")
-    test_case_id: str = Field(..., description="Test case ID")
+    test_id: str = Field(..., description="Test ID")
     status: TestStatusEnum = Field(..., description="Test execution status")
     start_time: datetime = Field(..., description="Test start time")
     end_time: Optional[datetime] = Field(None, description="Test end time")

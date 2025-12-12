@@ -27,65 +27,44 @@ def initialize_mock_results():
     """Initialize mock test results for demonstration."""
     # Mock test result 1 - Passed
     result_1 = {
+        "id": "result-001",
         "test_id": "test-001",
         "status": TestStatus.PASSED,
-        "execution_time": 125.5,
-        "environment": {
-            "id": "env-001",
-            "architecture": "x86_64",
-            "cpu_model": "Intel Xeon E5-2686 v4",
-            "memory_mb": 4096,
-            "is_virtual": True,
-            "emulator": "qemu"
-        },
-        "artifacts": {
-            "logs": ["/artifacts/test-001/kernel.log", "/artifacts/test-001/test.log"],
-            "core_dumps": [],
-            "traces": ["/artifacts/test-001/trace.txt"],
-            "screenshots": [],
-            "metadata": {"kernel_version": "6.1.0-rc1"}
-        },
-        "coverage_data": {
-            "line_coverage": 0.85,
-            "branch_coverage": 0.78,
-            "function_coverage": 0.92,
-            "covered_lines": ["file1.c:123", "file1.c:124", "file2.c:456"],
-            "uncovered_lines": ["file1.c:125", "file2.c:457"],
-            "report_url": "/coverage/test-001/report.html"
-        },
-        "failure_info": None,
-        "timestamp": datetime.utcnow() - timedelta(minutes=30)
+        "start_time": datetime.utcnow() - timedelta(minutes=32),
+        "end_time": datetime.utcnow() - timedelta(minutes=30),
+        "duration": 125.5,
+        "exit_code": 0,
+        "stdout": "Test completed successfully",
+        "stderr": "",
+        "artifacts": ["/artifacts/test-001/kernel.log", "/artifacts/test-001/test.log", "/artifacts/test-001/trace.txt"],
+        "environment_id": 1,
+        "hardware_config_id": 1,
+        "coverage_data_id": "coverage-001",
+        "performance_metrics": ["perf-001"],
+        "security_findings": [],
+        "failure_reason": None,
+        "created_at": datetime.utcnow() - timedelta(minutes=30)
     }
     
     # Mock test result 2 - Failed
     result_2 = {
+        "id": "result-002",
         "test_id": "test-002",
         "status": TestStatus.FAILED,
-        "execution_time": 45.2,
-        "environment": {
-            "id": "env-002",
-            "architecture": "arm64",
-            "cpu_model": "ARM Cortex-A72",
-            "memory_mb": 2048,
-            "is_virtual": False,
-            "emulator": None
-        },
-        "artifacts": {
-            "logs": ["/artifacts/test-002/kernel.log", "/artifacts/test-002/panic.log"],
-            "core_dumps": ["/artifacts/test-002/vmcore"],
-            "traces": [],
-            "screenshots": [],
-            "metadata": {"kernel_version": "6.1.0-rc1", "panic_reason": "null_pointer_dereference"}
-        },
-        "coverage_data": None,
-        "failure_info": {
-            "error_message": "Kernel panic: NULL pointer dereference in network driver",
-            "stack_trace": "Call Trace:\n[<ffffffff81234567>] e1000e_setup_rx_resources+0x45/0x120\n[<ffffffff81234890>] e1000e_open+0x123/0x200",
-            "exit_code": -1,
-            "kernel_panic": True,
-            "timeout_occurred": False
-        },
-        "timestamp": datetime.utcnow() - timedelta(minutes=20)
+        "start_time": datetime.utcnow() - timedelta(minutes=22),
+        "end_time": datetime.utcnow() - timedelta(minutes=20),
+        "duration": 45.2,
+        "exit_code": -1,
+        "stdout": "",
+        "stderr": "Kernel panic: NULL pointer dereference in network driver",
+        "artifacts": ["/artifacts/test-002/kernel.log", "/artifacts/test-002/panic.log", "/artifacts/test-002/vmcore"],
+        "environment_id": 2,
+        "hardware_config_id": 2,
+        "coverage_data_id": None,
+        "performance_metrics": [],
+        "security_findings": ["sec-001"],
+        "failure_reason": "Kernel panic: NULL pointer dereference in network driver",
+        "created_at": datetime.utcnow() - timedelta(minutes=20)
     }
     
     test_results["test-001"] = result_1
@@ -155,16 +134,7 @@ async def get_test_result(
     
     result_data = test_results[test_id]
     
-    test_result = TestResultResponse(
-        test_id=result_data["test_id"],
-        status=result_data["status"],
-        execution_time=result_data["execution_time"],
-        environment=result_data["environment"],
-        artifacts=result_data["artifacts"],
-        coverage_data=result_data["coverage_data"],
-        failure_info=result_data["failure_info"],
-        timestamp=result_data["timestamp"]
-    )
+    test_result = TestResultResponse(**result_data)
     
     return APIResponse(
         success=True,

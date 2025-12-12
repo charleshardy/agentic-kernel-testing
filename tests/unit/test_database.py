@@ -203,7 +203,10 @@ class TestMigrations:
         # Mock database manager and session
         mock_db_manager = Mock()
         mock_session = Mock()
-        mock_db_manager.session_scope.return_value.__enter__.return_value = mock_session
+        mock_context_manager = Mock()
+        mock_context_manager.__enter__.return_value = mock_session
+        mock_context_manager.__exit__.return_value = None
+        mock_db_manager.session_scope.return_value = mock_context_manager
         mock_get_db_manager.return_value = mock_db_manager
         
         # Mock migration records
@@ -228,7 +231,10 @@ class TestDatabaseService:
         # Mock database manager
         mock_db_manager = Mock()
         mock_session = Mock()
-        mock_db_manager.session_scope.return_value.__enter__.return_value = mock_session
+        mock_context_manager = Mock()
+        mock_context_manager.__enter__.return_value = mock_session
+        mock_context_manager.__exit__.return_value = None
+        mock_db_manager.session_scope.return_value = mock_context_manager
         mock_get_db_manager.return_value = mock_db_manager
         
         # Mock repositories

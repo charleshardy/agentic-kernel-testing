@@ -10,6 +10,7 @@ This module provides functionality for:
 import subprocess
 import time
 import uuid
+import telnetlib
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
@@ -18,7 +19,7 @@ from enum import Enum
 
 from ai_generator.models import (
     Environment, EnvironmentStatus, HardwareConfig,
-    ArtifactBundle, Credentials, TestCase, TestResult, TestStatus
+    ArtifactBundle, Credentials, TestCase, TestResult, TestStatus, FailureInfo
 )
 
 
@@ -622,7 +623,6 @@ class PhysicalHardwareLab:
         """
         try:
             # Use telnetlib for serial console connection
-            import telnetlib
             
             # Connect to serial console
             tn = telnetlib.Telnet(console_host, console_port, timeout=10)
@@ -693,8 +693,6 @@ class PhysicalHardwareLab:
             )
         
         try:
-            import telnetlib
-            
             # Try to connect to serial console
             tn = telnetlib.Telnet(
                 hw.serial_console_host,
@@ -1321,8 +1319,6 @@ class PhysicalHardwareLab:
             Bootloader console output
         """
         try:
-            import telnetlib
-            
             # Connect to serial console
             tn = telnetlib.Telnet(
                 hardware.serial_console_host,
