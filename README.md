@@ -12,6 +12,7 @@ An autonomous AI-powered testing platform that intelligently tests Linux kernels
 - **[Quick Start Guide](docs/QUICKSTART.md)** - Get up and running in minutes
 - **[Architecture Overview](docs/ARCHITECTURE.md)** - System design and technical architecture
 - **[Installation Guide](docs/INSTALLATION.md)** - Detailed installation instructions
+- **[Known Issues & Solutions](docs/KNOWN_ISSUES.md)** - Common issues and troubleshooting guide
 - **[Fault Detection Guide](docs/FAULT_DETECTION_GUIDE.md)** - Comprehensive fault detection and monitoring
 - **[Contributing Guidelines](docs/CONTRIBUTING.md)** - How to contribute to the project
 - **[Complete Overview](docs/CONFLUENCE_PAGE.md)** - Comprehensive project documentation
