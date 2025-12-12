@@ -3,7 +3,8 @@
 import os
 from pathlib import Path
 from typing import Optional, List
-from pydantic import BaseModel, Field, BaseSettings
+from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
