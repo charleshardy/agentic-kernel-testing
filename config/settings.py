@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
@@ -135,11 +135,12 @@ class Settings(BaseSettings):
     github_token: Optional[str] = Field(default=None, description="GitHub API token")
     gitlab_token: Optional[str] = Field(default=None, description="GitLab API token")
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        env_nested_delimiter = "__"
-        case_sensitive = False
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_nested_delimiter="__",
+        case_sensitive=False
+    )
 
 
 # Global settings instance
