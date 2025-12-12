@@ -49,37 +49,39 @@ def hardware_config_strategy(draw):
     )
 
 
-@st.composite
-def test_result_strategy(draw, hardware_config):
-    """Generate a random test result for a given hardware configuration."""
-    test_id = f"test_{draw(st.integers(min_value=1, max_value=10000))}"
-    status = draw(st.sampled_from([TestStatus.PASSED, TestStatus.FAILED, TestStatus.ERROR]))
-    execution_time = draw(st.floats(min_value=0.1, max_value=300.0))
-    
-    environment = Environment(
-        id=f"env_{draw(st.integers(min_value=1, max_value=1000))}",
-        config=hardware_config,
-        status=EnvironmentStatus.IDLE,
-        created_at=datetime.now(),
-        last_used=datetime.now()
-    )
-    
-    failure_info = None
-    if status in [TestStatus.FAILED, TestStatus.ERROR]:
-        failure_info = FailureInfo(
-            error_message=f"Test failed: {draw(st.text(min_size=10, max_size=50))}",
-            exit_code=draw(st.integers(min_value=1, max_value=255))
+def test_result_strategy(hardware_config):
+    @st.composite
+    def _strategy(draw):
+        """Generate a random test result for a given hardware configuration."""
+        test_id = f"test_{draw(st.integers(min_value=1, max_value=10000))}"
+        status = draw(st.sampled_from([TestStatus.PASSED, TestStatus.FAILED, TestStatus.ERROR]))
+        execution_time = draw(st.floats(min_value=0.1, max_value=300.0))
+        
+        environment = Environment(
+            id=f"env_{draw(st.integers(min_value=1, max_value=1000))}",
+            config=hardware_config,
+            status=EnvironmentStatus.IDLE,
+            created_at=datetime.now(),
+            last_used=datetime.now()
         )
-    
-    return TestResult(
-        test_id=test_id,
-        status=status,
-        execution_time=execution_time,
-        environment=environment,
-        artifacts=ArtifactBundle(),
-        failure_info=failure_info,
-        timestamp=datetime.now()
-    )
+        
+        failure_info = None
+        if status in [TestStatus.FAILED, TestStatus.ERROR]:
+            failure_info = FailureInfo(
+                error_message=f"Test failed: {draw(st.text(min_size=10, max_size=50))}",
+                exit_code=draw(st.integers(min_value=1, max_value=255))
+            )
+        
+        return TestResult(
+            test_id=test_id,
+            status=status,
+            execution_time=execution_time,
+            environment=environment,
+            artifacts=ArtifactBundle(),
+            failure_info=failure_info,
+            timestamp=datetime.now()
+        )
+    return _strategy()
 
 
 @st.composite
