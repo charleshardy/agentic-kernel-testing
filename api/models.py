@@ -112,9 +112,28 @@ class TestCaseResponse(BaseModel):
     updated_at: datetime = Field(..., description="Last update timestamp")
 
 
+class TestSubmissionRequest(BaseModel):
+    """Request model for test submission."""
+    test_cases: List[TestCaseRequest] = Field(..., min_length=1, description="List of test cases to submit")
+    priority: int = Field(0, ge=0, le=10, description="Overall submission priority")
+    target_environments: Optional[List[str]] = Field(None, description="Specific environment IDs to target")
+    webhook_url: Optional[str] = Field(None, description="Webhook URL for status updates")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Submission metadata")
+
+
+class TestSubmissionResponse(BaseModel):
+    """Response model for test submission."""
+    submission_id: str = Field(..., description="Unique submission ID")
+    test_case_ids: List[str] = Field(..., description="List of created test case IDs")
+    execution_plan_id: str = Field(..., description="Execution plan ID")
+    estimated_completion_time: datetime = Field(..., description="Estimated completion time")
+    status: str = Field(..., description="Initial submission status")
+    webhook_url: Optional[str] = Field(None, description="Configured webhook URL")
+
+
 class TestExecutionRequest(BaseModel):
     """Request model for test execution."""
-    test_case_ids: List[str] = Field(..., min_items=1, description="List of test case IDs to execute")
+    test_case_ids: List[str] = Field(..., min_length=1, description="List of test case IDs to execute")
     hardware_config_id: Optional[int] = Field(None, description="Override hardware configuration")
     priority: int = Field(5, ge=1, le=10, description="Execution priority (1=highest, 10=lowest)")
     timeout: int = Field(300, ge=30, le=3600, description="Execution timeout in seconds")
@@ -215,7 +234,7 @@ class CodeAnalysisResponse(BaseModel):
 class TestGenerationRequest(BaseModel):
     """Request model for test generation."""
     analysis_id: str = Field(..., description="Code analysis ID")
-    test_types: List[TestTypeEnum] = Field(..., min_items=1, description="Types of tests to generate")
+    test_types: List[TestTypeEnum] = Field(..., min_length=1, description="Types of tests to generate")
     target_coverage: float = Field(0.8, ge=0.0, le=1.0, description="Target coverage percentage")
     max_tests: int = Field(50, ge=1, le=1000, description="Maximum number of tests to generate")
     priority_subsystems: List[str] = Field(default_factory=list, description="Priority subsystems")
