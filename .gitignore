@@ -81,6 +81,8 @@ docs/CONFLUENCE_PAGE.md
 run_*.py
 test_individual.py
 simple_*.py
-verify_*.py
 demo_*.py
 final_verification_*.py
+
+# Exclude the main setup verification script from the ignore pattern
+!verify_setup.py
