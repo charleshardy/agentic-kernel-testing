@@ -131,6 +131,42 @@ class TestSubmissionResponse(BaseModel):
     webhook_url: Optional[str] = Field(None, description="Configured webhook URL")
 
 
+class TestExecutionStatus(BaseModel):
+    """Model for test execution status."""
+    test_id: str = Field(..., description="Test case ID")
+    status: TestStatusEnum = Field(..., description="Current test status")
+    progress: float = Field(..., ge=0.0, le=1.0, description="Execution progress (0.0-1.0)")
+    environment_id: Optional[str] = Field(None, description="Assigned environment ID")
+    started_at: Optional[datetime] = Field(None, description="Execution start time")
+    estimated_completion: Optional[datetime] = Field(None, description="Estimated completion time")
+    message: str = Field("", description="Status message")
+
+
+class ExecutionPlanStatus(BaseModel):
+    """Model for execution plan status."""
+    plan_id: str = Field(..., description="Execution plan ID")
+    submission_id: str = Field(..., description="Original submission ID")
+    overall_status: str = Field(..., description="Overall plan status")
+    total_tests: int = Field(..., description="Total number of tests")
+    completed_tests: int = Field(..., description="Number of completed tests")
+    failed_tests: int = Field(..., description="Number of failed tests")
+    progress: float = Field(..., ge=0.0, le=1.0, description="Overall progress")
+    test_statuses: List[TestExecutionStatus] = Field(..., description="Individual test statuses")
+    started_at: Optional[datetime] = Field(None, description="Plan start time")
+    completed_at: Optional[datetime] = Field(None, description="Plan completion time")
+    estimated_completion: Optional[datetime] = Field(None, description="Estimated completion time")
+
+
+class WebhookEvent(BaseModel):
+    """Model for webhook events."""
+    event_type: str = Field(..., description="Type of event")
+    submission_id: str = Field(..., description="Submission ID")
+    test_id: Optional[str] = Field(None, description="Test ID (for test-specific events)")
+    status: str = Field(..., description="Current status")
+    timestamp: datetime = Field(..., description="Event timestamp")
+    data: Dict[str, Any] = Field(..., description="Event-specific data")
+
+
 class TestExecutionRequest(BaseModel):
     """Request model for test execution."""
     test_case_ids: List[str] = Field(..., min_length=1, description="List of test case IDs to execute")
