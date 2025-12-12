@@ -79,7 +79,7 @@ class TestCaseModel(Base):
     hardware_config_id = Column(Integer, ForeignKey("hardware_configs.id"), nullable=True)
     test_script = Column(Text, default="")
     expected_outcome = Column(JSON, nullable=True)
-    metadata = Column(JSON, default=dict)
+    test_metadata = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -102,7 +102,7 @@ class TestCaseModel(Base):
             'required_hardware': hardware.to_dict() if hardware else None,
             'test_script': self.test_script,
             'expected_outcome': self.expected_outcome,
-            'metadata': self.metadata or {}
+            'metadata': self.test_metadata or {}
         })
     
     @classmethod
@@ -119,7 +119,7 @@ class TestCaseModel(Base):
             hardware_config_id=hardware_config_id,
             test_script=test_case.test_script,
             expected_outcome=test_case.expected_outcome.to_dict() if test_case.expected_outcome else None,
-            metadata=test_case.metadata
+            test_metadata=test_case.metadata
         )
 
 
@@ -136,7 +136,7 @@ class EnvironmentModel(Base):
     ssh_credentials = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_used = Column(DateTime, default=datetime.utcnow)
-    metadata = Column(JSON, default=dict)
+    env_metadata = Column(JSON, default=dict)
     
     # Relationships
     hardware_config = relationship("HardwareConfigModel", back_populates="environments")
@@ -153,7 +153,7 @@ class EnvironmentModel(Base):
             'ssh_credentials': self.ssh_credentials,
             'created_at': self.created_at.isoformat(),
             'last_used': self.last_used.isoformat(),
-            'metadata': self.metadata or {}
+            'metadata': self.env_metadata or {}
         })
     
     @classmethod
@@ -168,7 +168,7 @@ class EnvironmentModel(Base):
             ssh_credentials=environment.ssh_credentials.to_dict() if environment.ssh_credentials else None,
             created_at=environment.created_at,
             last_used=environment.last_used,
-            metadata=environment.metadata
+            env_metadata=environment.metadata
         )
 
 
@@ -186,7 +186,7 @@ class CoverageDataModel(Base):
     uncovered_lines = Column(JSON, default=list)
     covered_branches = Column(JSON, default=list)
     uncovered_branches = Column(JSON, default=list)
-    metadata = Column(JSON, default=dict)
+    coverage_metadata = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -202,7 +202,7 @@ class CoverageDataModel(Base):
             'uncovered_lines': self.uncovered_lines or [],
             'covered_branches': self.covered_branches or [],
             'uncovered_branches': self.uncovered_branches or [],
-            'metadata': self.metadata or {}
+            'metadata': self.coverage_metadata or {}
         })
     
     @classmethod
@@ -217,7 +217,7 @@ class CoverageDataModel(Base):
             uncovered_lines=coverage.uncovered_lines,
             covered_branches=coverage.covered_branches,
             uncovered_branches=coverage.uncovered_branches,
-            metadata=coverage.metadata
+            coverage_metadata=coverage.metadata
         )
 
 
@@ -376,7 +376,7 @@ class PerformanceBaselineModel(Base):
     metric_name = Column(String(100), nullable=False)
     value = Column(Float, nullable=False)
     unit = Column(String(50), nullable=False)
-    metadata = Column(JSON, default=dict)
+    perf_metadata = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -404,7 +404,7 @@ class SecurityIssueModel(Base):
     location = Column(JSON, nullable=False)  # file, line, function
     proof_of_concept = Column(Text, nullable=True)
     remediation = Column(Text, nullable=True)
-    metadata = Column(JSON, default=dict)
+    vuln_metadata = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
