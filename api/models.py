@@ -97,6 +97,15 @@ class TestCaseRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(None, description="Test metadata")
 
 
+class GenerationInfo(BaseModel):
+    """Model for AI generation metadata."""
+    method: str = Field(..., description="Generation method: manual, ai_diff, ai_function")
+    source_data: Dict[str, Any] = Field(..., description="Source data used for generation")
+    generated_at: datetime = Field(..., description="Generation timestamp")
+    ai_model: Optional[str] = Field(None, description="AI model used for generation")
+    generation_params: Dict[str, Any] = Field(default_factory=dict, description="Generation parameters")
+
+
 class TestCaseResponse(BaseModel):
     """Response model for test cases."""
     id: str = Field(..., description="Test case ID")
@@ -111,6 +120,14 @@ class TestCaseResponse(BaseModel):
     test_script: str = Field(..., description="Test script content")
     expected_outcome: Optional[Dict[str, Any]] = Field(None, description="Expected test outcome")
     test_metadata: Dict[str, Any] = Field(..., description="Test metadata")
+    
+    # New fields for enhanced test case management
+    generation_info: Optional[GenerationInfo] = Field(None, description="AI generation metadata")
+    execution_status: str = Field("never_run", description="Current execution status")
+    last_execution_at: Optional[datetime] = Field(None, description="Last execution timestamp")
+    tags: List[str] = Field(default_factory=list, description="Test case tags")
+    is_favorite: bool = Field(False, description="Whether test is marked as favorite")
+    
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 
@@ -351,6 +368,24 @@ class ErrorResponse(BaseModel):
     details: Optional[Dict[str, Any]] = Field(None, description="Error details")
     timestamp: datetime = Field(..., description="Error timestamp")
     request_id: Optional[str] = Field(None, description="Request ID for tracking")
+
+
+class TestCaseFilters(BaseModel):
+    """Model for test case filtering parameters."""
+    test_type: Optional[str] = Field(None, description="Filter by test type")
+    subsystem: Optional[str] = Field(None, description="Filter by subsystem")
+    status: Optional[str] = Field(None, description="Filter by execution status")
+    generation_method: Optional[str] = Field(None, description="Filter by generation method")
+    date_range: Optional[List[str]] = Field(None, description="Filter by date range [start, end]")
+    tags: Optional[List[str]] = Field(None, description="Filter by tags")
+
+
+class TestListResponse(BaseModel):
+    """Response model for test case listing."""
+    tests: List[TestCaseResponse] = Field(..., description="List of test cases")
+    pagination: Dict[str, Any] = Field(..., description="Pagination information")
+    filters_applied: TestCaseFilters = Field(..., description="Applied filters")
+    total_count: int = Field(..., description="Total number of test cases")
 
 
 class PaginatedResponse(BaseModel):

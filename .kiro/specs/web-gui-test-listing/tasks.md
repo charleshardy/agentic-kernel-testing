@@ -1,24 +1,24 @@
 # Implementation Plan
 
-- [ ] 1. Enhance Backend API for Test Case Management
+- [x] 1. Enhance Backend API for Test Case Management
   - Improve the `/tests` endpoint to return enhanced test case data with generation metadata
   - Add filtering capabilities for test type, subsystem, generation method, and date ranges
   - Include execution status and last execution information in test case responses
   - _Requirements: 1.1, 1.2, 1.4, 4.1, 4.2, 4.3_
 
-- [ ] 1.1 Update test case data model with generation metadata
+- [x] 1.1 Update test case data model with generation metadata
   - Modify the test case storage to include generation_info field
   - Add execution_status tracking for individual test cases
   - Store AI generation parameters and source information
   - _Requirements: 4.1, 4.2, 4.3, 4.4_
 
-- [ ] 1.2 Enhance the GET /tests endpoint with advanced filtering
+- [x] 1.2 Enhance the GET /tests endpoint with advanced filtering
   - Add query parameters for test_type, subsystem, generation_method, date_range
   - Implement server-side filtering logic
   - Optimize pagination for large test case lists
   - _Requirements: 1.3, 1.4_
 
-- [ ] 1.3 Write property test for test listing consistency
+- [x] 1.3 Write property test for test listing consistency
   - **Property 1: Test List Consistency**
   - **Validates: Requirements 1.1, 2.1**
 

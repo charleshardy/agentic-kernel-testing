@@ -96,6 +96,14 @@ class TestCaseModel(Base):
     test_script = Column(Text, default="")
     expected_outcome = Column(JSON, nullable=True)
     test_metadata = Column(JSON, default=dict)
+    
+    # New fields for generation metadata and execution status
+    generation_info = Column(JSON, nullable=True)  # Stores AI generation metadata
+    execution_status = Column(String(50), default="never_run")  # never_run, running, completed, failed
+    last_execution_at = Column(DateTime, nullable=True)
+    tags = Column(JSON, default=list)  # For categorization and filtering
+    is_favorite = Column(Boolean, default=False)  # User favorites
+    
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -117,6 +125,11 @@ class TestCaseModel(Base):
             'test_script': self.test_script,
             'expected_outcome': self.expected_outcome,
             'metadata': self.test_metadata or {},
+            'generation_info': self.generation_info,
+            'execution_status': self.execution_status,
+            'last_execution_at': self.last_execution_at.isoformat() if self.last_execution_at else None,
+            'tags': self.tags or [],
+            'is_favorite': self.is_favorite,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }

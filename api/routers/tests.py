@@ -103,13 +103,31 @@ async def submit_tests(
                 metadata=test_req.metadata
             )
             
+            # Create generation metadata for manual submission
+            generation_info = {
+                "method": "manual",
+                "source_data": {
+                    "submitted_by": current_user["username"],
+                    "submission_type": "manual_api"
+                },
+                "generated_at": datetime.utcnow().isoformat(),
+                "ai_model": None,
+                "generation_params": {}
+            }
+            
             # Store test case
             submitted_tests[test_id] = {
                 "test_case": test_case,
                 "submission_id": submission_id,
                 "submitted_by": current_user["username"],
                 "submitted_at": datetime.utcnow(),
-                "priority": submission.priority
+                "priority": submission.priority,
+                "generation_info": generation_info,
+                "execution_status": "never_run",
+                "last_execution_at": None,
+                "tags": ["manual"],
+                "is_favorite": False,
+                "updated_at": datetime.utcnow()
             }
             
             test_case_ids.append(test_id)
@@ -158,25 +176,85 @@ async def submit_tests(
 async def list_tests(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    test_type: Optional[TestType] = Query(None, description="Filter by test type"),
+    test_type: Optional[str] = Query(None, description="Filter by test type"),
     subsystem: Optional[str] = Query(None, description="Filter by subsystem"),
-    status_filter: Optional[str] = Query(None, description="Filter by status"),
+    status_filter: Optional[str] = Query(None, description="Filter by execution status"),
+    generation_method: Optional[str] = Query(None, description="Filter by generation method"),
+    date_range_start: Optional[str] = Query(None, description="Filter by creation date start (ISO format)"),
+    date_range_end: Optional[str] = Query(None, description="Filter by creation date end (ISO format)"),
+    tags: Optional[str] = Query(None, description="Filter by tags (comma-separated)"),
+    search: Optional[str] = Query(None, description="Search in test name and description"),
+    sort_by: Optional[str] = Query("created_at", description="Sort by field"),
+    sort_order: Optional[str] = Query("desc", description="Sort order (asc/desc)"),
     current_user: Dict[str, Any] = Depends(require_permission("test:read"))
 ):
-    """List submitted test cases with pagination and filtering."""
+    """List submitted test cases with advanced filtering, pagination, and sorting."""
     try:
+        from datetime import datetime as dt
+        
+        # Parse date range filters
+        date_start = None
+        date_end = None
+        if date_range_start:
+            try:
+                date_start = dt.fromisoformat(date_range_start.replace('Z', '+00:00'))
+            except ValueError:
+                pass
+        if date_range_end:
+            try:
+                date_end = dt.fromisoformat(date_range_end.replace('Z', '+00:00'))
+            except ValueError:
+                pass
+        
+        # Parse tags filter
+        tag_filters = []
+        if tags:
+            tag_filters = [tag.strip() for tag in tags.split(',') if tag.strip()]
+        
         # Filter tests
         filtered_tests = []
         for test_id, test_data in submitted_tests.items():
             test_case = test_data["test_case"]
             
-            # Apply filters
-            if test_type and test_case.test_type != test_type:
+            # Apply type filter
+            if test_type and test_case.test_type.value != test_type:
                 continue
-            if subsystem and test_case.target_subsystem != subsystem:
+                
+            # Apply subsystem filter
+            if subsystem and test_case.target_subsystem.lower() != subsystem.lower():
                 continue
-            # Status filtering would require execution status lookup
+                
+            # Apply status filter
+            execution_status = test_data.get("execution_status", "never_run")
+            if status_filter and execution_status != status_filter:
+                continue
+                
+            # Apply generation method filter
+            generation_info = test_data.get("generation_info")
+            if generation_method:
+                if not generation_info or generation_info.get("method") != generation_method:
+                    continue
+                    
+            # Apply date range filter
+            created_at = test_data["submitted_at"]
+            if date_start and created_at < date_start:
+                continue
+            if date_end and created_at > date_end:
+                continue
+                
+            # Apply tags filter
+            test_tags = test_data.get("tags", [])
+            if tag_filters and not any(tag in test_tags for tag in tag_filters):
+                continue
+                
+            # Apply search filter
+            if search:
+                search_lower = search.lower()
+                if (search_lower not in test_case.name.lower() and 
+                    search_lower not in test_case.description.lower()):
+                    continue
             
+            # Create enhanced test response
             test_response = TestCaseResponse(
                 id=test_case.id,
                 name=test_case.name,
@@ -185,15 +263,36 @@ async def list_tests(
                 target_subsystem=test_case.target_subsystem,
                 code_paths=test_case.code_paths,
                 execution_time_estimate=test_case.execution_time_estimate,
+                hardware_config_id=None,
                 required_hardware=test_case.required_hardware.to_dict() if test_case.required_hardware else None,
                 test_script=test_case.test_script,
                 expected_outcome=test_case.expected_outcome.to_dict() if test_case.expected_outcome else None,
                 test_metadata=test_case.metadata or {},
+                generation_info=generation_info,
+                execution_status=execution_status,
+                last_execution_at=test_data.get("last_execution_at"),
+                tags=test_tags,
+                is_favorite=test_data.get("is_favorite", False),
                 created_at=test_data["submitted_at"],
-                updated_at=test_data["submitted_at"]
+                updated_at=test_data.get("updated_at", test_data["submitted_at"])
             )
             
-            filtered_tests.append(test_response.model_dump())
+            filtered_tests.append(test_response)
+        
+        # Sort tests
+        reverse_sort = sort_order.lower() == "desc"
+        if sort_by == "name":
+            filtered_tests.sort(key=lambda x: x.name.lower(), reverse=reverse_sort)
+        elif sort_by == "test_type":
+            filtered_tests.sort(key=lambda x: x.test_type.value, reverse=reverse_sort)
+        elif sort_by == "target_subsystem":
+            filtered_tests.sort(key=lambda x: x.target_subsystem.lower(), reverse=reverse_sort)
+        elif sort_by == "execution_status":
+            filtered_tests.sort(key=lambda x: x.execution_status, reverse=reverse_sort)
+        elif sort_by == "updated_at":
+            filtered_tests.sort(key=lambda x: x.updated_at, reverse=reverse_sort)
+        else:  # Default to created_at
+            filtered_tests.sort(key=lambda x: x.created_at, reverse=reverse_sort)
         
         # Pagination
         total_items = len(filtered_tests)
@@ -201,18 +300,37 @@ async def list_tests(
         end_idx = start_idx + page_size
         paginated_tests = filtered_tests[start_idx:end_idx]
         
+        # Convert to dict for response
+        paginated_tests_dict = [test.model_dump() for test in paginated_tests]
+        
+        # Build applied filters response
+        applied_filters = {
+            "test_type": test_type,
+            "subsystem": subsystem,
+            "status": status_filter,
+            "generation_method": generation_method,
+            "date_range": [date_range_start, date_range_end] if date_range_start or date_range_end else None,
+            "tags": tag_filters if tag_filters else None,
+            "search": search
+        }
+        
         return APIResponse(
             success=True,
-            message=f"Retrieved {len(paginated_tests)} test cases",
+            message=f"Retrieved {len(paginated_tests_dict)} test cases (filtered from {total_items} total)",
             data={
-                "tests": paginated_tests,
+                "tests": paginated_tests_dict,
                 "pagination": {
                     "page": page,
                     "page_size": page_size,
                     "total_items": total_items,
-                    "total_pages": (total_items + page_size - 1) // page_size,
+                    "total_pages": (total_items + page_size - 1) // page_size if total_items > 0 else 0,
                     "has_next": end_idx < total_items,
                     "has_prev": page > 1
+                },
+                "filters_applied": applied_filters,
+                "sort": {
+                    "sort_by": sort_by,
+                    "sort_order": sort_order
                 }
             }
         )
@@ -375,18 +493,42 @@ async def generate_tests_from_diff(
         # Convert to API format and store
         test_case_ids = []
         submission_id = str(uuid.uuid4())
+        generation_timestamp = datetime.utcnow()
         
         for test_case in generated_tests:
             test_id = test_case.id
             
-            # Store test case
+            # Create generation metadata
+            generation_info = {
+                "method": "ai_diff",
+                "source_data": {
+                    "diff_content": diff_content[:1000] + "..." if len(diff_content) > 1000 else diff_content,
+                    "diff_size": len(diff_content),
+                    "analysis_id": analysis.id if hasattr(analysis, 'id') else None
+                },
+                "generated_at": generation_timestamp.isoformat(),
+                "ai_model": "ai_test_generator",  # Could be made configurable
+                "generation_params": {
+                    "max_tests": max_tests,
+                    "test_types": test_types,
+                    "affected_subsystems": analysis.affected_subsystems if hasattr(analysis, 'affected_subsystems') else []
+                }
+            }
+            
+            # Store test case with enhanced metadata
             submitted_tests[test_id] = {
                 "test_case": test_case,
                 "submission_id": submission_id,
                 "submitted_by": current_user["username"],
-                "submitted_at": datetime.utcnow(),
+                "submitted_at": generation_timestamp,
                 "priority": 5,  # Default priority
-                "auto_generated": True
+                "auto_generated": True,
+                "generation_info": generation_info,
+                "execution_status": "never_run",
+                "last_execution_at": None,
+                "tags": ["ai_generated", "diff_based"] + (analysis.affected_subsystems if hasattr(analysis, 'affected_subsystems') else []),
+                "is_favorite": False,
+                "updated_at": generation_timestamp
             }
             
             test_case_ids.append(test_id)
@@ -471,18 +613,43 @@ async def generate_tests_from_function(
         # Convert to API format and store
         test_case_ids = []
         submission_id = str(uuid.uuid4())
+        generation_timestamp = datetime.utcnow()
         
         for test_case in generated_tests:
             test_id = test_case.id
             
-            # Store test case
+            # Create generation metadata
+            generation_info = {
+                "method": "ai_function",
+                "source_data": {
+                    "function_name": function_name,
+                    "file_path": file_path,
+                    "subsystem": subsystem,
+                    "function_signature": f"{function_name}(...)"  # Could be enhanced with actual signature
+                },
+                "generated_at": generation_timestamp.isoformat(),
+                "ai_model": "ai_test_generator",
+                "generation_params": {
+                    "max_tests": max_tests,
+                    "include_property_tests": include_property_tests,
+                    "target_function": function_name
+                }
+            }
+            
+            # Store test case with enhanced metadata
             submitted_tests[test_id] = {
                 "test_case": test_case,
                 "submission_id": submission_id,
                 "submitted_by": current_user["username"],
-                "submitted_at": datetime.utcnow(),
+                "submitted_at": generation_timestamp,
                 "priority": 5,
-                "auto_generated": True
+                "auto_generated": True,
+                "generation_info": generation_info,
+                "execution_status": "never_run",
+                "last_execution_at": None,
+                "tags": ["ai_generated", "function_based", subsystem],
+                "is_favorite": False,
+                "updated_at": generation_timestamp
             }
             
             test_case_ids.append(test_id)
