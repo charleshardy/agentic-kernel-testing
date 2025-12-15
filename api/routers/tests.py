@@ -309,6 +309,188 @@ async def analyze_code(
         )
 
 
+@router.post("/tests/generate-from-diff", response_model=APIResponse)
+async def generate_tests_from_diff(
+    diff_content: str,
+    max_tests: int = Query(20, ge=1, le=100, description="Maximum tests to generate"),
+    test_types: List[str] = Query(["unit"], description="Types of tests to generate"),
+    current_user: Dict[str, Any] = Depends(require_permission("test:submit"))
+):
+    """Auto-generate test cases from code diff using AI."""
+    try:
+        from ai_generator.test_generator import AITestGenerator
+        from ai_generator.models import TestType as AITestType
+        
+        # Initialize AI generator
+        generator = AITestGenerator()
+        
+        # Analyze the code changes
+        analysis = generator.analyze_code_changes(diff_content)
+        
+        # Generate test cases
+        generated_tests = generator.generate_test_cases(analysis)
+        
+        # Limit to requested number
+        generated_tests = generated_tests[:max_tests]
+        
+        # Convert to API format and store
+        test_case_ids = []
+        submission_id = str(uuid.uuid4())
+        
+        for test_case in generated_tests:
+            test_id = test_case.id
+            
+            # Store test case
+            submitted_tests[test_id] = {
+                "test_case": test_case,
+                "submission_id": submission_id,
+                "submitted_by": current_user["username"],
+                "submitted_at": datetime.utcnow(),
+                "priority": 5,  # Default priority
+                "auto_generated": True
+            }
+            
+            test_case_ids.append(test_id)
+        
+        # Create execution plan
+        plan_id = str(uuid.uuid4())
+        estimated_completion = datetime.utcnow() + timedelta(
+            minutes=sum(tc.execution_time_estimate for tc in generated_tests) // 60
+        )
+        
+        execution_plans[plan_id] = {
+            "submission_id": submission_id,
+            "test_case_ids": test_case_ids,
+            "priority": 5,
+            "target_environments": None,
+            "webhook_url": None,
+            "status": "queued",
+            "created_at": datetime.utcnow(),
+            "estimated_completion": estimated_completion,
+            "created_by": current_user["username"],
+            "auto_generated": True
+        }
+        
+        return APIResponse(
+            success=True,
+            message=f"Generated {len(generated_tests)} test cases from code diff",
+            data={
+                "submission_id": submission_id,
+                "execution_plan_id": plan_id,
+                "test_case_ids": test_case_ids,
+                "generated_count": len(generated_tests),
+                "analysis": {
+                    "affected_subsystems": analysis.affected_subsystems,
+                    "impact_score": analysis.impact_score,
+                    "risk_level": analysis.risk_level,
+                    "changed_files": analysis.changed_files
+                },
+                "estimated_completion": estimated_completion.isoformat()
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Test generation failed: {str(e)}"
+        )
+
+
+@router.post("/tests/generate-from-function", response_model=APIResponse)
+async def generate_tests_from_function(
+    function_name: str,
+    file_path: str,
+    subsystem: str = "unknown",
+    max_tests: int = Query(10, ge=1, le=50, description="Maximum tests to generate"),
+    include_property_tests: bool = Query(True, description="Include property-based tests"),
+    current_user: Dict[str, Any] = Depends(require_permission("test:submit"))
+):
+    """Auto-generate test cases for a specific function using AI."""
+    try:
+        from ai_generator.test_generator import AITestGenerator
+        from ai_generator.models import Function
+        
+        # Initialize AI generator
+        generator = AITestGenerator()
+        
+        # Create function object
+        function = Function(
+            name=function_name,
+            file_path=file_path,
+            line_number=1,  # Default
+            subsystem=subsystem
+        )
+        
+        # Generate regular test cases
+        generated_tests = generator._generate_function_tests(function, min_tests=max_tests)
+        
+        # Generate property tests if requested
+        if include_property_tests:
+            property_tests = generator.generate_property_tests([function])
+            generated_tests.extend(property_tests)
+        
+        # Convert to API format and store
+        test_case_ids = []
+        submission_id = str(uuid.uuid4())
+        
+        for test_case in generated_tests:
+            test_id = test_case.id
+            
+            # Store test case
+            submitted_tests[test_id] = {
+                "test_case": test_case,
+                "submission_id": submission_id,
+                "submitted_by": current_user["username"],
+                "submitted_at": datetime.utcnow(),
+                "priority": 5,
+                "auto_generated": True
+            }
+            
+            test_case_ids.append(test_id)
+        
+        # Create execution plan
+        plan_id = str(uuid.uuid4())
+        estimated_completion = datetime.utcnow() + timedelta(
+            minutes=sum(tc.execution_time_estimate for tc in generated_tests) // 60
+        )
+        
+        execution_plans[plan_id] = {
+            "submission_id": submission_id,
+            "test_case_ids": test_case_ids,
+            "priority": 5,
+            "target_environments": None,
+            "webhook_url": None,
+            "status": "queued",
+            "created_at": datetime.utcnow(),
+            "estimated_completion": estimated_completion,
+            "created_by": current_user["username"],
+            "auto_generated": True
+        }
+        
+        return APIResponse(
+            success=True,
+            message=f"Generated {len(generated_tests)} test cases for function {function_name}",
+            data={
+                "submission_id": submission_id,
+                "execution_plan_id": plan_id,
+                "test_case_ids": test_case_ids,
+                "generated_count": len(generated_tests),
+                "function": {
+                    "name": function_name,
+                    "file_path": file_path,
+                    "subsystem": subsystem
+                },
+                "estimated_completion": estimated_completion.isoformat()
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Test generation failed: {str(e)}"
+        )
+
+
 @router.get("/tests/analyses", response_model=APIResponse)
 async def list_code_analyses(
     page: int = Query(1, ge=1),

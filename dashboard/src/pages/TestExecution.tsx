@@ -24,6 +24,9 @@ import {
   ReloadOutlined,
   PlusOutlined,
   EyeOutlined,
+  RobotOutlined,
+  CodeOutlined,
+  FunctionOutlined,
 } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { useDashboardStore } from '../store'
@@ -37,7 +40,10 @@ interface TestExecutionProps {}
 const TestExecution: React.FC<TestExecutionProps> = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([])
   const [isSubmitModalVisible, setIsSubmitModalVisible] = useState(false)
+  const [isAutoGenModalVisible, setIsAutoGenModalVisible] = useState(false)
+  const [autoGenType, setAutoGenType] = useState<'diff' | 'function'>('diff')
   const [form] = Form.useForm()
+  const [autoGenForm] = Form.useForm()
   const queryClient = useQueryClient()
   const { activeExecutions } = useDashboardStore()
 
@@ -205,6 +211,39 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
     submitTestsMutation.mutate(testData)
   }
 
+  // Auto-generation mutations
+  const generateFromDiffMutation = useMutation(
+    (data: { diff: string; maxTests: number; testTypes: string[] }) =>
+      apiService.generateTestsFromDiff(data.diff, data.maxTests, data.testTypes),
+    {
+      onSuccess: (response) => {
+        message.success(`Generated ${response.data.generated_count} test cases from diff`)
+        queryClient.invalidateQueries('activeExecutions')
+        setIsAutoGenModalVisible(false)
+        form.resetFields()
+      },
+      onError: (error: any) => {
+        message.error(`Failed to generate tests: ${error.message}`)
+      },
+    }
+  )
+
+  const generateFromFunctionMutation = useMutation(
+    (data: { functionName: string; filePath: string; subsystem: string; maxTests: number }) =>
+      apiService.generateTestsFromFunction(data.functionName, data.filePath, data.subsystem, data.maxTests),
+    {
+      onSuccess: (response) => {
+        message.success(`Generated ${response.data.generated_count} test cases for function`)
+        queryClient.invalidateQueries('activeExecutions')
+        setIsAutoGenModalVisible(false)
+        autoGenForm.resetFields()
+      },
+      onError: (error: any) => {
+        message.error(`Failed to generate tests: ${error.message}`)
+      },
+    }
+  )
+
   const testTypes = [
     { label: 'Unit Test', value: 'unit' },
     { label: 'Integration Test', value: 'integration' },
@@ -238,10 +277,16 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
         <Space>
           <Button
             type="primary"
+            icon={<RobotOutlined />}
+            onClick={() => setIsAutoGenModalVisible(true)}
+          >
+            AI Generate Tests
+          </Button>
+          <Button
             icon={<PlusOutlined />}
             onClick={() => setIsSubmitModalVisible(true)}
           >
-            Submit Test
+            Manual Submit
           </Button>
           <Button
             icon={<ReloadOutlined />}
@@ -312,6 +357,170 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
           }}
         />
       </Card>
+
+      {/* AI Test Generation Modal */}
+      <Modal
+        title="AI Test Generation"
+        open={isAutoGenModalVisible}
+        onCancel={() => setIsAutoGenModalVisible(false)}
+        footer={null}
+        width={700}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <Space>
+            <Button
+              type={autoGenType === 'diff' ? 'primary' : 'default'}
+              icon={<CodeOutlined />}
+              onClick={() => setAutoGenType('diff')}
+            >
+              From Code Diff
+            </Button>
+            <Button
+              type={autoGenType === 'function' ? 'primary' : 'default'}
+              icon={<FunctionOutlined />}
+              onClick={() => setAutoGenType('function')}
+            >
+              From Function
+            </Button>
+          </Space>
+        </div>
+
+        {autoGenType === 'diff' ? (
+          <Form
+            form={autoGenForm}
+            layout="vertical"
+            onFinish={(values) => {
+              generateFromDiffMutation.mutate({
+                diff: values.diff,
+                maxTests: values.maxTests || 20,
+                testTypes: values.testTypes || ['unit']
+              })
+            }}
+          >
+            <Form.Item
+              name="diff"
+              label="Code Diff"
+              rules={[{ required: true, message: 'Please paste your git diff' }]}
+            >
+              <TextArea
+                rows={8}
+                placeholder="Paste your git diff here..."
+                style={{ fontFamily: 'monospace', fontSize: '12px' }}
+              />
+            </Form.Item>
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  name="maxTests"
+                  label="Max Tests to Generate"
+                  initialValue={20}
+                >
+                  <Input type="number" min={1} max={100} />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="testTypes"
+                  label="Test Types"
+                  initialValue={['unit']}
+                >
+                  <Select
+                    mode="multiple"
+                    placeholder="Select test types"
+                    options={testTypes}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+              <Space>
+                <Button onClick={() => setIsAutoGenModalVisible(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={generateFromDiffMutation.isLoading}
+                  icon={<RobotOutlined />}
+                >
+                  Generate Tests
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        ) : (
+          <Form
+            form={autoGenForm}
+            layout="vertical"
+            onFinish={(values) => {
+              generateFromFunctionMutation.mutate({
+                functionName: values.functionName,
+                filePath: values.filePath,
+                subsystem: values.subsystem || 'unknown',
+                maxTests: values.maxTests || 10
+              })
+            }}
+          >
+            <Form.Item
+              name="functionName"
+              label="Function Name"
+              rules={[{ required: true, message: 'Please enter function name' }]}
+            >
+              <Input placeholder="e.g., schedule_task" />
+            </Form.Item>
+
+            <Form.Item
+              name="filePath"
+              label="File Path"
+              rules={[{ required: true, message: 'Please enter file path' }]}
+            >
+              <Input placeholder="e.g., kernel/sched/core.c" />
+            </Form.Item>
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  name="subsystem"
+                  label="Subsystem"
+                  initialValue="unknown"
+                >
+                  <Select
+                    placeholder="Select subsystem"
+                    options={subsystems.map(s => ({ label: s, value: s }))}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="maxTests"
+                  label="Max Tests to Generate"
+                  initialValue={10}
+                >
+                  <Input type="number" min={1} max={50} />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+              <Space>
+                <Button onClick={() => setIsAutoGenModalVisible(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={generateFromFunctionMutation.isLoading}
+                  icon={<RobotOutlined />}
+                >
+                  Generate Tests
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
 
       {/* Submit Test Modal */}
       <Modal
