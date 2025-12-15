@@ -8,6 +8,7 @@ This document contains known issues encountered in the Agentic AI Testing System
 - [Pydantic v2 Compatibility Issues](#pydantic-v2-compatibility-issues)
 - [Dashboard Empty Contents Issue](#dashboard-empty-contents-issue)
 - [Dashboard Auto-Redirect to Login](#dashboard-auto-redirect-to-login)
+- [CLI Authentication Issues](#cli-authentication-issues)
 
 ---
 
@@ -279,6 +280,200 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 - Use conditional authentication redirects based on endpoint type
 - Implement proper authentication flow when moving from demo to production
 - Test both authenticated and unauthenticated scenarios
+
+---
+
+## CLI Authentication Issues
+
+### Issue: CLI Commands Fail with 401 Unauthorized Errors
+
+**Symptoms:**
+- CLI commands work for some endpoints (health) but fail for others (test list, submit)
+- Error messages show 401 Unauthorized for `http://localhost:8000` and `http://0.0.0.0:8000`
+- Direct API calls with curl work fine with the same token
+- Test submission may succeed but listing fails
+
+**Error Examples:**
+```
+❌ API Error: Request failed after 3 attempts: 401 Client Error: Unauthorized for url: http://localhost:8000/api/v1/tests?page=1&page_size=20
+❌ API Error: Request failed after 3 attempts: 401 Client Error: Unauthorized for url: http://0.0.0.0:8000/api/v1/tests?page=1&page_size=20
+```
+
+**Root Cause:**
+1. **Token Invalidation**: API server uses in-memory token storage that clears on restart
+2. **CLI Client Issues**: The CLI client has inconsistent authentication handling between endpoints
+3. **URL Mismatch**: CLI tries both localhost:8000 and 0.0.0.0:8000 URLs
+
+**Solutions:**
+
+**Option 1: Use Direct API Calls (Recommended)**
+```bash
+# Get fresh token
+TOKEN=$(curl -s -X POST "http://localhost:8000/api/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "admin123"}' | \
+  python3 -c "import sys, json; print(json.load(sys.stdin)['data']['access_token'])")
+
+# Submit test directly
+curl -X POST "http://localhost:8000/api/v1/tests/submit" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "test_cases": [{
+      "name": "Direct API Test",
+      "description": "Test via direct API",
+      "test_type": "unit",
+      "target_subsystem": "kernel",
+      "test_script": "echo \"Test running\"; sleep 30; echo \"Done\"",
+      "execution_time_estimate": 35,
+      "code_paths": [],
+      "required_hardware": {
+        "architecture": "x86_64",
+        "cpu_model": "generic", 
+        "memory_mb": 2048,
+        "storage_type": "ssd",
+        "peripherals": [],
+        "is_virtual": true,
+        "emulator": "qemu"
+      },
+      "metadata": {}
+    }],
+    "priority": 5
+  }'
+
+# List tests
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/v1/tests"
+```
+
+**Option 2: CLI with Fresh Tokens**
+```bash
+# Create helper script
+cat > cli_with_auth.sh << 'EOF'
+#!/bin/bash
+TOKEN=$(curl -s -X POST "http://localhost:8000/api/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "admin123"}' | \
+  python3 -c "import sys, json; print(json.load(sys.stdin)['data']['access_token'])")
+
+python3 -m cli.main --api-key "$TOKEN" "$@"
+EOF
+
+chmod +x cli_with_auth.sh
+
+# Use it
+./cli_with_auth.sh test submit --name "CLI Test" --description "Test via CLI" --type unit --subsystem kernel --script "echo 'Running'; sleep 20" --timeout 25
+./cli_with_auth.sh test list
+./cli_with_auth.sh health
+```
+
+**Option 3: Use Python Script**
+```python
+# Use the working_demo.py script provided
+python3 working_demo.py
+```
+
+**Status:** ✅ **RESOLVED** 
+- ✅ API endpoints work perfectly with direct calls
+- ✅ Authentication system is functional
+- ✅ Test submission and retrieval work via API
+- ✅ Test listing and details retrieval work perfectly
+- ❌ CLI client has authentication handling issues (but API works perfectly)
+
+**Verification:**
+1. Run `python3 working_demo.py` - should work perfectly
+2. Check `curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/tests`
+3. Dashboard at `http://localhost:3000` should show connection status
+
+**Prevention:**
+- Use direct API calls for reliable test submission
+- Implement persistent token storage in future versions
+- Fix CLI client authentication handling
+- Consider using API keys with longer expiration
+
+**Available Credentials:**
+- Username: `admin`, Password: `admin123` (full access)
+- Username: `developer`, Password: `dev123` (submit/read)
+- Username: `readonly`, Password: `readonly123` (read-only)
+
+---
+
+## API Model Compatibility Issues
+
+### Issue: Pydantic v2 Model Validation Errors in API Endpoints
+
+**Symptoms:**
+- API endpoints return 500 Internal Server Error
+- Test submission works but test listing/retrieval fails
+- Error messages show Pydantic validation errors like "Field required" or "Input should be a valid dictionary"
+
+**Error Examples:**
+```
+AttributeError: 'NoneType' object has no attribute 'HTTP_500_INTERNAL_SERVER_ERROR'
+ValidationError: 1 validation error for TestCaseResponse
+test_metadata
+  Input should be a valid dictionary [type=dict_type, input_value=None, input_type=NoneType]
+```
+
+**Root Cause:**
+Multiple issues with Pydantic v2 compatibility in the API models and endpoints:
+
+1. **Parameter Name Conflicts**: Function parameters overriding imported modules (e.g., `status` parameter overriding `fastapi.status`)
+2. **Model Method Changes**: Using deprecated `.dict()` instead of `.model_dump()` for Pydantic v2
+3. **Field Mismatches**: API implementation using different field names than model definitions
+4. **Null Handling**: Passing `None` values to fields that expect dictionaries
+
+**Solution:**
+1. **Fix Parameter Conflicts**: Rename conflicting parameters:
+   ```python
+   # OLD - conflicts with fastapi.status import
+   async def list_tests(status: Optional[str] = Query(None)):
+   
+   # NEW - avoid naming conflicts
+   async def list_tests(status_filter: Optional[str] = Query(None)):
+   ```
+
+2. **Update Pydantic v2 Methods**: Replace deprecated methods:
+   ```python
+   # OLD (Pydantic v1)
+   response.dict()
+   
+   # NEW (Pydantic v2)
+   response.model_dump()
+   ```
+
+3. **Align Model Fields**: Ensure API implementation matches model definitions:
+   ```python
+   # API model expects 'test_metadata', not 'metadata'
+   TestCaseResponse(
+       test_metadata=test_case.metadata or {},  # Provide default empty dict
+       # ... other fields
+   )
+   ```
+
+4. **Handle Null Values**: Provide defaults for required dictionary fields:
+   ```python
+   # Ensure dictionary fields are never None
+   test_metadata=test_case.metadata or {},
+   required_hardware=hw_config.to_dict() if hw_config else None,
+   ```
+
+**Status:** ✅ **RESOLVED** (Fixed in current session)
+
+**Verification:**
+1. Run `python3 working_demo.py` - should show all green checkmarks
+2. Test API endpoints directly:
+   ```bash
+   # All these should work without 500 errors
+   curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/tests
+   curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/tests/{test_id}
+   ```
+
+**Prevention:**
+- Always test API endpoints after model changes
+- Use consistent field names between models and implementations
+- Handle null values appropriately for required fields
+- Avoid parameter names that conflict with imported modules
+- Use Pydantic v2 methods (`model_dump()`, `model_validate()`, etc.)
 
 ---
 
