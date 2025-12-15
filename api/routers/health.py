@@ -14,6 +14,33 @@ router = APIRouter()
 # Track startup time for uptime calculation
 startup_time = time.time()
 
+# Global orchestrator instance (will be set by main server)
+_orchestrator_service = None
+
+def set_orchestrator_service(orchestrator):
+    """Set the orchestrator service instance for health reporting."""
+    global _orchestrator_service
+    _orchestrator_service = orchestrator
+
+def get_orchestrator_metrics():
+    """Get metrics from the orchestrator service if available."""
+    if _orchestrator_service and _orchestrator_service.is_running:
+        try:
+            return _orchestrator_service.get_system_metrics()
+        except Exception as e:
+            return {
+                'active_tests': 0,
+                'queued_tests': 0,
+                'available_environments': 0,
+                'error': str(e)
+            }
+    return {
+        'active_tests': 0,
+        'queued_tests': 0,
+        'available_environments': 5,  # Default for when orchestrator not running
+        'status': 'not_running'
+    }
+
 
 @router.get("/health", response_model=APIResponse)
 async def health_check():
@@ -27,10 +54,16 @@ async def health_check():
         memory = psutil.virtual_memory()
         disk = psutil.disk_usage('/')
         
+        # Get real orchestrator metrics
+        orchestrator_metrics = get_orchestrator_metrics()
+        
         # Determine overall status
         status = "healthy"
         if cpu_percent > 90 or memory.percent > 90 or disk.percent > 90:
             status = "degraded"
+        
+        # Determine orchestrator status
+        orchestrator_status = "healthy" if _orchestrator_service and _orchestrator_service.is_running else "stopped"
         
         health_data = HealthStatus(
             status=status,
@@ -46,12 +79,12 @@ async def health_check():
                     "connection_pool": "available"
                 },
                 "test_orchestrator": {
-                    "status": "healthy",
-                    "active_tests": 0
+                    "status": orchestrator_status,
+                    "active_tests": orchestrator_metrics.get('active_tests', 0)
                 },
                 "environment_manager": {
-                    "status": "healthy",
-                    "available_environments": 5
+                    "status": orchestrator_status,
+                    "available_environments": orchestrator_metrics.get('available_environments', 0)
                 }
             },
             metrics={
@@ -95,12 +128,14 @@ async def detailed_health_check(
         disk = psutil.disk_usage('/')
         network = psutil.net_io_counters()
         
-        # Mock test system metrics (in production, get from actual services)
+        # Get real orchestrator metrics
+        orchestrator_metrics = get_orchestrator_metrics()
+        
         metrics = SystemMetrics(
-            active_tests=0,
-            queued_tests=0,
-            available_environments=5,
-            total_environments=10,
+            active_tests=orchestrator_metrics.get('active_tests', 0),
+            queued_tests=orchestrator_metrics.get('queued_tests', 0),
+            available_environments=orchestrator_metrics.get('available_environments', 0),
+            total_environments=orchestrator_metrics.get('available_environments', 0) + orchestrator_metrics.get('active_tests', 0),
             cpu_usage=cpu_percent / 100.0,
             memory_usage=memory.percent / 100.0,
             disk_usage=disk.percent / 100.0,
@@ -209,17 +244,17 @@ async def system_metrics(
                 "packets_recv": network.packets_recv
             },
             "testing": {
-                "active_tests": 0,
-                "queued_tests": 0,
-                "completed_tests_today": 42,
-                "failed_tests_today": 3,
+                "active_tests": orchestrator_metrics.get('active_tests', 0),
+                "queued_tests": orchestrator_metrics.get('queued_tests', 0),
+                "completed_tests_today": orchestrator_metrics.get('completed_tests', 0),
+                "failed_tests_today": orchestrator_metrics.get('failed_tests', 0),
                 "average_test_duration_s": 125.5
             },
             "environments": {
-                "total_environments": 10,
-                "available_environments": 7,
-                "busy_environments": 2,
-                "error_environments": 1
+                "total_environments": orchestrator_metrics.get('available_environments', 0) + orchestrator_metrics.get('active_tests', 0),
+                "available_environments": orchestrator_metrics.get('available_environments', 0),
+                "busy_environments": orchestrator_metrics.get('active_tests', 0),
+                "error_environments": 0
             }
         }
         
