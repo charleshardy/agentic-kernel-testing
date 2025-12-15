@@ -13,6 +13,7 @@ from .routers import tests, status, results, health, auth, webhooks, environment
 from .middleware import RequestLoggingMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
 from .auth import verify_token, get_current_user
 from .models import APIResponse, ErrorResponse
+from .orchestrator_integration import start_orchestrator, stop_orchestrator
 from config.settings import Settings
 
 # Initialize settings
@@ -174,6 +175,34 @@ def custom_openapi():
 
 
 app.openapi = custom_openapi
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup."""
+    print("🚀 Starting Agentic AI Testing System API...")
+    
+    # Start the orchestrator service
+    if start_orchestrator():
+        print("✅ Test execution orchestrator started successfully")
+    else:
+        print("❌ Failed to start test execution orchestrator")
+    
+    print("🎯 API server ready to accept requests")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up services on shutdown."""
+    print("🛑 Shutting down Agentic AI Testing System API...")
+    
+    # Stop the orchestrator service
+    if stop_orchestrator():
+        print("✅ Test execution orchestrator stopped successfully")
+    else:
+        print("❌ Failed to stop test execution orchestrator gracefully")
+    
+    print("👋 API server shutdown complete")
 
 
 if __name__ == "__main__":
