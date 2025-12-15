@@ -237,6 +237,46 @@ class APIService {
     const response: AxiosResponse<APIResponse> = await this.client.get(`/environments/${envId}/status`)
     return response.data.data!
   }
+
+  // AI Test Generation
+  async generateTestsFromDiff(
+    diff: string, 
+    maxTests: number = 20, 
+    testTypes: string[] = ['unit']
+  ): Promise<APIResponse> {
+    const response: AxiosResponse<APIResponse> = await this.client.post('/tests/generate-from-diff', null, {
+      params: {
+        diff_content: diff,
+        max_tests: maxTests,
+        test_types: testTypes
+      }
+    })
+    return response.data
+  }
+
+  async generateTestsFromFunction(
+    functionName: string,
+    filePath: string,
+    subsystem: string = 'unknown',
+    maxTests: number = 10
+  ): Promise<APIResponse> {
+    const response: AxiosResponse<APIResponse> = await this.client.post('/tests/generate-from-function', null, {
+      params: {
+        function_name: functionName,
+        file_path: filePath,
+        subsystem: subsystem,
+        max_tests: maxTests
+      }
+    })
+    return response.data
+  }
+
+  async analyzeCode(diffContent: string): Promise<APIResponse> {
+    const response: AxiosResponse<APIResponse> = await this.client.post('/tests/analyze-code', {
+      diff_content: diffContent
+    })
+    return response.data
+  }
 }
 
 export const apiService = new APIService()
