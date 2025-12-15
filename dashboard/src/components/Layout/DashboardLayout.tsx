@@ -112,7 +112,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const handleUserMenuClick = ({ key }: { key: string }) => {
     if (key === 'logout') {
       localStorage.removeItem('auth_token')
-      navigate('/login')
+      // In demo mode, just stay on the dashboard
+      console.log('Logout clicked - staying in demo mode')
     }
   }
 
