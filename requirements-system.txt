@@ -1,0 +1,124 @@
+# System Requirements for Agentic AI Testing System
+# This file documents system-level dependencies that need to be installed
+# before installing Python packages
+
+# =============================================================================
+# NODE.JS AND FRONTEND DEPENDENCIES
+# =============================================================================
+
+# Node.js (required for dashboard frontend)
+# Install Node.js 18+ from: https://nodejs.org/
+# Or using package managers:
+# - Ubuntu/Debian: curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - && sudo apt-get install -y nodejs
+# - CentOS/RHEL: curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash - && sudo yum install -y nodejs
+# - macOS: brew install node
+# - Windows: Download from https://nodejs.org/
+
+# Verify installation:
+# node --version  (should be 18.0.0 or higher)
+# npm --version   (should be 8.0.0 or higher)
+
+# Frontend Dependencies (installed via npm in dashboard/ directory):
+# - vite ^4.1.0 (build tool and dev server)
+# - react ^18.2.0 (UI framework)
+# - typescript ^4.9.0 (type checking)
+# - antd ^5.2.0 (UI components)
+
+# =============================================================================
+# PYTHON DEPENDENCIES
+# =============================================================================
+
+# Python 3.10+ (required)
+# Install from: https://www.python.org/downloads/
+# Or using package managers:
+# - Ubuntu/Debian: sudo apt-get install python3.10 python3.10-pip python3.10-venv
+# - CentOS/RHEL: sudo yum install python3.10 python3.10-pip
+# - macOS: brew install python@3.10
+# - Windows: Download from https://www.python.org/
+
+# Python package manager
+# pip (usually included with Python)
+# poetry (optional, for dependency management): pip install poetry
+
+# =============================================================================
+# SYSTEM TOOLS AND LIBRARIES
+# =============================================================================
+
+# Development Tools
+# - git (version control)
+# - curl/wget (for downloads)
+# - build-essential/gcc (for compiling native extensions)
+
+# Testing and Analysis Tools
+# - gcov/lcov (code coverage analysis)
+# - qemu-system-x86 (virtual machine emulation)
+# - docker (containerization)
+
+# Installation commands by OS:
+
+# Ubuntu/Debian:
+# sudo apt-get update
+# sudo apt-get install -y git curl wget build-essential gcc g++ lcov gcov qemu-system-x86 docker.io
+
+# CentOS/RHEL/Fedora:
+# sudo yum update -y
+# sudo yum install -y git curl wget gcc gcc-c++ lcov qemu-kvm docker
+
+# macOS (with Homebrew):
+# brew install git curl wget gcc lcov qemu docker
+
+# =============================================================================
+# AWS CLI (for Amazon Q Developer Pro)
+# =============================================================================
+
+# AWS CLI v2 (required for AWS SSO authentication)
+# Install from: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+
+# Linux x86_64:
+# curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+# unzip awscliv2.zip
+# sudo ./aws/install
+
+# macOS:
+# curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
+# sudo installer -pkg AWSCLIV2.pkg -target /
+
+# Windows:
+# Download and run: https://awscli.amazonaws.com/AWSCLIV2.msi
+
+# Verify installation:
+# aws --version  (should be 2.0.0 or higher)
+
+# =============================================================================
+# OPTIONAL DEPENDENCIES
+# =============================================================================
+
+# PostgreSQL (optional, for production database)
+# - Ubuntu/Debian: sudo apt-get install postgresql postgresql-contrib
+# - CentOS/RHEL: sudo yum install postgresql postgresql-server
+# - macOS: brew install postgresql
+# - Windows: Download from https://www.postgresql.org/
+
+# Redis (optional, for caching and job queues)
+# - Ubuntu/Debian: sudo apt-get install redis-server
+# - CentOS/RHEL: sudo yum install redis
+# - macOS: brew install redis
+# - Windows: Download from https://redis.io/
+
+# =============================================================================
+# INSTALLATION VERIFICATION
+# =============================================================================
+
+# After installing system dependencies, verify with:
+# python3 --version     # Should be 3.10+
+# node --version        # Should be 18.0+
+# npm --version         # Should be 8.0+
+# aws --version         # Should be 2.0+
+# git --version         # Any recent version
+# docker --version      # Any recent version (optional)
+
+# Then install Python dependencies:
+# pip install -r requirements.txt
+
+# And install frontend dependencies:
+# cd dashboard && npm install

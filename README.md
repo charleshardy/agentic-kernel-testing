@@ -198,13 +198,27 @@ See [SSO Quick Reference](SSO_QUICK_REFERENCE.md) for complete setup.
 
 ### Installation
 
-1. **Clone the repository**
+1. **Install system dependencies**
+   ```bash
+   # See requirements-system.txt for detailed instructions
+   # Key requirements: Python 3.10+, Node.js 18+, AWS CLI v2
+   
+   # Quick install on Ubuntu/Debian:
+   sudo apt-get update
+   sudo apt-get install -y python3.10 python3.10-pip nodejs npm git curl build-essential
+   
+   # Install AWS CLI v2 (for Amazon Q Developer Pro):
+   curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+   unzip awscliv2.zip && sudo ./aws/install
+   ```
+
+2. **Clone the repository**
    ```bash
    git clone <repository-url>
    cd agentic-kernel-testing
    ```
 
-2. **Install dependencies**
+3. **Install Python dependencies**
    ```bash
    # Using Poetry (recommended)
    poetry install
@@ -216,18 +230,34 @@ See [SSO Quick Reference](SSO_QUICK_REFERENCE.md) for complete setup.
    pip install -e ".[dev]"
    ```
 
-3. **Configure environment**
+4. **Install frontend dependencies**
    ```bash
-   # Copy example configuration
-   cp .env.example .env
+   # Install Vite and React dependencies for dashboard
+   cd dashboard
+   npm install
+   cd ..
+   ```
+
+5. **Configure environment**
+   ```bash
+   # The .env file is pre-configured for Amazon Q Developer Pro with AWS SSO
+   # For AWS SSO setup (recommended):
+   ./setup_aws_sso.sh
    
-   # Edit .env with your settings (API keys, database config, etc.)
+   # Or configure manually:
+   aws configure sso --profile default
+   # Use: https://d-926706e585.awsapps.com/start
+   
+   # For other LLM providers, edit .env:
    nano .env
    ```
 
-4. **Verify setup**
+6. **Verify setup**
    ```bash
-   # Run verification script
+   # Verify AWS SSO configuration
+   python3 verify_aws_sso.py
+   
+   # Run system verification script
    python3 verify_setup.py
    ```
 

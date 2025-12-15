@@ -1,3 +1,6 @@
+# Agentic AI Testing System - Python Dependencies
+# For system-level dependencies (Node.js, Vite, AWS CLI), see requirements-system.txt
+
 # Core dependencies
 openai>=1.0.0
 anthropic>=0.7.0
