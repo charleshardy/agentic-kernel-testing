@@ -243,6 +243,31 @@ class TestExecutionRequest(BaseModel):
     tags: List[str] = Field(default_factory=list, description="Execution tags")
 
 
+class BulkOperationRequest(BaseModel):
+    """Request model for bulk operations on test cases."""
+    test_case_ids: List[str] = Field(..., min_length=1, description="List of test case IDs to operate on")
+    operation: str = Field(..., description="Operation to perform: delete, execute, update_tags, update_favorite")
+    parameters: Dict[str, Any] = Field(default_factory=dict, description="Operation-specific parameters")
+
+
+class BulkOperationResult(BaseModel):
+    """Result model for individual bulk operation."""
+    test_case_id: str = Field(..., description="Test case ID")
+    success: bool = Field(..., description="Whether operation succeeded")
+    message: str = Field(..., description="Result message")
+    error: Optional[str] = Field(None, description="Error message if failed")
+
+
+class BulkOperationResponse(BaseModel):
+    """Response model for bulk operations."""
+    operation: str = Field(..., description="Operation that was performed")
+    total_requested: int = Field(..., description="Total number of operations requested")
+    successful: int = Field(..., description="Number of successful operations")
+    failed: int = Field(..., description="Number of failed operations")
+    results: List[BulkOperationResult] = Field(..., description="Individual operation results")
+    execution_plan_id: Optional[str] = Field(None, description="Execution plan ID for bulk execute operations")
+
+
 class TestResultResponse(BaseModel):
     """Response model for test results."""
     id: str = Field(..., description="Test result ID")
