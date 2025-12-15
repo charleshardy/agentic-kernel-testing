@@ -1,45 +1,66 @@
 # Dashboard Troubleshooting Guide
 
-## XDG_RUNTIME_DIR Warning
+## Common Warnings in Headless Environments
 
-### Issue
+### XDG_RUNTIME_DIR Warning
+
+#### Issue
 When running `npm run dev`, you see warnings like:
 ```
 QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-wruser'
 ```
 
+### Qt Session Management Error
+
+#### Issue
+You may also see Qt-related warnings:
+```
+Qt: Session management error: Authentication Rejected, reason : None of the authentication protocols specified are supported and host-based authentication failed
+```
+
 ### Explanation
-This is a **warning, not an error**. The Vite development server is still working correctly. This warning appears because:
+These are **warnings, not errors**. The Vite development server is still working correctly. These warnings appear because:
 
 1. **XDG_RUNTIME_DIR** is an environment variable used by Linux desktop environments
-2. In headless/server environments, it's often not set
-3. Vite (via Electron/Chromium components) expects this directory for temporary files
-4. The system automatically falls back to `/tmp/runtime-<username>`
+2. **Qt Session Management** expects X11/Wayland display server connections
+3. In headless/server environments, these are often not available
+4. Vite (via Electron/Chromium components) expects these for GUI operations
+5. The system automatically falls back to safe defaults
 
 ### Solutions
 
 #### Option 1: Use the Fixed Script (Recommended)
 ```bash
-npm run dev  # Now includes XDG_RUNTIME_DIR fix
+npm run dev  # Now includes all headless environment fixes
 ```
 
-#### Option 2: Set Environment Variable Manually
+#### Option 2: Use Headless Mode
+```bash
+npm run dev:headless  # Specifically for headless/server environments
+```
+
+#### Option 3: Set Environment Variables Manually
 ```bash
 export XDG_RUNTIME_DIR=/tmp/runtime-$USER
+export QT_QPA_PLATFORM=offscreen
+export QT_LOGGING_RULES='*=false'
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 npm run dev:clean
 ```
 
-#### Option 3: Use the Shell Script
+#### Option 4: Use the Shell Script
 ```bash
-./run-dev.sh
+./run-dev.sh  # Includes all environment fixes
 ```
 
-#### Option 4: Add to Your Shell Profile
+#### Option 5: Add to Your Shell Profile
 Add to `~/.bashrc` or `~/.zshrc`:
 ```bash
+# Fix headless environment warnings for Vite/Qt applications
 export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/tmp/runtime-$USER}
+export QT_QPA_PLATFORM=offscreen
+export QT_LOGGING_RULES='*=false'
 mkdir -p "$XDG_RUNTIME_DIR" 2>/dev/null
 chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null
 ```
