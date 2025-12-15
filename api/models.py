@@ -91,8 +91,10 @@ class TestCaseRequest(BaseModel):
     code_paths: List[str] = Field(default_factory=list, description="Code paths to test")
     execution_time_estimate: int = Field(60, ge=1, le=3600, description="Estimated execution time in seconds")
     hardware_config_id: Optional[int] = Field(None, description="Required hardware configuration ID")
+    required_hardware: Optional[Dict[str, Any]] = Field(None, description="Required hardware configuration")
     test_script: str = Field("", description="Test script content")
     expected_outcome: Optional[Dict[str, Any]] = Field(None, description="Expected test outcome")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Test metadata")
 
 
 class TestCaseResponse(BaseModel):
@@ -105,6 +107,7 @@ class TestCaseResponse(BaseModel):
     code_paths: List[str] = Field(..., description="Code paths to test")
     execution_time_estimate: int = Field(..., description="Estimated execution time in seconds")
     hardware_config_id: Optional[int] = Field(None, description="Required hardware configuration ID")
+    required_hardware: Optional[Dict[str, Any]] = Field(None, description="Required hardware configuration")
     test_script: str = Field(..., description="Test script content")
     expected_outcome: Optional[Dict[str, Any]] = Field(None, description="Expected test outcome")
     test_metadata: Dict[str, Any] = Field(..., description="Test metadata")

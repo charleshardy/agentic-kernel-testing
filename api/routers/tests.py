@@ -41,13 +41,13 @@ async def submit_tests(
             if test_req.required_hardware:
                 hw_req = test_req.required_hardware
                 hardware_config = HardwareConfig(
-                    architecture=hw_req.architecture,
-                    cpu_model=hw_req.cpu_model,
-                    memory_mb=hw_req.memory_mb,
-                    storage_type=hw_req.storage_type,
-                    peripherals=[],  # Convert from dict if needed
-                    is_virtual=hw_req.is_virtual,
-                    emulator=hw_req.emulator
+                    architecture=hw_req.get("architecture", "x86_64"),
+                    cpu_model=hw_req.get("cpu_model", "generic"),
+                    memory_mb=hw_req.get("memory_mb", 2048),
+                    storage_type=hw_req.get("storage_type", "ssd"),
+                    peripherals=hw_req.get("peripherals", []),
+                    is_virtual=hw_req.get("is_virtual", True),
+                    emulator=hw_req.get("emulator", "qemu")
                 )
             
             # Create test case
@@ -105,7 +105,7 @@ async def submit_tests(
         return APIResponse(
             success=True,
             message=f"Successfully submitted {len(test_case_ids)} test cases",
-            data=response.dict()
+            data=response.model_dump()
         )
         
     except Exception as e:
@@ -121,7 +121,7 @@ async def list_tests(
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     test_type: Optional[TestType] = Query(None, description="Filter by test type"),
     subsystem: Optional[str] = Query(None, description="Filter by subsystem"),
-    status: Optional[str] = Query(None, description="Filter by status"),
+    status_filter: Optional[str] = Query(None, description="Filter by status"),
     current_user: Dict[str, Any] = Depends(require_permission("test:read"))
 ):
     """List submitted test cases with pagination and filtering."""
@@ -149,12 +149,12 @@ async def list_tests(
                 required_hardware=test_case.required_hardware.to_dict() if test_case.required_hardware else None,
                 test_script=test_case.test_script,
                 expected_outcome=test_case.expected_outcome.to_dict() if test_case.expected_outcome else None,
-                metadata=test_case.metadata,
+                test_metadata=test_case.metadata or {},
                 created_at=test_data["submitted_at"],
                 updated_at=test_data["submitted_at"]
             )
             
-            filtered_tests.append(test_response.dict())
+            filtered_tests.append(test_response.model_dump())
         
         # Pagination
         total_items = len(filtered_tests)
@@ -211,7 +211,7 @@ async def get_test(
         required_hardware=test_case.required_hardware.to_dict() if test_case.required_hardware else None,
         test_script=test_case.test_script,
         expected_outcome=test_case.expected_outcome.to_dict() if test_case.expected_outcome else None,
-        metadata=test_case.metadata,
+        test_metadata=test_case.metadata or {},
         created_at=test_data["submitted_at"],
         updated_at=test_data["submitted_at"]
     )
@@ -220,7 +220,7 @@ async def get_test(
         success=True,
         message="Test case retrieved successfully",
         data={
-            "test": response.dict(),
+            "test": response.model_dump(),
             "submission_info": {
                 "submission_id": test_data["submission_id"],
                 "submitted_by": test_data["submitted_by"],
@@ -299,7 +299,7 @@ async def analyze_code(
         return APIResponse(
             success=True,
             message="Code analysis completed successfully",
-            data=analysis.dict()
+            data=analysis.model_dump()
         )
         
     except Exception as e:
@@ -375,11 +375,11 @@ async def get_code_analysis(
         success=True,
         message="Code analysis retrieved successfully",
         data={
-            "analysis": analysis_data["analysis"].dict(),
+            "analysis": analysis_data["analysis"].model_dump(),
             "metadata": {
                 "analyzed_by": analysis_data["analyzed_by"],
                 "analyzed_at": analysis_data["analyzed_at"].isoformat(),
-                "request": analysis_data["request"].dict()
+                "request": analysis_data["request"].model_dump()
             }
         }
     )
