@@ -22,37 +22,37 @@
   - **Property 1: Test List Consistency**
   - **Validates: Requirements 1.1, 2.1**
 
-- [ ] 2. Create Test Case Management API Endpoints
+- [x] 2. Create Test Case Management API Endpoints
   - Add endpoints for updating, deleting, and executing individual test cases
   - Implement bulk operations for managing multiple test cases
   - Add validation and error handling for test case operations
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [ ] 2.1 Implement PUT /tests/{test_id} for test case updates
+- [x] 2.1 Implement PUT /tests/{test_id} for test case updates
   - Allow updating test name, description, script, and metadata
   - Add validation for test case fields
   - Return updated test case with new timestamp
   - _Requirements: 3.2_
 
-- [ ] 2.2 Implement DELETE /tests/{test_id} for test case deletion
+- [x] 2.2 Implement DELETE /tests/{test_id} for test case deletion
   - Add safety checks to prevent deletion of running tests
   - Clean up related execution plans and results
   - Return confirmation of successful deletion
   - _Requirements: 3.2_
 
-- [ ] 2.3 Implement POST /tests/execute for single test execution
+- [x] 2.3 Implement POST /tests/execute for single test execution
   - Create execution plan for individual test case
   - Return execution plan ID and estimated completion time
   - Support environment preference selection
   - _Requirements: 3.4_
 
-- [ ] 2.4 Implement POST /tests/bulk-operations for batch actions
+- [x] 2.4 Implement POST /tests/bulk-operations for batch actions
   - Support bulk delete, execute, and update operations
   - Implement atomic transaction handling
   - Return detailed results for each operation
   - _Requirements: 3.5_
 
-- [ ] 2.5 Write property test for bulk operation atomicity
+- [x] 2.5 Write property test for bulk operation atomicity
   - **Property 4: Bulk Operation Atomicity**
   - **Validates: Requirements 3.5**
 

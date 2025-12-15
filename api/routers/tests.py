@@ -9,7 +9,8 @@ from fastapi import APIRouter, HTTPException, Depends, Query, status
 from ..models import (
     APIResponse, ErrorResponse, TestSubmissionRequest, TestSubmissionResponse,
     TestCaseRequest, TestCaseResponse, CodeAnalysisRequest, CodeAnalysisResponse,
-    PaginationParams
+    PaginationParams, TestExecutionRequest, BulkOperationRequest, BulkOperationResponse,
+    BulkOperationResult
 )
 from ..auth import get_current_user, require_permission
 
@@ -388,6 +389,106 @@ async def get_test(
     )
 
 
+@router.put("/tests/{test_id}", response_model=APIResponse)
+async def update_test(
+    test_id: str,
+    update_request: TestCaseRequest,
+    current_user: Dict[str, Any] = Depends(require_permission("test:submit"))
+):
+    """Update a test case."""
+    if test_id not in submitted_tests:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Test case not found"
+        )
+    
+    test_data = submitted_tests[test_id]
+    
+    # Check if test is currently running
+    execution_status = test_data.get("execution_status", "never_run")
+    if execution_status == "running":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot update test case while it is running"
+        )
+    
+    try:
+        # Create hardware config if provided
+        hardware_config = None
+        if update_request.required_hardware:
+            hw_req = update_request.required_hardware
+            hardware_config = HardwareConfig(
+                architecture=hw_req.get("architecture", "x86_64"),
+                cpu_model=hw_req.get("cpu_model", "generic"),
+                memory_mb=hw_req.get("memory_mb", 2048),
+                storage_type=hw_req.get("storage_type", "ssd"),
+                peripherals=hw_req.get("peripherals", []),
+                is_virtual=hw_req.get("is_virtual", True),
+                emulator=hw_req.get("emulator", "qemu")
+            )
+        
+        # Update the test case
+        old_test_case = test_data["test_case"]
+        updated_test_case = TestCase(
+            id=test_id,  # Keep the same ID
+            name=update_request.name,
+            description=update_request.description,
+            test_type=update_request.test_type,
+            target_subsystem=update_request.target_subsystem,
+            code_paths=update_request.code_paths,
+            execution_time_estimate=update_request.execution_time_estimate,
+            required_hardware=hardware_config,
+            test_script=update_request.test_script,
+            metadata=update_request.metadata
+        )
+        
+        # Update the stored test data
+        test_data["test_case"] = updated_test_case
+        test_data["updated_at"] = datetime.utcnow()
+        
+        # Create response
+        response = TestCaseResponse(
+            id=updated_test_case.id,
+            name=updated_test_case.name,
+            description=updated_test_case.description,
+            test_type=updated_test_case.test_type,
+            target_subsystem=updated_test_case.target_subsystem,
+            code_paths=updated_test_case.code_paths,
+            execution_time_estimate=updated_test_case.execution_time_estimate,
+            hardware_config_id=None,
+            required_hardware=updated_test_case.required_hardware.to_dict() if updated_test_case.required_hardware else None,
+            test_script=updated_test_case.test_script,
+            expected_outcome=updated_test_case.expected_outcome.to_dict() if updated_test_case.expected_outcome else None,
+            test_metadata=updated_test_case.metadata or {},
+            generation_info=test_data.get("generation_info"),
+            execution_status=test_data.get("execution_status", "never_run"),
+            last_execution_at=test_data.get("last_execution_at"),
+            tags=test_data.get("tags", []),
+            is_favorite=test_data.get("is_favorite", False),
+            created_at=test_data["submitted_at"],
+            updated_at=test_data["updated_at"]
+        )
+        
+        return APIResponse(
+            success=True,
+            message="Test case updated successfully",
+            data={
+                "test": response.model_dump(),
+                "updated_fields": [
+                    field for field in ["name", "description", "test_type", "target_subsystem", 
+                                      "code_paths", "execution_time_estimate", "test_script", "metadata"]
+                    if getattr(updated_test_case, field) != getattr(old_test_case, field)
+                ]
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to update test case: {str(e)}"
+        )
+
+
 @router.delete("/tests/{test_id}", response_model=APIResponse)
 async def delete_test(
     test_id: str,
@@ -400,15 +501,368 @@ async def delete_test(
             detail="Test case not found"
         )
     
-    # Check if test is already running (in production, check execution status)
-    # For now, just delete from submitted tests
+    test_data = submitted_tests[test_id]
+    
+    # Check if test is currently running
+    execution_status = test_data.get("execution_status", "never_run")
+    if execution_status == "running":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete test case while it is running"
+        )
+    
+    # Clean up related execution plans
+    plans_to_remove = []
+    for plan_id, plan_data in execution_plans.items():
+        if test_id in plan_data.get("test_case_ids", []):
+            # Remove test from plan or remove entire plan if it's the only test
+            plan_data["test_case_ids"] = [tid for tid in plan_data["test_case_ids"] if tid != test_id]
+            if not plan_data["test_case_ids"]:
+                plans_to_remove.append(plan_id)
+    
+    # Remove empty execution plans
+    for plan_id in plans_to_remove:
+        del execution_plans[plan_id]
+    
+    # Delete the test case
     del submitted_tests[test_id]
     
     return APIResponse(
         success=True,
         message="Test case deleted successfully",
-        data={"deleted_test_id": test_id}
+        data={
+            "deleted_test_id": test_id,
+            "cleaned_execution_plans": len(plans_to_remove)
+        }
     )
+
+
+@router.post("/tests/execute", response_model=APIResponse)
+async def execute_test(
+    execution_request: TestExecutionRequest,
+    current_user: Dict[str, Any] = Depends(require_permission("test:submit"))
+):
+    """Execute individual test cases."""
+    try:
+        # Validate that all test cases exist
+        missing_tests = []
+        valid_tests = []
+        
+        for test_id in execution_request.test_case_ids:
+            if test_id not in submitted_tests:
+                missing_tests.append(test_id)
+            else:
+                test_data = submitted_tests[test_id]
+                # Check if test is already running
+                if test_data.get("execution_status") == "running":
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"Test case {test_id} is already running"
+                    )
+                valid_tests.append(test_id)
+        
+        if missing_tests:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Test cases not found: {', '.join(missing_tests)}"
+            )
+        
+        # Create execution plan
+        plan_id = str(uuid.uuid4())
+        
+        # Calculate estimated completion time
+        total_estimate = sum(
+            submitted_tests[test_id]["test_case"].execution_time_estimate 
+            for test_id in valid_tests
+        )
+        estimated_completion = datetime.utcnow() + timedelta(seconds=total_estimate)
+        
+        # Create execution plan
+        execution_plans[plan_id] = {
+            "submission_id": str(uuid.uuid4()),
+            "test_case_ids": valid_tests,
+            "priority": execution_request.priority,
+            "target_environments": None,  # Will be assigned by orchestrator
+            "webhook_url": None,
+            "status": "queued",
+            "created_at": datetime.utcnow(),
+            "estimated_completion": estimated_completion,
+            "created_by": current_user["username"],
+            "execution_type": "manual",
+            "timeout": execution_request.timeout,
+            "environment_variables": execution_request.environment_variables,
+            "tags": execution_request.tags,
+            "hardware_config_override": execution_request.hardware_config_id
+        }
+        
+        # Update test case statuses to indicate they're queued for execution
+        for test_id in valid_tests:
+            submitted_tests[test_id]["execution_status"] = "queued"
+            submitted_tests[test_id]["updated_at"] = datetime.utcnow()
+        
+        return APIResponse(
+            success=True,
+            message=f"Successfully queued {len(valid_tests)} test cases for execution",
+            data={
+                "execution_plan_id": plan_id,
+                "test_case_ids": valid_tests,
+                "estimated_completion_time": estimated_completion.isoformat(),
+                "priority": execution_request.priority,
+                "timeout": execution_request.timeout,
+                "status": "queued",
+                "total_estimated_duration": total_estimate
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to execute tests: {str(e)}"
+        )
+
+
+@router.post("/tests/bulk-operations", response_model=APIResponse)
+async def bulk_operations(
+    bulk_request: BulkOperationRequest,
+    current_user: Dict[str, Any] = Depends(require_permission("test:submit"))
+):
+    """Perform bulk operations on multiple test cases."""
+    try:
+        results = []
+        successful_count = 0
+        failed_count = 0
+        execution_plan_id = None
+        
+        # Validate operation type
+        valid_operations = ["delete", "execute", "update_tags", "update_favorite"]
+        if bulk_request.operation not in valid_operations:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid operation. Must be one of: {', '.join(valid_operations)}"
+            )
+        
+        # For atomic operations, we'll collect all operations first, then execute them
+        operations_to_execute = []
+        
+        # Validate all test cases exist and prepare operations
+        for test_id in bulk_request.test_case_ids:
+            if test_id not in submitted_tests:
+                results.append(BulkOperationResult(
+                    test_case_id=test_id,
+                    success=False,
+                    message="Test case not found",
+                    error="Test case does not exist"
+                ))
+                failed_count += 1
+                continue
+            
+            test_data = submitted_tests[test_id]
+            
+            # Check operation-specific preconditions
+            if bulk_request.operation in ["delete"] and test_data.get("execution_status") == "running":
+                results.append(BulkOperationResult(
+                    test_case_id=test_id,
+                    success=False,
+                    message="Cannot delete running test",
+                    error="Test case is currently running"
+                ))
+                failed_count += 1
+                continue
+            
+            if bulk_request.operation == "execute" and test_data.get("execution_status") == "running":
+                results.append(BulkOperationResult(
+                    test_case_id=test_id,
+                    success=False,
+                    message="Test already running",
+                    error="Test case is already running"
+                ))
+                failed_count += 1
+                continue
+            
+            # Add to operations to execute
+            operations_to_execute.append(test_id)
+        
+        # Execute bulk operation atomically
+        if bulk_request.operation == "delete":
+            # Delete operations
+            plans_to_remove = set()
+            for test_id in operations_to_execute:
+                try:
+                    # Clean up related execution plans
+                    for plan_id, plan_data in execution_plans.items():
+                        if test_id in plan_data.get("test_case_ids", []):
+                            plan_data["test_case_ids"] = [tid for tid in plan_data["test_case_ids"] if tid != test_id]
+                            if not plan_data["test_case_ids"]:
+                                plans_to_remove.add(plan_id)
+                    
+                    # Delete the test case
+                    del submitted_tests[test_id]
+                    
+                    results.append(BulkOperationResult(
+                        test_case_id=test_id,
+                        success=True,
+                        message="Test case deleted successfully"
+                    ))
+                    successful_count += 1
+                    
+                except Exception as e:
+                    results.append(BulkOperationResult(
+                        test_case_id=test_id,
+                        success=False,
+                        message="Failed to delete test case",
+                        error=str(e)
+                    ))
+                    failed_count += 1
+            
+            # Remove empty execution plans
+            for plan_id in plans_to_remove:
+                if plan_id in execution_plans:
+                    del execution_plans[plan_id]
+        
+        elif bulk_request.operation == "execute":
+            # Execute operations
+            if operations_to_execute:
+                try:
+                    # Create execution plan for all valid tests
+                    plan_id = str(uuid.uuid4())
+                    
+                    # Calculate estimated completion time
+                    total_estimate = sum(
+                        submitted_tests[test_id]["test_case"].execution_time_estimate 
+                        for test_id in operations_to_execute
+                    )
+                    estimated_completion = datetime.utcnow() + timedelta(seconds=total_estimate)
+                    
+                    # Get execution parameters
+                    priority = bulk_request.parameters.get("priority", 5)
+                    timeout = bulk_request.parameters.get("timeout", 300)
+                    
+                    # Create execution plan
+                    execution_plans[plan_id] = {
+                        "submission_id": str(uuid.uuid4()),
+                        "test_case_ids": operations_to_execute,
+                        "priority": priority,
+                        "target_environments": None,
+                        "webhook_url": None,
+                        "status": "queued",
+                        "created_at": datetime.utcnow(),
+                        "estimated_completion": estimated_completion,
+                        "created_by": current_user["username"],
+                        "execution_type": "bulk",
+                        "timeout": timeout
+                    }
+                    
+                    execution_plan_id = plan_id
+                    
+                    # Update test case statuses
+                    for test_id in operations_to_execute:
+                        submitted_tests[test_id]["execution_status"] = "queued"
+                        submitted_tests[test_id]["updated_at"] = datetime.utcnow()
+                        
+                        results.append(BulkOperationResult(
+                            test_case_id=test_id,
+                            success=True,
+                            message="Test case queued for execution"
+                        ))
+                        successful_count += 1
+                        
+                except Exception as e:
+                    # If execution plan creation fails, mark all as failed
+                    for test_id in operations_to_execute:
+                        results.append(BulkOperationResult(
+                            test_case_id=test_id,
+                            success=False,
+                            message="Failed to queue test for execution",
+                            error=str(e)
+                        ))
+                        failed_count += 1
+        
+        elif bulk_request.operation == "update_tags":
+            # Update tags operations
+            new_tags = bulk_request.parameters.get("tags", [])
+            operation_type = bulk_request.parameters.get("operation_type", "replace")  # replace, add, remove
+            
+            for test_id in operations_to_execute:
+                try:
+                    test_data = submitted_tests[test_id]
+                    current_tags = test_data.get("tags", [])
+                    
+                    if operation_type == "replace":
+                        test_data["tags"] = new_tags
+                    elif operation_type == "add":
+                        test_data["tags"] = list(set(current_tags + new_tags))
+                    elif operation_type == "remove":
+                        test_data["tags"] = [tag for tag in current_tags if tag not in new_tags]
+                    
+                    test_data["updated_at"] = datetime.utcnow()
+                    
+                    results.append(BulkOperationResult(
+                        test_case_id=test_id,
+                        success=True,
+                        message=f"Tags {operation_type}d successfully"
+                    ))
+                    successful_count += 1
+                    
+                except Exception as e:
+                    results.append(BulkOperationResult(
+                        test_case_id=test_id,
+                        success=False,
+                        message="Failed to update tags",
+                        error=str(e)
+                    ))
+                    failed_count += 1
+        
+        elif bulk_request.operation == "update_favorite":
+            # Update favorite status operations
+            is_favorite = bulk_request.parameters.get("is_favorite", False)
+            
+            for test_id in operations_to_execute:
+                try:
+                    test_data = submitted_tests[test_id]
+                    test_data["is_favorite"] = is_favorite
+                    test_data["updated_at"] = datetime.utcnow()
+                    
+                    results.append(BulkOperationResult(
+                        test_case_id=test_id,
+                        success=True,
+                        message=f"Favorite status updated to {is_favorite}"
+                    ))
+                    successful_count += 1
+                    
+                except Exception as e:
+                    results.append(BulkOperationResult(
+                        test_case_id=test_id,
+                        success=False,
+                        message="Failed to update favorite status",
+                        error=str(e)
+                    ))
+                    failed_count += 1
+        
+        # Create response
+        bulk_response = BulkOperationResponse(
+            operation=bulk_request.operation,
+            total_requested=len(bulk_request.test_case_ids),
+            successful=successful_count,
+            failed=failed_count,
+            results=results,
+            execution_plan_id=execution_plan_id
+        )
+        
+        return APIResponse(
+            success=True,
+            message=f"Bulk {bulk_request.operation} completed: {successful_count} successful, {failed_count} failed",
+            data=bulk_response.model_dump()
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Bulk operation failed: {str(e)}"
+        )
 
 
 @router.post("/tests/analyze-code", response_model=APIResponse)
