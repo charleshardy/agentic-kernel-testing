@@ -14,8 +14,8 @@ import {
   Tooltip,
 } from 'antd'
 import {
-  TrendingUpOutlined,
-  TrendingDownOutlined,
+  ArrowUpOutlined,
+  ArrowDownOutlined,
   MinusOutlined,
   ReloadOutlined,
   DownloadOutlined,
@@ -200,8 +200,8 @@ const Performance: React.FC<PerformanceProps> = () => {
         
         return (
           <Space>
-            {isPositive ? <TrendingUpOutlined style={{ color }} /> : 
-             change < 0 ? <TrendingDownOutlined style={{ color }} /> : 
+            {isPositive ? <ArrowUpOutlined style={{ color }} /> : 
+             change < 0 ? <ArrowDownOutlined style={{ color }} /> : 
              <MinusOutlined style={{ color }} />}
             <Text style={{ color }}>
               {isPositive ? '+' : ''}{change.toFixed(1)}%
@@ -336,7 +336,7 @@ const Performance: React.FC<PerformanceProps> = () => {
               title="Improvements"
               value={improvementCount}
               valueStyle={{ color: '#52c41a' }}
-              prefix={<TrendingUpOutlined />}
+              prefix={<ArrowUpOutlined />}
             />
           </Card>
         </Col>
@@ -346,7 +346,7 @@ const Performance: React.FC<PerformanceProps> = () => {
               title="Regressions"
               value={regressionCount}
               valueStyle={{ color: '#ff4d4f' }}
-              prefix={<TrendingDownOutlined />}
+              prefix={<ArrowDownOutlined />}
             />
           </Card>
         </Col>

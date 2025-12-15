@@ -301,7 +301,7 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
           rowKey="plan_id"
           rowSelection={{
             selectedRowKeys,
-            onChange: setSelectedRowKeys,
+            onChange: (selectedRowKeys: React.Key[]) => setSelectedRowKeys(selectedRowKeys as string[]),
           }}
           pagination={{
             pageSize: 10,
