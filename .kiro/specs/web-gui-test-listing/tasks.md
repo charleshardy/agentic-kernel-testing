@@ -56,25 +56,25 @@
   - **Property 4: Bulk Operation Atomicity**
   - **Validates: Requirements 3.5**
 
-- [ ] 3. Update AI Generation Endpoints to Store Metadata
+- [x] 3. Update AI Generation Endpoints to Store Metadata
   - Modify generation endpoints to store complete generation information
   - Add generation method, source data, and AI model information to test cases
   - Ensure generated tests are properly tagged and traceable
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 3.1 Update generate-from-diff endpoint to store generation metadata
+- [x] 3.1 Update generate-from-diff endpoint to store generation metadata
   - Store diff content, generation parameters, and timestamp
   - Tag tests with 'ai_diff' generation method
   - Include AI model information if available
   - _Requirements: 4.1, 4.4_
 
-- [ ] 3.2 Update generate-from-function endpoint to store generation metadata
+- [x] 3.2 Update generate-from-function endpoint to store generation metadata
   - Store function name, file path, and generation parameters
   - Tag tests with 'ai_function' generation method
   - Include subsystem and function signature information
   - _Requirements: 4.2, 4.4_
 
-- [ ] 3.3 Write property test for generation source traceability
+- [x] 3.3 Write property test for generation source traceability
   - **Property 3: Generation Source Traceability**
   - **Validates: Requirements 4.1, 4.2, 4.3**
 

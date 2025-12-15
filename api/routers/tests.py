@@ -952,20 +952,26 @@ async def generate_tests_from_diff(
         for test_case in generated_tests:
             test_id = test_case.id
             
-            # Create generation metadata
+            # Create comprehensive generation metadata
             generation_info = {
                 "method": "ai_diff",
                 "source_data": {
-                    "diff_content": diff_content[:1000] + "..." if len(diff_content) > 1000 else diff_content,
+                    "diff_content": diff_content[:2000] + "..." if len(diff_content) > 2000 else diff_content,
                     "diff_size": len(diff_content),
-                    "analysis_id": analysis.id if hasattr(analysis, 'id') else None
+                    "diff_hash": str(hash(diff_content)),  # For quick comparison
+                    "changed_files": analysis.changed_files if hasattr(analysis, 'changed_files') else [],
+                    "changed_functions": [f.name for f in analysis.changed_functions] if hasattr(analysis, 'changed_functions') else [],
+                    "analysis_id": analysis.id if hasattr(analysis, 'id') else str(uuid.uuid4())
                 },
                 "generated_at": generation_timestamp.isoformat(),
-                "ai_model": "ai_test_generator",  # Could be made configurable
+                "ai_model": getattr(generator, 'llm_provider', {}).get('model', 'ai_test_generator') if hasattr(generator, 'llm_provider') and generator.llm_provider else 'template_based',
                 "generation_params": {
                     "max_tests": max_tests,
                     "test_types": test_types,
-                    "affected_subsystems": analysis.affected_subsystems if hasattr(analysis, 'affected_subsystems') else []
+                    "affected_subsystems": analysis.affected_subsystems if hasattr(analysis, 'affected_subsystems') else [],
+                    "impact_score": analysis.impact_score if hasattr(analysis, 'impact_score') else 0.5,
+                    "risk_level": analysis.risk_level if hasattr(analysis, 'risk_level') else "medium",
+                    "generation_strategy": "diff_analysis"
                 }
             }
             
@@ -1072,21 +1078,27 @@ async def generate_tests_from_function(
         for test_case in generated_tests:
             test_id = test_case.id
             
-            # Create generation metadata
+            # Create comprehensive generation metadata
             generation_info = {
                 "method": "ai_function",
                 "source_data": {
                     "function_name": function_name,
                     "file_path": file_path,
                     "subsystem": subsystem,
-                    "function_signature": f"{function_name}(...)"  # Could be enhanced with actual signature
+                    "function_signature": getattr(function, 'signature', f"{function_name}(...)"),
+                    "line_number": getattr(function, 'line_number', 1),
+                    "function_hash": str(hash(f"{file_path}::{function_name}")),  # For quick identification
+                    "code_context": getattr(function, 'code_context', None)
                 },
                 "generated_at": generation_timestamp.isoformat(),
-                "ai_model": "ai_test_generator",
+                "ai_model": getattr(generator, 'llm_provider', {}).get('model', 'ai_test_generator') if hasattr(generator, 'llm_provider') and generator.llm_provider else 'template_based',
                 "generation_params": {
                     "max_tests": max_tests,
                     "include_property_tests": include_property_tests,
-                    "target_function": function_name
+                    "target_function": function_name,
+                    "target_subsystem": subsystem,
+                    "generation_strategy": "function_analysis",
+                    "test_categories": ["unit", "property"] if include_property_tests else ["unit"]
                 }
             }
             
