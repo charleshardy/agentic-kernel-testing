@@ -1,6 +1,6 @@
 import React from 'react'
-import { Routes, Route } from 'react-router-dom'
-import { Layout } from 'antd'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { Layout, Alert } from 'antd'
 import DashboardLayout from './components/Layout/DashboardLayout'
 import Dashboard from './pages/Dashboard'
 import TestExecution from './pages/TestExecution'
@@ -11,18 +11,45 @@ import Settings from './pages/Settings'
 
 const { Content } = Layout
 
+// Simple login placeholder component
+const LoginPlaceholder = () => (
+  <div style={{ padding: '50px', textAlign: 'center' }}>
+    <Alert
+      message="Demo Mode - No Authentication Required"
+      description="This is a demo dashboard. Authentication is not implemented yet. Click below to return to the dashboard."
+      type="info"
+      showIcon
+      action={
+        <a href="/" style={{ textDecoration: 'none' }}>
+          Return to Dashboard
+        </a>
+      }
+    />
+  </div>
+)
+
 function App() {
   return (
-    <DashboardLayout>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/tests" element={<TestExecution />} />
-        <Route path="/results" element={<TestResults />} />
-        <Route path="/coverage" element={<Coverage />} />
-        <Route path="/performance" element={<Performance />} />
-        <Route path="/settings" element={<Settings />} />
-      </Routes>
-    </DashboardLayout>
+    <Routes>
+      {/* Login route - redirect back to dashboard in demo mode */}
+      <Route path="/login" element={<LoginPlaceholder />} />
+      
+      {/* Main dashboard routes */}
+      <Route path="/*" element={
+        <DashboardLayout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/tests" element={<TestExecution />} />
+            <Route path="/results" element={<TestResults />} />
+            <Route path="/coverage" element={<Coverage />} />
+            <Route path="/performance" element={<Performance />} />
+            <Route path="/settings" element={<Settings />} />
+            {/* Catch-all route */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </DashboardLayout>
+      } />
+    </Routes>
   )
 }
 

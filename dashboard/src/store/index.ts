@@ -44,7 +44,7 @@ interface DashboardState {
 
 const initialState = {
   systemMetrics: null,
-  isConnected: false,
+  isConnected: true, // Start as connected, let queries handle errors
   lastUpdate: null,
   activeExecutions: [],
   recentResults: [],

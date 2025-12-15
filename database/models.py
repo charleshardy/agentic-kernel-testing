@@ -11,11 +11,38 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.hybrid import hybrid_property
 
-from ai_generator.models import (
-    TestType, TestStatus, RiskLevel, EnvironmentStatus,
-    TestCase, TestResult, Environment, CoverageData, 
-    FailureAnalysis, CodeAnalysis, HardwareConfig
-)
+# Import enums directly to avoid circular imports
+from enum import Enum
+
+class TestType(str, Enum):
+    """Types of tests that can be generated and executed."""
+    UNIT = "unit"
+    INTEGRATION = "integration"
+    FUZZ = "fuzz"
+    PERFORMANCE = "performance"
+    SECURITY = "security"
+
+class TestStatus(str, Enum):
+    """Status of a test execution."""
+    PASSED = "passed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+    TIMEOUT = "timeout"
+    ERROR = "error"
+
+class RiskLevel(str, Enum):
+    """Risk level for code changes."""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+class EnvironmentStatus(str, Enum):
+    """Status of a test execution environment."""
+    IDLE = "idle"
+    BUSY = "busy"
+    PROVISIONING = "provisioning"
+    ERROR = "error"
 from .connection import Base
 
 
@@ -38,30 +65,19 @@ class HardwareConfigModel(Base):
     test_cases = relationship("TestCaseModel", back_populates="hardware_config")
     environments = relationship("EnvironmentModel", back_populates="hardware_config")
     
-    def to_domain_model(self) -> HardwareConfig:
-        """Convert to domain model."""
-        return HardwareConfig.from_dict({
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            'id': self.id,
             'architecture': self.architecture,
             'cpu_model': self.cpu_model,
             'memory_mb': self.memory_mb,
             'storage_type': self.storage_type,
             'peripherals': self.peripherals or [],
             'is_virtual': self.is_virtual,
-            'emulator': self.emulator
-        })
-    
-    @classmethod
-    def from_domain_model(cls, config: HardwareConfig) -> 'HardwareConfigModel':
-        """Create from domain model."""
-        return cls(
-            architecture=config.architecture,
-            cpu_model=config.cpu_model,
-            memory_mb=config.memory_mb,
-            storage_type=config.storage_type,
-            peripherals=[p.to_dict() for p in config.peripherals],
-            is_virtual=config.is_virtual,
-            emulator=config.emulator
-        )
+            'emulator': self.emulator,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
 
 
 class TestCaseModel(Base):
@@ -87,11 +103,9 @@ class TestCaseModel(Base):
     hardware_config = relationship("HardwareConfigModel", back_populates="test_cases")
     test_results = relationship("TestResultModel", back_populates="test_case")
     
-    def to_domain_model(self) -> TestCase:
-        """Convert to domain model."""
-        hardware = self.hardware_config.to_domain_model() if self.hardware_config else None
-        
-        return TestCase.from_dict({
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
             'id': self.id,
             'name': self.name,
             'description': self.description,
@@ -99,28 +113,13 @@ class TestCaseModel(Base):
             'target_subsystem': self.target_subsystem,
             'code_paths': self.code_paths or [],
             'execution_time_estimate': self.execution_time_estimate,
-            'required_hardware': hardware.to_dict() if hardware else None,
+            'hardware_config': self.hardware_config.to_dict() if self.hardware_config else None,
             'test_script': self.test_script,
             'expected_outcome': self.expected_outcome,
-            'metadata': self.test_metadata or {}
-        })
-    
-    @classmethod
-    def from_domain_model(cls, test_case: TestCase, hardware_config_id: Optional[int] = None) -> 'TestCaseModel':
-        """Create from domain model."""
-        return cls(
-            id=test_case.id,
-            name=test_case.name,
-            description=test_case.description,
-            test_type=test_case.test_type,
-            target_subsystem=test_case.target_subsystem,
-            code_paths=test_case.code_paths,
-            execution_time_estimate=test_case.execution_time_estimate,
-            hardware_config_id=hardware_config_id,
-            test_script=test_case.test_script,
-            expected_outcome=test_case.expected_outcome.to_dict() if test_case.expected_outcome else None,
-            test_metadata=test_case.metadata
-        )
+            'metadata': self.test_metadata or {},
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
 
 
 class EnvironmentModel(Base):
@@ -142,34 +141,19 @@ class EnvironmentModel(Base):
     hardware_config = relationship("HardwareConfigModel", back_populates="environments")
     test_results = relationship("TestResultModel", back_populates="environment")
     
-    def to_domain_model(self) -> Environment:
-        """Convert to domain model."""
-        return Environment.from_dict({
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
             'id': self.id,
-            'config': self.hardware_config.to_domain_model().to_dict(),
+            'hardware_config': self.hardware_config.to_dict() if self.hardware_config else None,
             'status': self.status.value,
             'kernel_version': self.kernel_version,
             'ip_address': self.ip_address,
             'ssh_credentials': self.ssh_credentials,
-            'created_at': self.created_at.isoformat(),
-            'last_used': self.last_used.isoformat(),
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'last_used': self.last_used.isoformat() if self.last_used else None,
             'metadata': self.env_metadata or {}
-        })
-    
-    @classmethod
-    def from_domain_model(cls, environment: Environment, hardware_config_id: int) -> 'EnvironmentModel':
-        """Create from domain model."""
-        return cls(
-            id=environment.id,
-            hardware_config_id=hardware_config_id,
-            status=environment.status,
-            kernel_version=environment.kernel_version,
-            ip_address=environment.ip_address,
-            ssh_credentials=environment.ssh_credentials.to_dict() if environment.ssh_credentials else None,
-            created_at=environment.created_at,
-            last_used=environment.last_used,
-            env_metadata=environment.metadata
-        )
+        }
 
 
 class CoverageDataModel(Base):
@@ -192,9 +176,11 @@ class CoverageDataModel(Base):
     # Relationships
     test_result = relationship("TestResultModel", back_populates="coverage_data")
     
-    def to_domain_model(self) -> CoverageData:
-        """Convert to domain model."""
-        return CoverageData.from_dict({
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            'id': self.id,
+            'test_result_id': self.test_result_id,
             'line_coverage': self.line_coverage,
             'branch_coverage': self.branch_coverage,
             'function_coverage': self.function_coverage,
@@ -202,23 +188,9 @@ class CoverageDataModel(Base):
             'uncovered_lines': self.uncovered_lines or [],
             'covered_branches': self.covered_branches or [],
             'uncovered_branches': self.uncovered_branches or [],
-            'metadata': self.coverage_metadata or {}
-        })
-    
-    @classmethod
-    def from_domain_model(cls, coverage: CoverageData, test_result_id: int) -> 'CoverageDataModel':
-        """Create from domain model."""
-        return cls(
-            test_result_id=test_result_id,
-            line_coverage=coverage.line_coverage,
-            branch_coverage=coverage.branch_coverage,
-            function_coverage=coverage.function_coverage,
-            covered_lines=coverage.covered_lines,
-            uncovered_lines=coverage.uncovered_lines,
-            covered_branches=coverage.covered_branches,
-            uncovered_branches=coverage.uncovered_branches,
-            coverage_metadata=coverage.metadata
-        )
+            'metadata': self.coverage_metadata or {},
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
 
 
 class TestResultModel(Base):
@@ -240,33 +212,21 @@ class TestResultModel(Base):
     environment = relationship("EnvironmentModel", back_populates="test_results")
     coverage_data = relationship("CoverageDataModel", back_populates="test_result", uselist=False)
     
-    def to_domain_model(self) -> TestResult:
-        """Convert to domain model."""
-        coverage = self.coverage_data.to_domain_model() if self.coverage_data else None
-        
-        return TestResult.from_dict({
-            'test_id': self.test_case_id,
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            'id': self.id,
+            'test_case_id': self.test_case_id,
+            'environment_id': self.environment_id,
             'status': self.status.value,
             'execution_time': self.execution_time,
-            'environment': self.environment.to_domain_model().to_dict(),
+            'environment': self.environment.to_dict() if self.environment else None,
+            'test_case': self.test_case.to_dict() if self.test_case else None,
             'artifacts': self.artifacts or {},
-            'coverage_data': coverage.to_dict() if coverage else None,
+            'coverage_data': self.coverage_data.to_dict() if self.coverage_data else None,
             'failure_info': self.failure_info,
-            'timestamp': self.timestamp.isoformat()
-        })
-    
-    @classmethod
-    def from_domain_model(cls, result: TestResult) -> 'TestResultModel':
-        """Create from domain model."""
-        return cls(
-            test_case_id=result.test_id,
-            environment_id=result.environment.id,
-            status=result.status,
-            execution_time=result.execution_time,
-            artifacts=result.artifacts.to_dict(),
-            failure_info=result.failure_info.to_dict() if result.failure_info else None,
-            timestamp=result.timestamp
-        )
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None
+        }
 
 
 class CodeAnalysisModel(Base):
@@ -285,31 +245,20 @@ class CodeAnalysisModel(Base):
     related_tests = Column(JSON, default=list)
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    def to_domain_model(self) -> CodeAnalysis:
-        """Convert to domain model."""
-        return CodeAnalysis.from_dict({
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            'id': self.id,
+            'commit_sha': self.commit_sha,
             'changed_files': self.changed_files or [],
             'changed_functions': self.changed_functions or [],
             'affected_subsystems': self.affected_subsystems or [],
             'impact_score': self.impact_score,
             'risk_level': self.risk_level.value,
             'suggested_test_types': self.suggested_test_types or [],
-            'related_tests': self.related_tests or []
-        })
-    
-    @classmethod
-    def from_domain_model(cls, analysis: CodeAnalysis, commit_sha: str) -> 'CodeAnalysisModel':
-        """Create from domain model."""
-        return cls(
-            commit_sha=commit_sha,
-            changed_files=analysis.changed_files,
-            changed_functions=[f.to_dict() for f in analysis.changed_functions],
-            affected_subsystems=analysis.affected_subsystems,
-            impact_score=analysis.impact_score,
-            risk_level=analysis.risk_level,
-            suggested_test_types=[t.value for t in analysis.suggested_test_types],
-            related_tests=analysis.related_tests
-        )
+            'related_tests': self.related_tests or [],
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
 
 
 class FailureAnalysisModel(Base):
@@ -333,10 +282,12 @@ class FailureAnalysisModel(Base):
     # Relationships
     test_result = relationship("TestResultModel")
     
-    def to_domain_model(self) -> FailureAnalysis:
-        """Convert to domain model."""
-        return FailureAnalysis.from_dict({
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            'id': self.id,
             'failure_id': self.failure_id,
+            'test_result_id': self.test_result_id,
             'root_cause': self.root_cause,
             'confidence': self.confidence,
             'suspicious_commits': self.suspicious_commits or [],
@@ -344,24 +295,9 @@ class FailureAnalysisModel(Base):
             'stack_trace': self.stack_trace,
             'suggested_fixes': self.suggested_fixes or [],
             'related_failures': self.related_failures or [],
-            'reproducibility': self.reproducibility
-        })
-    
-    @classmethod
-    def from_domain_model(cls, analysis: FailureAnalysis, test_result_id: int) -> 'FailureAnalysisModel':
-        """Create from domain model."""
-        return cls(
-            failure_id=analysis.failure_id,
-            test_result_id=test_result_id,
-            root_cause=analysis.root_cause,
-            confidence=analysis.confidence,
-            suspicious_commits=[c.to_dict() for c in analysis.suspicious_commits],
-            error_pattern=analysis.error_pattern,
-            stack_trace=analysis.stack_trace,
-            suggested_fixes=[f.to_dict() for f in analysis.suggested_fixes],
-            related_failures=analysis.related_failures,
-            reproducibility=analysis.reproducibility
-        )
+            'reproducibility': self.reproducibility,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
 
 
 class PerformanceBaselineModel(Base):

@@ -93,10 +93,8 @@ class APIService {
   private client: AxiosInstance
 
   constructor() {
-    // Use direct backend URL since proxy might not be working on different ports
-    const baseURL = window.location.hostname === 'localhost' && window.location.port !== '3000' 
-      ? 'http://localhost:8000/api/v1'  // Direct connection for non-standard ports
-      : '/api/v1'  // Use proxy for standard setup
+    // Always use direct backend URL for better reliability
+    const baseURL = 'http://localhost:8000/api/v1'
       
     this.client = axios.create({
       baseURL,
@@ -124,9 +122,11 @@ class APIService {
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
+        // Log authentication errors but don't auto-redirect in demo mode
         if (error.response?.status === 401) {
+          console.log('Authentication required for:', error.config?.url)
           localStorage.removeItem('auth_token')
-          window.location.href = '/login'
+          // Don't auto-redirect - let the dashboard handle this gracefully with mock data
         }
         return Promise.reject(error)
       }
@@ -140,7 +140,7 @@ class APIService {
   }
 
   async getSystemMetrics(): Promise<SystemMetrics> {
-    const response: AxiosResponse<APIResponse<SystemMetrics>> = await this.client.get('/status/metrics')
+    const response: AxiosResponse<APIResponse<SystemMetrics>> = await this.client.get('/health/metrics')
     return response.data.data!
   }
 
