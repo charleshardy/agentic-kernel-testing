@@ -38,7 +38,7 @@
   - Add priority queue management with proper ordering
   - _Requirements: 1.1, 6.1, 6.2, 6.3_
 
-- [ ]* 2.2 Write property test for queue processing
+- [x] 2.2 Write property test for queue processing
   - **Property 1: Automatic plan processing**
   - **Validates: Requirements 1.1**
 
