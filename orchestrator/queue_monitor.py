@@ -62,8 +62,8 @@ class QueueMonitor:
                         priority = plan_data.get('priority', 5)  # Default priority 5
                         timestamp = current_time.timestamp()
                         
-                        # Use negative priority for max-heap behavior (higher priority first)
-                        heapq.heappush(self._priority_queue, (-priority, timestamp, plan_id, plan_data))
+                        # Priority: 1=highest, 10=lowest, so use priority directly for min-heap
+                        heapq.heappush(self._priority_queue, (priority, timestamp, plan_id, plan_data))
                         
                         self._metrics['plans_detected'] += 1
                         self._metrics['plans_queued'] += 1
@@ -87,10 +87,9 @@ class QueueMonitor:
                 # First, poll for any new plans
                 self.poll_for_new_plans()
                 
-                # Get the highest priority plan from the queue
+                # Get the highest priority plan from the queue (lowest number = highest priority)
                 if self._priority_queue:
-                    neg_priority, timestamp, plan_id, plan_data = heapq.heappop(self._priority_queue)
-                    priority = -neg_priority
+                    priority, timestamp, plan_id, plan_data = heapq.heappop(self._priority_queue)
                     
                     self._metrics['plans_processed'] += 1
                     
@@ -156,8 +155,7 @@ class QueueMonitor:
                 
                 # Analyze queue contents
                 queue_info = []
-                for neg_priority, timestamp, plan_id, plan_data in self._priority_queue:
-                    priority = -neg_priority
+                for priority, timestamp, plan_id, plan_data in self._priority_queue:
                     test_count = len(plan_data.get('test_case_ids', []))
                     
                     queue_info.append({
@@ -168,8 +166,8 @@ class QueueMonitor:
                         'submission_id': plan_data.get('submission_id', 'unknown')
                     })
                 
-                # Sort by priority for display (highest first)
-                queue_info.sort(key=lambda x: x['priority'], reverse=True)
+                # Sort by priority for display (highest priority first = lowest number first)
+                queue_info.sort(key=lambda x: x['priority'])
                 
                 return {
                     'total_plans': len(self._priority_queue),
