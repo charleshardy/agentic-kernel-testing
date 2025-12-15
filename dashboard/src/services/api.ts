@@ -104,6 +104,9 @@ class APIService {
       },
     })
 
+    // Initialize demo authentication
+    this.initializeDemoAuth()
+
     // Add request interceptor for authentication
     this.client.interceptors.request.use(
       (config) => {
@@ -126,7 +129,7 @@ class APIService {
         if (error.response?.status === 401) {
           console.log('Authentication required for:', error.config?.url)
           localStorage.removeItem('auth_token')
-          // Don't auto-redirect - let the dashboard handle this gracefully with mock data
+          // Let individual methods handle retry logic
         }
         return Promise.reject(error)
       }
@@ -244,14 +247,30 @@ class APIService {
     maxTests: number = 20, 
     testTypes: string[] = ['unit']
   ): Promise<APIResponse> {
-    const response: AxiosResponse<APIResponse> = await this.client.post('/tests/generate-from-diff', null, {
-      params: {
-        diff_content: diff,
-        max_tests: maxTests,
-        test_types: testTypes
+    try {
+      const response: AxiosResponse<APIResponse> = await this.client.post('/tests/generate-from-diff', null, {
+        params: {
+          diff_content: diff,
+          max_tests: maxTests,
+          test_types: testTypes
+        }
+      })
+      return response.data
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        // Try to get demo token and retry
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse> = await this.client.post('/tests/generate-from-diff', null, {
+          params: {
+            diff_content: diff,
+            max_tests: maxTests,
+            test_types: testTypes
+          }
+        })
+        return response.data
       }
-    })
-    return response.data
+      throw error
+    }
   }
 
   async generateTestsFromFunction(
@@ -260,15 +279,32 @@ class APIService {
     subsystem: string = 'unknown',
     maxTests: number = 10
   ): Promise<APIResponse> {
-    const response: AxiosResponse<APIResponse> = await this.client.post('/tests/generate-from-function', null, {
-      params: {
-        function_name: functionName,
-        file_path: filePath,
-        subsystem: subsystem,
-        max_tests: maxTests
+    try {
+      const response: AxiosResponse<APIResponse> = await this.client.post('/tests/generate-from-function', null, {
+        params: {
+          function_name: functionName,
+          file_path: filePath,
+          subsystem: subsystem,
+          max_tests: maxTests
+        }
+      })
+      return response.data
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        // Try to get demo token and retry
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse> = await this.client.post('/tests/generate-from-function', null, {
+          params: {
+            function_name: functionName,
+            file_path: filePath,
+            subsystem: subsystem,
+            max_tests: maxTests
+          }
+        })
+        return response.data
       }
-    })
-    return response.data
+      throw error
+    }
   }
 
   async analyzeCode(diffContent: string): Promise<APIResponse> {
@@ -276,6 +312,46 @@ class APIService {
       diff_content: diffContent
     })
     return response.data
+  }
+
+  // Demo authentication
+  private async initializeDemoAuth(): Promise<void> {
+    try {
+      // Check if we already have a token
+      const existingToken = localStorage.getItem('auth_token')
+      if (existingToken) {
+        return
+      }
+
+      // Get demo token
+      const response: AxiosResponse<APIResponse> = await this.client.post('/auth/login')
+      if (response.data.success && response.data.data?.access_token) {
+        localStorage.setItem('auth_token', response.data.data.access_token)
+      }
+    } catch (error) {
+      console.log('Demo auth initialization failed, continuing without auth:', error)
+    }
+  }
+
+  async getDemoToken(): Promise<string | null> {
+    try {
+      const response: AxiosResponse<APIResponse> = await this.client.post('/auth/login')
+      if (response.data.success && response.data.data?.access_token) {
+        const token = response.data.data.access_token
+        localStorage.setItem('auth_token', token)
+        return token
+      }
+    } catch (error) {
+      console.error('Failed to get demo token:', error)
+    }
+    return null
+  }
+
+  private async ensureDemoToken(): Promise<void> {
+    const token = await this.getDemoToken()
+    if (!token) {
+      throw new Error('Failed to obtain authentication token')
+    }
   }
 }
 
