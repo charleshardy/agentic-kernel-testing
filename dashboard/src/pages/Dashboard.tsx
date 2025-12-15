@@ -56,21 +56,7 @@ const Dashboard: React.FC = () => {
     }
   )
 
-  // Set up WebSocket event handlers
-  useEffect(() => {
-    const unsubscribeMetrics = webSocketService.subscribe('system_metrics', (event) => {
-      setSystemMetrics(event.data)
-    })
-
-    const unsubscribeTestUpdate = webSocketService.subscribe('test_status_update', (event) => {
-      addTestResult(event.data)
-    })
-
-    return () => {
-      unsubscribeMetrics()
-      unsubscribeTestUpdate()
-    }
-  }, [setSystemMetrics, addTestResult])
+  // Note: WebSocket events removed - using HTTP polling instead via React Query
 
   const getStatusColor = (status: string) => {
     switch (status) {
