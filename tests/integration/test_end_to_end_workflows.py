@@ -1074,15 +1074,19 @@ class TestSystemIntegration:
         # For now, we'll test the client interface
         
         # Mock API responses
-        with patch('api.client.requests') as mock_requests:
+        with patch('api.client.requests.Session.request') as mock_request:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_response.json.return_value = {
-                'status': 'healthy',
-                'version': '1.0.0',
-                'uptime': 3600
+                'success': True,
+                'data': {
+                    'status': 'healthy',
+                    'version': '1.0.0',
+                    'uptime': 3600
+                }
             }
-            mock_requests.get.return_value = mock_response
+            mock_response.raise_for_status.return_value = None
+            mock_request.return_value = mock_response
             
             # Test client initialization and health check
             client = AgenticTestingClient(base_url='http://localhost:8000')

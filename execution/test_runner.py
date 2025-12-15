@@ -13,6 +13,7 @@ import subprocess
 import signal
 import time
 import uuid
+import os
 from pathlib import Path
 from typing import List, Dict, Optional, Callable, Any
 from datetime import datetime
@@ -166,6 +167,7 @@ class TestRunner:
         """
         # Create a temporary script file
         env_dir = Path(environment.metadata.get("env_dir", f"/tmp/{environment.id}"))
+        env_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
         script_path = env_dir / f"test_{test.id}.sh"
         script_path.write_text(test.test_script)
         script_path.chmod(0o755)
