@@ -238,7 +238,15 @@ See [SSO Quick Reference](SSO_QUICK_REFERENCE.md) for complete setup.
    cd ..
    ```
 
-5. **Configure environment**
+5. **Start the development server**
+   ```bash
+   # Start the dashboard (includes XDG_RUNTIME_DIR fix for headless environments)
+   cd dashboard
+   npm run dev
+   # Dashboard will be available at http://localhost:5173
+   ```
+
+6. **Configure environment**
    ```bash
    # The .env file is pre-configured for Amazon Q Developer Pro with AWS SSO
    # For AWS SSO setup (recommended):
@@ -252,7 +260,7 @@ See [SSO Quick Reference](SSO_QUICK_REFERENCE.md) for complete setup.
    nano .env
    ```
 
-6. **Verify setup**
+7. **Verify setup**
    ```bash
    # Verify AWS SSO configuration
    python3 verify_aws_sso.py
