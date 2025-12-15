@@ -4,7 +4,8 @@
   "description": "Web dashboard for Agentic AI Testing System",
   "private": true,
   "scripts": {
-    "dev": "vite",
+    "dev": "export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/tmp/runtime-$USER} && mkdir -p \"$XDG_RUNTIME_DIR\" && vite",
+    "dev:clean": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
