@@ -7,8 +7,8 @@ from pydantic import BaseModel, Field, ConfigDict
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file only
+load_dotenv(dotenv_path=".env", override=False)
 
 
 class LLMConfig(BaseModel):
