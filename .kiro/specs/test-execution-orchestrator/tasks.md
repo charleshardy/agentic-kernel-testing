@@ -22,7 +22,7 @@
   - Add methods for status updates and metrics retrieval
   - _Requirements: 1.4, 1.5, 2.1, 2.2, 2.3_
 
-- [ ]* 1.4 Write property test for status tracking
+- [x] 1.4 Write property test for status tracking
   - **Property 3: Status consistency during execution**
   - **Validates: Requirements 1.4, 1.5**
 
