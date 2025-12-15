@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { Layout, Alert } from 'antd'
 import DashboardLayout from './components/Layout/DashboardLayout'
 import Dashboard from './pages/Dashboard'
+import TestCases from './pages/TestCases'
 import TestExecution from './pages/TestExecution'
 import TestResults from './pages/TestResults'
 import Coverage from './pages/Coverage'
@@ -39,6 +40,7 @@ function App() {
         <DashboardLayout>
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/test-cases" element={<TestCases />} />
             <Route path="/tests" element={<TestExecution />} />
             <Route path="/results" element={<TestResults />} />
             <Route path="/coverage" element={<Coverage />} />

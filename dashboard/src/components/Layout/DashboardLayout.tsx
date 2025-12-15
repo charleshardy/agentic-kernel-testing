@@ -65,6 +65,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       label: 'Dashboard',
     },
     {
+      key: '/test-cases',
+      icon: <ExperimentOutlined />,
+      label: 'Test Cases',
+    },
+    {
       key: '/tests',
       icon: <ExperimentOutlined />,
       label: 'Test Execution',
