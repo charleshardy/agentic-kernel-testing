@@ -93,8 +93,13 @@ class APIService {
   private client: AxiosInstance
 
   constructor() {
+    // Use direct backend URL since proxy might not be working on different ports
+    const baseURL = window.location.hostname === 'localhost' && window.location.port !== '3000' 
+      ? 'http://localhost:8000/api/v1'  // Direct connection for non-standard ports
+      : '/api/v1'  // Use proxy for standard setup
+      
     this.client = axios.create({
-      baseURL: '/api/v1',
+      baseURL,
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',

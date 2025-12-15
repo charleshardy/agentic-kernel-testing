@@ -31,20 +31,30 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { isConnected, setConnectionStatus } = useDashboardStore()
 
   useEffect(() => {
-    // Initialize WebSocket connection
-    webSocketService.connect()
-    
-    // Monitor connection status
-    const checkConnection = () => {
-      setConnectionStatus(webSocketService.isConnected())
+    // Check API connection status (HTTP-based, not WebSocket)
+    const checkConnection = async () => {
+      try {
+        // Try proxy first, then direct connection
+        let response = await fetch('/api/v1/health').catch(() => null)
+        if (!response || !response.ok) {
+          // Fallback to direct backend connection
+          response = await fetch('http://localhost:8000/api/v1/health')
+        }
+        setConnectionStatus(response.ok)
+      } catch (error) {
+        console.log('API connection check failed:', error)
+        setConnectionStatus(false)
+      }
     }
     
-    const interval = setInterval(checkConnection, 5000)
+    // Initial check
     checkConnection()
+    
+    // Check connection every 10 seconds
+    const interval = setInterval(checkConnection, 10000)
     
     return () => {
       clearInterval(interval)
-      webSocketService.disconnect()
     }
   }, [setConnectionStatus])
 
