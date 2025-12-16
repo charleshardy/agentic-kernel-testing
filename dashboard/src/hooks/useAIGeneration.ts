@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from 'react-query'
 import { message } from 'antd'
-import apiService, { TestCase } from '../services/api'
+import apiService, { TestCase, EnhancedTestCase } from '../services/api'
+import { testCaseKeys } from './useTestCases'
 
 interface GenerateFromDiffParams {
   diff: string
@@ -27,12 +28,12 @@ const generateOptimisticTestCases = (
   type: 'diff' | 'function',
   params: GenerateFromDiffParams | GenerateFromFunctionParams,
   count: number = 3
-): TestCase[] => {
+): EnhancedTestCase[] => {
   const baseTime = new Date().toISOString()
-  const testCases: TestCase[] = []
+  const testCases: EnhancedTestCase[] = []
 
   for (let i = 0; i < count; i++) {
-    const testCase: TestCase = {
+    const testCase: EnhancedTestCase = {
       id: `optimistic-${type}-${Date.now()}-${i}`,
       name: type === 'diff' 
         ? `Generated Test ${i + 1} (from diff)` 
@@ -50,10 +51,11 @@ const generateOptimisticTestCases = (
       execution_time_estimate: 60,
       test_script: '#!/bin/bash\n# Generated test script (pending)\necho "Test generation in progress..."',
       metadata: {
-        generation_method: type === 'diff' ? 'ai_diff' : 'ai_function',
-        execution_status: 'pending',
-        generated_at: baseTime,
         optimistic: true, // Mark as optimistic update
+      },
+      generation_info: {
+        method: type === 'diff' ? 'ai_diff' : 'ai_function',
+        generated_at: baseTime,
         source_data: type === 'diff' 
           ? { diff_content: (params as GenerateFromDiffParams).diff }
           : { 
@@ -62,6 +64,7 @@ const generateOptimisticTestCases = (
               subsystem: (params as GenerateFromFunctionParams).subsystem
             }
       },
+      execution_status: 'never_run',
       created_at: baseTime,
       updated_at: baseTime,
     }
@@ -85,22 +88,25 @@ export const useAIGeneration = (options: UseAIGenerationOptions = {}) => {
 
         if (enableOptimisticUpdates) {
           // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
-          await queryClient.cancelQueries(['testCases'])
+          await queryClient.cancelQueries(testCaseKeys.lists())
 
           // Snapshot the previous value
-          const previousTestCases = queryClient.getQueriesData(['testCases'])
+          const previousTestCases = queryClient.getQueriesData(testCaseKeys.lists())
 
           // Generate optimistic test cases
           const optimisticTests = generateOptimisticTestCases('diff', data, Math.min(data.maxTests, 5))
 
           // Optimistically update all testCases queries
-          queryClient.setQueriesData(['testCases'], (old: any) => {
+          queryClient.setQueriesData(testCaseKeys.lists(), (old: any) => {
             if (!old?.tests) return old
             
             return {
               ...old,
               tests: [...optimisticTests, ...old.tests],
-              total: (old.total || 0) + optimisticTests.length
+              pagination: {
+                ...old.pagination,
+                total_items: (old.pagination?.total_items || 0) + optimisticTests.length
+              }
             }
           })
 
@@ -114,10 +120,10 @@ export const useAIGeneration = (options: UseAIGenerationOptions = {}) => {
         
         // Refresh test-related queries to get real data
         if (preserveFilters) {
-          queryClient.invalidateQueries(['testCases'])
+          queryClient.invalidateQueries(testCaseKeys.lists())
         } else {
-          queryClient.invalidateQueries(['testCases'])
-          queryClient.resetQueries(['testCases'])
+          queryClient.invalidateQueries(testCaseKeys.lists())
+          queryClient.resetQueries(testCaseKeys.lists())
         }
         
         // Also refresh active executions
@@ -152,22 +158,25 @@ export const useAIGeneration = (options: UseAIGenerationOptions = {}) => {
 
         if (enableOptimisticUpdates) {
           // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
-          await queryClient.cancelQueries(['testCases'])
+          await queryClient.cancelQueries(testCaseKeys.lists())
 
           // Snapshot the previous value
-          const previousTestCases = queryClient.getQueriesData(['testCases'])
+          const previousTestCases = queryClient.getQueriesData(testCaseKeys.lists())
 
           // Generate optimistic test cases
           const optimisticTests = generateOptimisticTestCases('function', data, Math.min(data.maxTests, 5))
 
           // Optimistically update all testCases queries
-          queryClient.setQueriesData(['testCases'], (old: any) => {
+          queryClient.setQueriesData(testCaseKeys.lists(), (old: any) => {
             if (!old?.tests) return old
             
             return {
               ...old,
               tests: [...optimisticTests, ...old.tests],
-              total: (old.total || 0) + optimisticTests.length
+              pagination: {
+                ...old.pagination,
+                total_items: (old.pagination?.total_items || 0) + optimisticTests.length
+              }
             }
           })
 
@@ -181,10 +190,10 @@ export const useAIGeneration = (options: UseAIGenerationOptions = {}) => {
         
         // Refresh test-related queries to get real data
         if (preserveFilters) {
-          queryClient.invalidateQueries(['testCases'])
+          queryClient.invalidateQueries(testCaseKeys.lists())
         } else {
-          queryClient.invalidateQueries(['testCases'])
-          queryClient.resetQueries(['testCases'])
+          queryClient.invalidateQueries(testCaseKeys.lists())
+          queryClient.resetQueries(testCaseKeys.lists())
         }
         
         // Also refresh active executions

@@ -176,19 +176,19 @@
   - Show progress indicators for bulk operations
   - _Requirements: 3.5_
 
-- [ ] 8. Update API Service and State Management
+- [x] 8. Update API Service and State Management
   - Add new API methods for test case management
   - Update React Query cache management
   - Implement error handling and retry logic
   - _Requirements: 1.1, 2.1, 3.1, 3.2, 3.4, 3.5_
 
-- [ ] 8.1 Add test case management methods to API service
+- [x] 8.1 Add test case management methods to API service
   - Implement getTests, updateTest, deleteTest, executeTest methods
   - Add bulk operations method
   - Include proper error handling and authentication
   - _Requirements: 1.1, 3.1, 3.2, 3.4, 3.5_
 
-- [ ] 8.2 Update React Query configuration
+- [x] 8.2 Update React Query configuration
   - Add query keys for test case data
   - Implement cache invalidation strategies
   - Set up optimistic updates for mutations

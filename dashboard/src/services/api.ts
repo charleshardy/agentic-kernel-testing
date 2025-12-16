@@ -24,6 +24,63 @@ export interface TestCase {
   updated_at: string
 }
 
+export interface EnhancedTestCase extends TestCase {
+  generation_info?: {
+    method: 'manual' | 'ai_diff' | 'ai_function'
+    source_data: any
+    generated_at: string
+    ai_model?: string
+    generation_params?: Record<string, any>
+  }
+  execution_status?: 'never_run' | 'running' | 'completed' | 'failed'
+  last_execution_at?: string
+  tags?: string[]
+  is_favorite?: boolean
+}
+
+export interface TestCaseFilters {
+  test_type?: string
+  subsystem?: string
+  status?: string
+  generation_method?: 'manual' | 'ai_diff' | 'ai_function'
+  date_range?: [string, string]
+  search?: string
+}
+
+export interface TestListResponse {
+  tests: EnhancedTestCase[]
+  pagination: {
+    page: number
+    page_size: number
+    total_items: number
+    total_pages: number
+    has_next: boolean
+    has_prev: boolean
+  }
+  filters_applied: TestCaseFilters
+}
+
+export interface BulkOperationRequest {
+  operation: 'delete' | 'execute' | 'update' | 'tag'
+  test_ids: string[]
+  data?: Record<string, any>
+}
+
+export interface BulkOperationResponse {
+  success: boolean
+  results: Array<{
+    test_id: string
+    success: boolean
+    message?: string
+    error?: string
+  }>
+  summary: {
+    total: number
+    successful: number
+    failed: number
+  }
+}
+
 export interface TestResult {
   test_id: string
   status: 'passed' | 'failed' | 'running' | 'pending' | 'skipped' | 'timeout' | 'error'
@@ -153,14 +210,92 @@ class APIService {
     page_size?: number
     status?: string
     test_type?: string
-  }): Promise<{ tests: TestCase[], total: number }> {
-    const response: AxiosResponse<APIResponse> = await this.client.get('/tests', { params })
+    subsystem?: string
+    generation_method?: string
+    date_range?: [string, string]
+    search?: string
+  }): Promise<TestListResponse> {
+    const queryParams: Record<string, any> = { ...params }
+    
+    // Handle date range formatting
+    if (params?.date_range) {
+      queryParams.start_date = params.date_range[0]
+      queryParams.end_date = params.date_range[1]
+      delete queryParams.date_range
+    }
+    
+    const response: AxiosResponse<APIResponse<TestListResponse>> = await this.client.get('/tests', { 
+      params: queryParams 
+    })
     return response.data.data!
   }
 
-  async getTestById(testId: string): Promise<TestCase> {
-    const response: AxiosResponse<APIResponse<TestCase>> = await this.client.get(`/tests/${testId}`)
+  async getTestById(testId: string): Promise<EnhancedTestCase> {
+    const response: AxiosResponse<APIResponse<EnhancedTestCase>> = await this.client.get(`/tests/${testId}`)
     return response.data.data!
+  }
+
+  async updateTest(testId: string, updates: Partial<TestCase>): Promise<EnhancedTestCase> {
+    try {
+      const response: AxiosResponse<APIResponse<EnhancedTestCase>> = await this.client.put(`/tests/${testId}`, updates)
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<EnhancedTestCase>> = await this.client.put(`/tests/${testId}`, updates)
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async deleteTest(testId: string): Promise<{ success: boolean, message: string }> {
+    try {
+      const response: AxiosResponse<APIResponse<{ success: boolean, message: string }>> = await this.client.delete(`/tests/${testId}`)
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<{ success: boolean, message: string }>> = await this.client.delete(`/tests/${testId}`)
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async executeTest(testId: string, options?: {
+    environment_preference?: string
+    priority?: number
+  }): Promise<{ execution_plan_id: string, estimated_completion: string }> {
+    try {
+      const response: AxiosResponse<APIResponse<{ execution_plan_id: string, estimated_completion: string }>> = 
+        await this.client.post(`/tests/${testId}/execute`, options || {})
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<{ execution_plan_id: string, estimated_completion: string }>> = 
+          await this.client.post(`/tests/${testId}/execute`, options || {})
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async bulkOperations(request: BulkOperationRequest): Promise<BulkOperationResponse> {
+    try {
+      const response: AxiosResponse<APIResponse<BulkOperationResponse>> = 
+        await this.client.post('/tests/bulk-operations', request)
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<BulkOperationResponse>> = 
+          await this.client.post('/tests/bulk-operations', request)
+        return response.data.data!
+      }
+      throw error
+    }
   }
 
   async submitTests(tests: any[]): Promise<{ submission_id: string, test_case_ids: string[] }> {
