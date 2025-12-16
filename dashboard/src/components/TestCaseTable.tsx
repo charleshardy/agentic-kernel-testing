@@ -149,13 +149,14 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
       render: (record: TestCase) => {
         const lastExecution = record.metadata?.last_execution
         const executionStatus = record.metadata?.execution_status || 'never_run'
+        const isOptimistic = record.metadata?.optimistic === true
         
         const statusConfig = {
           never_run: { color: 'default', text: 'Never Run' },
           running: { color: 'processing', text: 'Running' },
           completed: { color: 'success', text: 'Passed' },
           failed: { color: 'error', text: 'Failed' },
-          pending: { color: 'warning', text: 'Pending' },
+          pending: { color: 'warning', text: isOptimistic ? 'Generating...' : 'Pending' },
         }
         
         const config = statusConfig[executionStatus as keyof typeof statusConfig] || statusConfig.never_run
@@ -292,6 +293,8 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
         onDoubleClick: () => onView(record.id),
         style: {
           cursor: 'pointer',
+          opacity: record.metadata?.optimistic ? 0.7 : 1,
+          backgroundColor: record.metadata?.optimistic ? '#f6ffed' : undefined,
         },
       })}
     />

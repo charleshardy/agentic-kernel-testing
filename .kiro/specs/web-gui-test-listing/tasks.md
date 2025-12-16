@@ -136,25 +136,25 @@
   - Validate changes before saving
   - _Requirements: 3.2_
 
-- [ ] 6. Integrate Real-time Updates After AI Generation
+- [x] 6. Integrate Real-time Updates After AI Generation
   - Modify AI generation success handlers to refresh test list
   - Implement optimistic updates for better user experience
   - Handle concurrent generation operations gracefully
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 6.1 Update AI generation mutation handlers
+- [x] 6.1 Update AI generation mutation handlers
   - Add test list refresh after successful generation
   - Preserve current filters and pagination state
   - Show loading indicators during generation
   - _Requirements: 2.1, 2.2_
 
-- [ ] 6.2 Implement optimistic UI updates
+- [x] 6.2 Implement optimistic UI updates
   - Show generated tests immediately with pending status
   - Handle generation failures gracefully
   - Provide clear feedback on generation progress
   - _Requirements: 2.3, 2.4_
 
-- [ ] 6.3 Write property test for concurrent update consistency
+- [x] 6.3 Write property test for concurrent update consistency
   - **Property 5: Real-time Update Consistency**
   - **Validates: Requirements 2.5**
 

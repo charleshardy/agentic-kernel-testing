@@ -31,6 +31,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { useDashboardStore } from '../store'
 import apiService from '../services/api'
+import useAIGeneration from '../hooks/useAIGeneration'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -46,6 +47,16 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
   const [autoGenForm] = Form.useForm()
   const queryClient = useQueryClient()
   const { activeExecutions } = useDashboardStore()
+
+  // AI Generation hook with custom handlers
+  const { generateFromDiff, generateFromFunction, isGenerating } = useAIGeneration({
+    onSuccess: (response, type) => {
+      setIsAutoGenModalVisible(false)
+      autoGenForm.resetFields()
+    },
+    preserveFilters: true, // Preserve current filters and pagination
+    enableOptimisticUpdates: false, // Disable optimistic updates on execution page to avoid confusion
+  })
 
   // Fetch active test executions
   const { data: executionsData, isLoading: executionsLoading } = useQuery(
@@ -211,38 +222,7 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
     submitTestsMutation.mutate(testData)
   }
 
-  // Auto-generation mutations
-  const generateFromDiffMutation = useMutation(
-    (data: { diff: string; maxTests: number; testTypes: string[] }) =>
-      apiService.generateTestsFromDiff(data.diff, data.maxTests, data.testTypes),
-    {
-      onSuccess: (response) => {
-        message.success(`Generated ${response.data.generated_count} test cases from diff`)
-        queryClient.invalidateQueries('activeExecutions')
-        setIsAutoGenModalVisible(false)
-        form.resetFields()
-      },
-      onError: (error: any) => {
-        message.error(`Failed to generate tests: ${error.message}`)
-      },
-    }
-  )
 
-  const generateFromFunctionMutation = useMutation(
-    (data: { functionName: string; filePath: string; subsystem: string; maxTests: number }) =>
-      apiService.generateTestsFromFunction(data.functionName, data.filePath, data.subsystem, data.maxTests),
-    {
-      onSuccess: (response) => {
-        message.success(`Generated ${response.data.generated_count} test cases for function`)
-        queryClient.invalidateQueries('activeExecutions')
-        setIsAutoGenModalVisible(false)
-        autoGenForm.resetFields()
-      },
-      onError: (error: any) => {
-        message.error(`Failed to generate tests: ${error.message}`)
-      },
-    }
-  )
 
   const testTypes = [
     { label: 'Unit Test', value: 'unit' },
@@ -390,7 +370,7 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
             form={autoGenForm}
             layout="vertical"
             onFinish={(values) => {
-              generateFromDiffMutation.mutate({
+              generateFromDiff({
                 diff: values.diff,
                 maxTests: values.maxTests || 20,
                 testTypes: values.testTypes || ['unit']
@@ -442,7 +422,7 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
                 <Button
                   type="primary"
                   htmlType="submit"
-                  loading={generateFromDiffMutation.isLoading}
+                  loading={isGenerating}
                   icon={<RobotOutlined />}
                 >
                   Generate Tests
@@ -455,7 +435,7 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
             form={autoGenForm}
             layout="vertical"
             onFinish={(values) => {
-              generateFromFunctionMutation.mutate({
+              generateFromFunction({
                 functionName: values.functionName,
                 filePath: values.filePath,
                 subsystem: values.subsystem || 'unknown',
@@ -511,7 +491,7 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
                 <Button
                   type="primary"
                   htmlType="submit"
-                  loading={generateFromFunctionMutation.isLoading}
+                  loading={isGenerating}
                   icon={<RobotOutlined />}
                 >
                   Generate Tests
