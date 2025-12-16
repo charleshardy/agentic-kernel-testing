@@ -41,6 +41,7 @@ import dayjs from 'dayjs'
 import TestCaseTable from '../components/TestCaseTable'
 import TestCaseModal from '../components/TestCaseModal'
 import AIGenerationProgress from '../components/AIGenerationProgress'
+import KernelDriverInfo from '../components/KernelDriverInfo'
 import apiService, { TestCase } from '../services/api'
 import useAIGeneration from '../hooks/useAIGeneration'
 
@@ -80,7 +81,7 @@ const TestCases: React.FC<TestCasesProps> = () => {
   
   // AI Generation modal state
   const [isAIGenModalVisible, setIsAIGenModalVisible] = useState(false)
-  const [aiGenType, setAIGenType] = useState<'diff' | 'function'>('diff')
+  const [aiGenType, setAIGenType] = useState<'diff' | 'function' | 'kernel'>('diff')
   const [aiGenForm] = Form.useForm()
 
   // Bulk operations state
@@ -93,7 +94,7 @@ const TestCases: React.FC<TestCasesProps> = () => {
   const [bulkTagForm] = Form.useForm()
 
   // AI Generation hook that preserves current filters and pagination
-  const { generateFromDiff, generateFromFunction, isGenerating } = useAIGeneration({
+  const { generateFromDiff, generateFromFunction, generateKernelDriver, isGenerating } = useAIGeneration({
     onSuccess: (response, type) => {
       setIsAIGenModalVisible(false)
       aiGenForm.resetFields()
@@ -189,7 +190,7 @@ const TestCases: React.FC<TestCasesProps> = () => {
       if (filters.generationMethod) {
         filtered = filtered.filter(test => {
           try {
-            const method = test.metadata?.generation_method || 'manual'
+            const method = test.metadata?.generation_method || test.generation_info?.method || 'manual'
             return method === filters.generationMethod
           } catch (error) {
             console.warn('Error filtering test by generation method:', test, error)
@@ -257,6 +258,7 @@ const TestCases: React.FC<TestCasesProps> = () => {
     { label: 'Manual', value: 'manual' },
     { label: 'AI from Diff', value: 'ai_diff' },
     { label: 'AI from Function', value: 'ai_function' },
+    { label: 'AI Kernel Driver', value: 'ai_kernel_driver' },
   ]
 
   const statusOptions = [
@@ -600,9 +602,10 @@ const TestCases: React.FC<TestCasesProps> = () => {
   
   const aiGeneratedTests = React.useMemo(() => {
     try {
-      return filteredTests.filter(t => 
-        t?.metadata?.generation_method && t.metadata.generation_method !== 'manual'
-      ).length
+      return filteredTests.filter(t => {
+        const method = t?.metadata?.generation_method || t?.generation_info?.method
+        return method && method !== 'manual'
+      }).length
     } catch (error) {
       console.warn('Error calculating aiGeneratedTests:', error)
       return 0
@@ -992,8 +995,17 @@ const TestCases: React.FC<TestCasesProps> = () => {
             >
               From Function
             </Button>
+            <Button
+              type={aiGenType === 'kernel' ? 'primary' : 'default'}
+              icon={<RobotOutlined />}
+              onClick={() => setAIGenType('kernel')}
+            >
+              Kernel Test Driver
+            </Button>
           </Space>
         </div>
+
+        <KernelDriverInfo visible={aiGenType === 'kernel'} />
 
         {aiGenType === 'diff' ? (
           <Form
@@ -1060,7 +1072,7 @@ const TestCases: React.FC<TestCasesProps> = () => {
               </Space>
             </Form.Item>
           </Form>
-        ) : (
+        ) : aiGenType === 'function' ? (
           <Form
             form={aiGenForm}
             layout="vertical"
@@ -1125,6 +1137,111 @@ const TestCases: React.FC<TestCasesProps> = () => {
                   icon={<RobotOutlined />}
                 >
                   Generate Tests
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        ) : (
+          <Form
+            form={aiGenForm}
+            layout="vertical"
+            onFinish={(values) => {
+              generateKernelDriver({
+                functionName: values.functionName,
+                filePath: values.filePath,
+                subsystem: values.subsystem || 'unknown',
+                testTypes: values.testTypes || ['unit', 'integration']
+              })
+            }}
+          >
+            <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#fff7e6', border: '1px solid #ffd591', borderRadius: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                <ExclamationCircleOutlined style={{ color: '#fa8c16', marginRight: 8 }} />
+                <strong>Kernel Test Driver Generation</strong>
+              </div>
+              <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                This generates a complete kernel module (.ko) that tests kernel functions directly in kernel space.
+                Requires root privileges and kernel headers for compilation and execution.
+              </div>
+            </div>
+
+            <Form.Item
+              name="functionName"
+              label="Kernel Function Name"
+              rules={[{ required: true, message: 'Please enter kernel function name' }]}
+            >
+              <Input placeholder="e.g., kmalloc, schedule, netif_rx" />
+            </Form.Item>
+
+            <Form.Item
+              name="filePath"
+              label="Source File Path"
+              rules={[{ required: true, message: 'Please enter source file path' }]}
+            >
+              <Input placeholder="e.g., mm/slab.c, kernel/sched/core.c, net/core/dev.c" />
+            </Form.Item>
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  name="subsystem"
+                  label="Kernel Subsystem"
+                  initialValue="unknown"
+                >
+                  <Select
+                    placeholder="Select kernel subsystem"
+                    options={subsystems}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="testTypes"
+                  label="Test Types"
+                  initialValue={['unit', 'integration']}
+                >
+                  <Select
+                    mode="multiple"
+                    placeholder="Select test types"
+                    options={[
+                      { label: 'Unit Tests', value: 'unit' },
+                      { label: 'Integration Tests', value: 'integration' },
+                      { label: 'Performance Tests', value: 'performance' },
+                      { label: 'Stress Tests', value: 'stress' },
+                      { label: 'Error Injection', value: 'error_injection' },
+                      { label: 'Concurrency Tests', value: 'concurrency' }
+                    ]}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 4 }}>
+              <div style={{ fontSize: '12px', color: '#52c41a', fontWeight: 500, marginBottom: 4 }}>
+                Generated Kernel Driver Will Include:
+              </div>
+              <ul style={{ fontSize: '12px', color: '#8c8c8c', margin: 0, paddingLeft: 16 }}>
+                <li>Complete kernel module source code (.c file)</li>
+                <li>Makefile for compilation</li>
+                <li>Installation and test execution scripts</li>
+                <li>Comprehensive test functions for the target kernel function</li>
+                <li>/proc interface for result collection</li>
+                <li>Proper cleanup and error handling</li>
+              </ul>
+            </div>
+
+            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+              <Space>
+                <Button onClick={() => setIsAIGenModalVisible(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={isGenerating}
+                  icon={<RobotOutlined />}
+                >
+                  Generate Kernel Driver
                 </Button>
               </Space>
             </Form.Item>

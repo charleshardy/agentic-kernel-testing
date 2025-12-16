@@ -13,6 +13,7 @@ import {
   BellOutlined,
   WifiOutlined,
   DisconnectOutlined,
+  RobotOutlined,
 } from '@ant-design/icons'
 import { useDashboardStore } from '../../store'
 import webSocketService from '../../services/websocket'
@@ -68,6 +69,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       key: '/test-cases',
       icon: <ExperimentOutlined />,
       label: 'Test Cases',
+    },
+    {
+      key: '/kernel-driver-demo',
+      icon: <RobotOutlined />,
+      label: 'Kernel Driver Demo',
     },
     {
       key: '/tests',

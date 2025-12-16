@@ -471,6 +471,40 @@ class APIService {
     return response.data
   }
 
+  async generateKernelTestDriver(
+    functionName: string,
+    filePath: string,
+    subsystem: string = 'unknown',
+    testTypes: string[] = ['unit', 'integration']
+  ): Promise<APIResponse> {
+    try {
+      const response: AxiosResponse<APIResponse> = await this.client.post('/tests/generate-kernel-driver', null, {
+        params: {
+          function_name: functionName,
+          file_path: filePath,
+          subsystem: subsystem,
+          test_types: testTypes
+        }
+      })
+      return response.data
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        // Try to get demo token and retry
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse> = await this.client.post('/tests/generate-kernel-driver', null, {
+          params: {
+            function_name: functionName,
+            file_path: filePath,
+            subsystem: subsystem,
+            test_types: testTypes
+          }
+        })
+        return response.data
+      }
+      throw error
+    }
+  }
+
   // Demo authentication
   private async initializeDemoAuth(): Promise<void> {
     try {

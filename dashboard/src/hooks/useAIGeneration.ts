@@ -16,17 +16,24 @@ interface GenerateFromFunctionParams {
   maxTests: number
 }
 
+interface GenerateKernelDriverParams {
+  functionName: string
+  filePath: string
+  subsystem: string
+  testTypes: string[]
+}
+
 interface UseAIGenerationOptions {
-  onSuccess?: (response: any, type: 'diff' | 'function') => void
-  onError?: (error: any, type: 'diff' | 'function') => void
+  onSuccess?: (response: any, type: 'diff' | 'function' | 'kernel') => void
+  onError?: (error: any, type: 'diff' | 'function' | 'kernel') => void
   preserveFilters?: boolean
   enableOptimisticUpdates?: boolean
 }
 
 // Helper function to generate optimistic test cases
 const generateOptimisticTestCases = (
-  type: 'diff' | 'function',
-  params: GenerateFromDiffParams | GenerateFromFunctionParams,
+  type: 'diff' | 'function' | 'kernel',
+  params: GenerateFromDiffParams | GenerateFromFunctionParams | GenerateKernelDriverParams,
   count: number = 3
 ): EnhancedTestCase[] => {
   const baseTime = new Date().toISOString()
@@ -37,16 +44,24 @@ const generateOptimisticTestCases = (
       id: `optimistic-${type}-${Date.now()}-${i}`,
       name: type === 'diff' 
         ? `Generated Test ${i + 1} (from diff)` 
+        : type === 'kernel'
+        ? `Kernel Driver Test ${i + 1} (${(params as GenerateKernelDriverParams).functionName})`
         : `Generated Test ${i + 1} (${(params as GenerateFromFunctionParams).functionName})`,
       description: type === 'diff'
         ? 'Test case generated from code diff analysis'
+        : type === 'kernel'
+        ? `Kernel test driver generated for function ${(params as GenerateKernelDriverParams).functionName}`
         : `Test case generated for function ${(params as GenerateFromFunctionParams).functionName}`,
       test_type: 'unit',
       target_subsystem: type === 'function' 
         ? (params as GenerateFromFunctionParams).subsystem 
+        : type === 'kernel'
+        ? (params as GenerateKernelDriverParams).subsystem
         : 'unknown',
       code_paths: type === 'function' 
         ? [(params as GenerateFromFunctionParams).filePath]
+        : type === 'kernel'
+        ? [(params as GenerateKernelDriverParams).filePath]
         : [],
       execution_time_estimate: 60,
       test_script: '#!/bin/bash\n# Generated test script (pending)\necho "Test generation in progress..."',
@@ -54,10 +69,17 @@ const generateOptimisticTestCases = (
         optimistic: true, // Mark as optimistic update
       },
       generation_info: {
-        method: type === 'diff' ? 'ai_diff' : 'ai_function',
+        method: type === 'diff' ? 'ai_diff' : type === 'kernel' ? 'ai_kernel_driver' : 'ai_function',
         generated_at: baseTime,
         source_data: type === 'diff' 
           ? { diff_content: (params as GenerateFromDiffParams).diff }
+          : type === 'kernel'
+          ? {
+              function_name: (params as GenerateKernelDriverParams).functionName,
+              file_path: (params as GenerateKernelDriverParams).filePath,
+              subsystem: (params as GenerateKernelDriverParams).subsystem,
+              test_types: (params as GenerateKernelDriverParams).testTypes
+            }
           : { 
               function_name: (params as GenerateFromFunctionParams).functionName,
               file_path: (params as GenerateFromFunctionParams).filePath,
@@ -210,12 +232,80 @@ export const useAIGeneration = (options: UseAIGenerationOptions = {}) => {
     }
   )
 
+  const generateKernelDriverMutation = useMutation(
+    (data: GenerateKernelDriverParams) =>
+      apiService.generateKernelTestDriver(data.functionName, data.filePath, data.subsystem, data.testTypes),
+    {
+      onMutate: async (data: GenerateKernelDriverParams) => {
+        // Show loading indicator during generation
+        message.loading('Generating kernel test driver...', 0)
+
+        if (enableOptimisticUpdates) {
+          // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+          await queryClient.cancelQueries(testCaseKeys.lists())
+
+          // Snapshot the previous value
+          const previousTestCases = queryClient.getQueriesData(testCaseKeys.lists())
+
+          // Generate optimistic test cases
+          const optimisticTests = generateOptimisticTestCases('kernel', data, 3)
+
+          // Optimistically update all testCases queries
+          queryClient.setQueriesData(testCaseKeys.lists(), (old: any) => {
+            if (!old?.tests) return old
+            
+            return {
+              ...old,
+              tests: [...optimisticTests, ...old.tests],
+              pagination: {
+                ...old.pagination,
+                total_items: (old.pagination?.total_items || 0) + optimisticTests.length
+              }
+            }
+          })
+
+          // Return a context object with the snapshotted value
+          return { previousTestCases }
+        }
+      },
+      onSuccess: async (response) => {
+        message.destroy() // Clear loading message
+        message.success(`Generated kernel test driver with ${response.data?.generated_count || 'multiple'} test cases`)
+        
+        // Force immediate refresh of test-related queries
+        await queryClient.invalidateQueries(testCaseKeys.lists())
+        await queryClient.refetchQueries(testCaseKeys.lists())
+        
+        // Also refresh active executions
+        queryClient.invalidateQueries('activeExecutions')
+        
+        // Call custom success handler if provided
+        onSuccess?.(response, 'kernel')
+      },
+      onError: (error: any, variables, context: any) => {
+        message.destroy() // Clear loading message
+        message.error(`Failed to generate kernel test driver: ${error.message}`)
+        
+        if (enableOptimisticUpdates && context?.previousTestCases) {
+          // Rollback optimistic updates on error
+          context.previousTestCases.forEach(([queryKey, data]: [any, any]) => {
+            queryClient.setQueryData(queryKey, data)
+          })
+        }
+        
+        onError?.(error, 'kernel')
+      },
+    }
+  )
+
   return {
     generateFromDiff: generateFromDiffMutation.mutate,
     generateFromFunction: generateFromFunctionMutation.mutate,
+    generateKernelDriver: generateKernelDriverMutation.mutate,
     isGeneratingFromDiff: generateFromDiffMutation.isLoading,
     isGeneratingFromFunction: generateFromFunctionMutation.isLoading,
-    isGenerating: generateFromDiffMutation.isLoading || generateFromFunctionMutation.isLoading,
+    isGeneratingKernelDriver: generateKernelDriverMutation.isLoading,
+    isGenerating: generateFromDiffMutation.isLoading || generateFromFunctionMutation.isLoading || generateKernelDriverMutation.isLoading,
   }
 }
 

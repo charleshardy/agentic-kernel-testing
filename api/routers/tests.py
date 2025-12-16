@@ -1163,6 +1163,143 @@ async def generate_tests_from_function(
         )
 
 
+@router.post("/tests/generate-kernel-driver", response_model=APIResponse)
+async def generate_kernel_test_driver(
+    function_name: str,
+    file_path: str,
+    subsystem: str = "unknown",
+    test_types: List[str] = Query(["unit", "integration"], description="Types of tests to include"),
+    current_user: Dict[str, Any] = Depends(get_demo_user)
+):
+    """Generate a complete kernel test driver for a kernel function."""
+    try:
+        from ai_generator.kernel_driver_generator import KernelDriverGenerator
+        from ai_generator.models import Function
+        
+        # Initialize kernel driver generator
+        generator = KernelDriverGenerator()
+        
+        # Create function object
+        function = Function(
+            name=function_name,
+            file_path=file_path,
+            line_number=1,  # Default
+            subsystem=subsystem
+        )
+        
+        # Generate kernel driver files
+        driver_files = generator.generate_kernel_test_driver(function)
+        
+        # Generate test cases that use the kernel driver
+        generated_tests = generator.generate_test_cases_with_drivers([function])
+        
+        # Convert to API format and store
+        test_case_ids = []
+        submission_id = str(uuid.uuid4())
+        generation_timestamp = datetime.utcnow()
+        
+        for test_case in generated_tests:
+            test_id = test_case.id
+            
+            # Create comprehensive generation metadata for kernel driver
+            generation_info = {
+                "method": "ai_kernel_driver",
+                "source_data": {
+                    "function_name": function_name,
+                    "file_path": file_path,
+                    "subsystem": subsystem,
+                    "test_types": test_types,
+                    "driver_files": list(driver_files.keys()),
+                    "kernel_module": f"test_{function_name.lower()}.ko",
+                    "requires_root": True,
+                    "requires_kernel_headers": True
+                },
+                "generated_at": generation_timestamp.isoformat(),
+                "ai_model": "kernel_driver_generator",
+                "generation_params": {
+                    "test_types": test_types,
+                    "target_function": function_name,
+                    "target_subsystem": subsystem,
+                    "generation_strategy": "kernel_driver",
+                    "driver_type": "loadable_module",
+                    "test_categories": test_types
+                },
+                "driver_files": driver_files
+            }
+            
+            # Store test case with enhanced metadata
+            submitted_tests[test_id] = {
+                "test_case": test_case,
+                "submission_id": submission_id,
+                "submitted_by": current_user["username"],
+                "submitted_at": generation_timestamp,
+                "priority": 7,  # Higher priority for kernel tests
+                "auto_generated": True,
+                "generation_info": generation_info,
+                "execution_status": "never_run",
+                "last_execution_at": None,
+                "tags": ["ai_generated", "kernel_driver", "kernel_space", subsystem],
+                "is_favorite": False,
+                "updated_at": generation_timestamp,
+                "requires_root": True,
+                "kernel_module": True,
+                "driver_files": driver_files
+            }
+            
+            test_case_ids.append(test_id)
+        
+        # Create execution plan for kernel driver tests
+        plan_id = str(uuid.uuid4())
+        estimated_completion = datetime.utcnow() + timedelta(
+            minutes=sum(tc.execution_time_estimate for tc in generated_tests) // 60
+        )
+        
+        execution_plans[plan_id] = {
+            "submission_id": submission_id,
+            "test_case_ids": test_case_ids,
+            "priority": 7,  # Higher priority for kernel tests
+            "target_environments": ["kernel_test"],  # Specific environment for kernel testing
+            "webhook_url": None,
+            "status": "queued",
+            "created_at": datetime.utcnow(),
+            "estimated_completion": estimated_completion,
+            "created_by": current_user["username"],
+            "auto_generated": True,
+            "requires_root": True,
+            "kernel_driver": True
+        }
+        
+        return APIResponse(
+            success=True,
+            message=f"Generated kernel test driver for function {function_name} with {len(generated_tests)} test cases",
+            data={
+                "submission_id": submission_id,
+                "execution_plan_id": plan_id,
+                "test_case_ids": test_case_ids,
+                "generated_count": len(generated_tests),
+                "function": {
+                    "name": function_name,
+                    "file_path": file_path,
+                    "subsystem": subsystem
+                },
+                "driver_info": {
+                    "kernel_module": f"test_{function_name.lower()}.ko",
+                    "generated_files": list(driver_files.keys()),
+                    "requires_root": True,
+                    "requires_kernel_headers": True,
+                    "test_types": test_types
+                },
+                "estimated_completion": estimated_completion.isoformat()
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Kernel driver generation failed: {str(e)}"
+        )
+
+
 @router.get("/tests/analyses", response_model=APIResponse)
 async def list_code_analyses(
     page: int = Query(1, ge=1),
