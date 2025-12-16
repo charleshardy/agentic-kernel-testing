@@ -1324,19 +1324,20 @@ class MemoryAllocationTester:
             test_script = f'''
 import sys
 import time
+size_kb = {size_kb}
 try:
-    # Allocate {size_kb}KB of memory
-    data = bytearray({size_kb} * 1024)
+    # Allocate {{size_kb}}KB of memory
+    data = bytearray(size_kb * 1024)
     # Touch the memory to ensure it's actually allocated
     for i in range(0, len(data), 4096):
         data[i] = i % 256
-    print(f"SUCCESS:{size_kb}")
+    print(f"SUCCESS:{{size_kb}}")
     time.sleep(0.1)  # Hold memory briefly
 except MemoryError:
-    print(f"FAILED:{size_kb}")
+    print(f"FAILED:{{size_kb}}")
     sys.exit(1)
 except Exception as e:
-    print(f"ERROR:{size_kb}:{{e}}")
+    print(f"ERROR:{{size_kb}}:{{str(e)}}")
     sys.exit(2)
 '''
             
@@ -1485,8 +1486,9 @@ def test_memory_reclaim_property(memory_tracker, alloc_size_mb):
 import gc
 import time
 
+alloc_size_mb = {alloc_size_mb}
 # Allocate memory
-data = bytearray({alloc_size_mb} * 1024 * 1024)
+data = bytearray(alloc_size_mb * 1024 * 1024)
 for i in range(0, len(data), 4096):
     data[i] = i % 256
 
@@ -1509,7 +1511,7 @@ print("DEALLOCATED")
                 # Property: Memory should be reclaimed (some increase in available memory)
                 memory_change = final_memory - initial_memory
                 # Allow for some variance due to system activity
-                assert memory_change >= -alloc_size_mb * 1024 * 0.5, f"Memory not properly reclaimed: {{memory_change}}KB change"
+                assert memory_change >= -alloc_size_mb * 1024 * 0.5, f"Memory not properly reclaimed: {memory_change}KB change"
     
     except subprocess.TimeoutExpired:
         pytest.fail("Memory deallocation test timed out")
@@ -1524,9 +1526,10 @@ def test_double_free_safety(alloc_size_mb):
 import gc
 import sys
 
+alloc_size_mb = {alloc_size_mb}
 try:
     # Allocate memory
-    data = bytearray({alloc_size_mb} * 1024 * 1024)
+    data = bytearray(alloc_size_mb * 1024 * 1024)
     
     # First deallocation
     del data
@@ -1537,7 +1540,7 @@ try:
     
     print("SAFE_DEALLOCATION")
 except Exception as e:
-    print(f"ERROR:{{e}}")
+    print(f"ERROR:{{str(e)}}")
     sys.exit(1)
 '''
     
