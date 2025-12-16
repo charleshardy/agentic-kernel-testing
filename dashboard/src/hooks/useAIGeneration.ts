@@ -114,17 +114,13 @@ export const useAIGeneration = (options: UseAIGenerationOptions = {}) => {
           return { previousTestCases }
         }
       },
-      onSuccess: (response) => {
+      onSuccess: async (response) => {
         message.destroy() // Clear loading message
         message.success(`Generated ${response.data?.generated_count || 'multiple'} test cases from diff`)
         
-        // Refresh test-related queries to get real data
-        if (preserveFilters) {
-          queryClient.invalidateQueries(testCaseKeys.lists())
-        } else {
-          queryClient.invalidateQueries(testCaseKeys.lists())
-          queryClient.resetQueries(testCaseKeys.lists())
-        }
+        // Force immediate refresh of test-related queries
+        await queryClient.invalidateQueries(testCaseKeys.lists())
+        await queryClient.refetchQueries(testCaseKeys.lists())
         
         // Also refresh active executions
         queryClient.invalidateQueries('activeExecutions')
@@ -184,17 +180,13 @@ export const useAIGeneration = (options: UseAIGenerationOptions = {}) => {
           return { previousTestCases }
         }
       },
-      onSuccess: (response) => {
+      onSuccess: async (response) => {
         message.destroy() // Clear loading message
         message.success(`Generated ${response.data?.generated_count || 'multiple'} test cases for function`)
         
-        // Refresh test-related queries to get real data
-        if (preserveFilters) {
-          queryClient.invalidateQueries(testCaseKeys.lists())
-        } else {
-          queryClient.invalidateQueries(testCaseKeys.lists())
-          queryClient.resetQueries(testCaseKeys.lists())
-        }
+        // Force immediate refresh of test-related queries
+        await queryClient.invalidateQueries(testCaseKeys.lists())
+        await queryClient.refetchQueries(testCaseKeys.lists())
         
         // Also refresh active executions
         queryClient.invalidateQueries('activeExecutions')

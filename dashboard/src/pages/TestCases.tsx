@@ -97,7 +97,10 @@ const TestCases: React.FC<TestCasesProps> = () => {
     onSuccess: (response, type) => {
       setIsAIGenModalVisible(false)
       aiGenForm.resetFields()
-      // The hook automatically refreshes the test list while preserving filters
+      // Force immediate refresh of the test list
+      setTimeout(() => {
+        refetch()
+      }, 1000) // Small delay to ensure backend has processed the new tests
     },
     preserveFilters: true,
     enableOptimisticUpdates: true, // Enable optimistic updates for better UX
@@ -131,7 +134,8 @@ const TestCases: React.FC<TestCasesProps> = () => {
       status: filters.status,
     }),
     {
-      refetchInterval: 30000, // Refresh every 30 seconds
+      refetchInterval: 5000, // Refresh every 5 seconds for more responsive updates
+      refetchOnWindowFocus: true, // Refetch when window gains focus
     }
   )
 
@@ -546,8 +550,12 @@ const TestCases: React.FC<TestCasesProps> = () => {
           </Button>
           <Button
             icon={<ReloadOutlined />}
-            onClick={() => refetch()}
+            onClick={() => {
+              refetch()
+              message.info('Refreshing test case list...')
+            }}
             disabled={bulkOperationInProgress}
+            type="default"
           >
             Refresh
           </Button>

@@ -53,9 +53,10 @@ export const useTestCases = (options: UseTestCasesOptions = {}) => {
     {
       enabled,
       keepPreviousData: true, // Keep previous data while loading new page
-      staleTime: 2 * 60 * 1000, // 2 minutes
+      staleTime: 30 * 1000, // 30 seconds - shorter stale time for more frequent updates
       cacheTime: 5 * 60 * 1000, // 5 minutes
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true, // Refetch when window gains focus
+      refetchInterval: 10000, // Refetch every 10 seconds when component is active
       retry: (failureCount, error: any) => {
         // Don't retry on 4xx errors except 401
         if (error?.response?.status >= 400 && error?.response?.status < 500 && error?.response?.status !== 401) {
