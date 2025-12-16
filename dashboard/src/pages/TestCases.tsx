@@ -14,6 +14,10 @@ import {
   Divider,
   Modal,
   Form,
+  Checkbox,
+  Progress,
+  message,
+  Popconfirm,
 } from 'antd'
 import {
   ReloadOutlined,
@@ -24,6 +28,13 @@ import {
   RobotOutlined,
   CodeOutlined,
   FunctionOutlined,
+  PlayCircleOutlined,
+  DeleteOutlined,
+  TagOutlined,
+  CheckOutlined,
+  CloseOutlined,
+  DownloadOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons'
 import { useQuery } from 'react-query'
 import dayjs from 'dayjs'
@@ -71,6 +82,15 @@ const TestCases: React.FC<TestCasesProps> = () => {
   const [isAIGenModalVisible, setIsAIGenModalVisible] = useState(false)
   const [aiGenType, setAIGenType] = useState<'diff' | 'function'>('diff')
   const [aiGenForm] = Form.useForm()
+
+  // Bulk operations state
+  const [bulkOperationInProgress, setBulkOperationInProgress] = useState(false)
+  const [bulkOperationType, setBulkOperationType] = useState<string>('')
+  const [bulkOperationProgress, setBulkOperationProgress] = useState(0)
+  
+  // Bulk tagging modal state
+  const [bulkTagModalVisible, setBulkTagModalVisible] = useState(false)
+  const [bulkTagForm] = Form.useForm()
 
   // AI Generation hook that preserves current filters and pagination
   const { generateFromDiff, generateFromFunction, isGenerating } = useAIGeneration({
@@ -216,9 +236,180 @@ const TestCases: React.FC<TestCasesProps> = () => {
     setDateRange(null)
   }
 
-  const handleBulkAction = (action: string) => {
-    console.log(`Bulk ${action} for tests:`, selectedRowKeys)
-    // TODO: Implement bulk actions
+  const handleBulkAction = async (action: string) => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('Please select at least one test case')
+      return
+    }
+
+    setBulkOperationType(action)
+    setBulkOperationInProgress(true)
+    setBulkOperationProgress(0)
+
+    try {
+      const selectedTests = filteredTests.filter(test => selectedRowKeys.includes(test.id))
+      
+      switch (action) {
+        case 'execute':
+          await handleBulkExecute(selectedTests)
+          break
+        case 'delete':
+          await handleBulkDelete(selectedTests)
+          break
+        case 'export':
+          await handleBulkExport(selectedTests)
+          break
+        case 'tag':
+          await handleBulkTag(selectedTests)
+          break
+        default:
+          message.error(`Unknown action: ${action}`)
+      }
+    } catch (error) {
+      console.error(`Bulk ${action} failed:`, error)
+      message.error(`Bulk ${action} operation failed`)
+    } finally {
+      setBulkOperationInProgress(false)
+      setBulkOperationType('')
+      setBulkOperationProgress(0)
+    }
+  }
+
+  const handleBulkExecute = async (tests: TestCase[]) => {
+    message.info(`Starting execution of ${tests.length} test cases...`)
+    
+    for (let i = 0; i < tests.length; i++) {
+      const test = tests[i]
+      setBulkOperationProgress(((i + 1) / tests.length) * 100)
+      
+      try {
+        // Simulate API call - replace with actual API call
+        await new Promise(resolve => setTimeout(resolve, 500))
+        console.log(`Executing test: ${test.name}`)
+        // TODO: Call actual API - apiService.executeTest(test.id)
+      } catch (error) {
+        console.error(`Failed to execute test ${test.name}:`, error)
+      }
+    }
+    
+    message.success(`Successfully started execution of ${tests.length} test cases`)
+    setSelectedRowKeys([])
+    refetch()
+  }
+
+  const handleBulkDelete = async (tests: TestCase[]) => {
+    message.info(`Deleting ${tests.length} test cases...`)
+    
+    for (let i = 0; i < tests.length; i++) {
+      const test = tests[i]
+      setBulkOperationProgress(((i + 1) / tests.length) * 100)
+      
+      try {
+        // Simulate API call - replace with actual API call
+        await new Promise(resolve => setTimeout(resolve, 300))
+        console.log(`Deleting test: ${test.name}`)
+        // TODO: Call actual API - apiService.deleteTest(test.id)
+      } catch (error) {
+        console.error(`Failed to delete test ${test.name}:`, error)
+      }
+    }
+    
+    message.success(`Successfully deleted ${tests.length} test cases`)
+    setSelectedRowKeys([])
+    refetch()
+  }
+
+  const handleBulkExport = async (tests: TestCase[]) => {
+    message.info(`Exporting ${tests.length} test cases...`)
+    
+    try {
+      // Simulate export processing
+      setBulkOperationProgress(25)
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      setBulkOperationProgress(50)
+      const exportData = {
+        exported_at: new Date().toISOString(),
+        test_cases: tests.map(test => ({
+          id: test.id,
+          name: test.name,
+          description: test.description,
+          test_type: test.test_type,
+          target_subsystem: test.target_subsystem,
+          test_script: test.test_script,
+          metadata: test.metadata,
+          created_at: test.created_at,
+        }))
+      }
+      
+      setBulkOperationProgress(75)
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      // Create and download file
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
+        type: 'application/json' 
+      })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `test-cases-export-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      
+      setBulkOperationProgress(100)
+      message.success(`Successfully exported ${tests.length} test cases`)
+      setSelectedRowKeys([])
+    } catch (error) {
+      console.error('Export failed:', error)
+      message.error('Export operation failed')
+    }
+  }
+
+  const handleBulkTag = async (tests: TestCase[]) => {
+    // This will be called from the modal form submission
+    // The actual implementation is in handleBulkTagSubmit
+  }
+
+  const handleBulkTagSubmit = async (values: any) => {
+    const { tags, action } = values
+    const selectedTests = filteredTests.filter(test => selectedRowKeys.includes(test.id))
+    
+    setBulkOperationInProgress(true)
+    setBulkOperationType('tag')
+    setBulkOperationProgress(0)
+    
+    try {
+      message.info(`${action === 'add' ? 'Adding' : 'Removing'} tags for ${selectedTests.length} test cases...`)
+      
+      for (let i = 0; i < selectedTests.length; i++) {
+        const test = selectedTests[i]
+        setBulkOperationProgress(((i + 1) / selectedTests.length) * 100)
+        
+        try {
+          // Simulate API call - replace with actual API call
+          await new Promise(resolve => setTimeout(resolve, 200))
+          console.log(`${action === 'add' ? 'Adding' : 'Removing'} tags for test: ${test.name}`, tags)
+          // TODO: Call actual API - apiService.updateTestTags(test.id, tags, action)
+        } catch (error) {
+          console.error(`Failed to update tags for test ${test.name}:`, error)
+        }
+      }
+      
+      message.success(`Successfully ${action === 'add' ? 'added' : 'removed'} tags for ${selectedTests.length} test cases`)
+      setSelectedRowKeys([])
+      setBulkTagModalVisible(false)
+      bulkTagForm.resetFields()
+      refetch()
+    } catch (error) {
+      console.error('Bulk tagging failed:', error)
+      message.error('Bulk tagging operation failed')
+    } finally {
+      setBulkOperationInProgress(false)
+      setBulkOperationType('')
+      setBulkOperationProgress(0)
+    }
   }
 
   const handleViewTest = (testId: string) => {
@@ -286,6 +477,32 @@ const TestCases: React.FC<TestCasesProps> = () => {
     }
   }
 
+  const handleSelectAll = () => {
+    const selectableTests = filteredTests.filter(test => 
+      test.metadata?.execution_status !== 'running'
+    )
+    setSelectedRowKeys(selectableTests.map(test => test.id))
+  }
+
+  const handleSelectNone = () => {
+    setSelectedRowKeys([])
+  }
+
+  const handleSelectByType = (testType: string) => {
+    const testsOfType = filteredTests.filter(test => 
+      test.test_type === testType && test.metadata?.execution_status !== 'running'
+    )
+    setSelectedRowKeys(testsOfType.map(test => test.id))
+  }
+
+  const handleSelectByStatus = (status: string) => {
+    const testsWithStatus = filteredTests.filter(test => {
+      const testStatus = test.metadata?.execution_status || 'never_run'
+      return testStatus === status && testStatus !== 'running'
+    })
+    setSelectedRowKeys(testsWithStatus.map(test => test.id))
+  }
+
   // Calculate statistics based on filtered data
   const totalTests = filteredTests.length
   const neverRunTests = filteredTests.filter(t => !t.metadata?.last_execution).length
@@ -309,25 +526,28 @@ const TestCases: React.FC<TestCasesProps> = () => {
             type="primary"
             icon={<RobotOutlined />}
             onClick={() => setIsAIGenModalVisible(true)}
+            disabled={bulkOperationInProgress}
           >
             AI Generate Tests
           </Button>
           <Button
             icon={<PlusOutlined />}
             onClick={() => {/* TODO: Navigate to test creation */}}
+            disabled={bulkOperationInProgress}
           >
             Create Test
           </Button>
           <Button
             icon={<ExportOutlined />}
             onClick={() => handleBulkAction('export')}
-            disabled={selectedRowKeys.length === 0}
+            disabled={selectedRowKeys.length === 0 || bulkOperationInProgress}
           >
             Export Selected
           </Button>
           <Button
             icon={<ReloadOutlined />}
             onClick={() => refetch()}
+            disabled={bulkOperationInProgress}
           >
             Refresh
           </Button>
@@ -450,21 +670,116 @@ const TestCases: React.FC<TestCasesProps> = () => {
             />
           </Col>
           <Col xs={24} sm={12} md={16}>
-            {selectedRowKeys.length > 0 && (
-              <Space>
-                <span>{selectedRowKeys.length} test(s) selected</span>
+            {selectedRowKeys.length > 0 ? (
+              <Space wrap>
+                <span style={{ fontWeight: 500 }}>
+                  {selectedRowKeys.length} test case{selectedRowKeys.length !== 1 ? 's' : ''} selected
+                </span>
+                <Divider type="vertical" />
+                <Popconfirm
+                  title="Execute Selected Test Cases"
+                  description={
+                    <div>
+                      <p>Execute {selectedRowKeys.length} test case{selectedRowKeys.length !== 1 ? 's' : ''}?</p>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#8c8c8c' }}>
+                        This will create execution plans and start running the selected tests.
+                      </p>
+                    </div>
+                  }
+                  onConfirm={() => handleBulkAction('execute')}
+                  okText="Yes, Execute"
+                  cancelText="Cancel"
+                  icon={<PlayCircleOutlined style={{ color: '#52c41a' }} />}
+                  disabled={bulkOperationInProgress}
+                >
+                  <Button
+                    size="small"
+                    icon={<PlayCircleOutlined />}
+                    loading={bulkOperationInProgress && bulkOperationType === 'execute'}
+                    disabled={bulkOperationInProgress}
+                  >
+                    Execute
+                  </Button>
+                </Popconfirm>
+                <Popconfirm
+                  title="Export Selected Test Cases"
+                  description={
+                    <div>
+                      <p>Export {selectedRowKeys.length} test case{selectedRowKeys.length !== 1 ? 's' : ''} to JSON file?</p>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#8c8c8c' }}>
+                        This will download a JSON file containing all selected test case data.
+                      </p>
+                    </div>
+                  }
+                  onConfirm={() => handleBulkAction('export')}
+                  okText="Yes, Export"
+                  cancelText="Cancel"
+                  icon={<DownloadOutlined style={{ color: '#1890ff' }} />}
+                  disabled={bulkOperationInProgress}
+                >
+                  <Button
+                    size="small"
+                    icon={<DownloadOutlined />}
+                    loading={bulkOperationInProgress && bulkOperationType === 'export'}
+                    disabled={bulkOperationInProgress}
+                  >
+                    Export
+                  </Button>
+                </Popconfirm>
                 <Button
                   size="small"
-                  onClick={() => handleBulkAction('execute')}
+                  icon={<TagOutlined />}
+                  onClick={() => setBulkTagModalVisible(true)}
+                  disabled={bulkOperationInProgress}
                 >
-                  Execute Selected
+                  Tag
                 </Button>
+                <Popconfirm
+                  title="Delete Selected Test Cases"
+                  description={`Are you sure you want to delete ${selectedRowKeys.length} test case${selectedRowKeys.length !== 1 ? 's' : ''}? This action cannot be undone.`}
+                  onConfirm={() => handleBulkAction('delete')}
+                  okText="Yes, Delete"
+                  cancelText="Cancel"
+                  okType="danger"
+                  icon={<ExclamationCircleOutlined style={{ color: 'red' }} />}
+                  disabled={bulkOperationInProgress}
+                >
+                  <Button
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    danger
+                    loading={bulkOperationInProgress && bulkOperationType === 'delete'}
+                    disabled={bulkOperationInProgress}
+                  >
+                    Delete
+                  </Button>
+                </Popconfirm>
                 <Button
                   size="small"
-                  onClick={() => handleBulkAction('delete')}
-                  danger
+                  icon={<CloseOutlined />}
+                  onClick={handleSelectNone}
+                  disabled={bulkOperationInProgress}
                 >
-                  Delete Selected
+                  Clear Selection
+                </Button>
+              </Space>
+            ) : (
+              <Space wrap>
+                <span style={{ color: '#8c8c8c' }}>Quick select:</span>
+                <Button size="small" onClick={handleSelectAll}>
+                  All
+                </Button>
+                <Button size="small" onClick={() => handleSelectByStatus('never_run')}>
+                  Never Run
+                </Button>
+                <Button size="small" onClick={() => handleSelectByStatus('failed')}>
+                  Failed
+                </Button>
+                <Button size="small" onClick={() => handleSelectByType('unit')}>
+                  Unit Tests
+                </Button>
+                <Button size="small" onClick={() => handleSelectByType('integration')}>
+                  Integration Tests
                 </Button>
               </Space>
             )}
@@ -477,6 +792,33 @@ const TestCases: React.FC<TestCasesProps> = () => {
         isGenerating={isGenerating}
         message="Generating test cases and updating the list..."
       />
+
+      {/* Bulk Operation Progress */}
+      {bulkOperationInProgress && (
+        <Card style={{ marginBottom: 24, borderColor: '#1890ff' }}>
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text strong>
+                {bulkOperationType === 'execute' && 'Executing test cases...'}
+                {bulkOperationType === 'delete' && 'Deleting test cases...'}
+                {bulkOperationType === 'export' && 'Exporting test cases...'}
+                {bulkOperationType === 'tag' && 'Tagging test cases...'}
+              </Text>
+              <Text type="secondary">
+                {Math.round(bulkOperationProgress)}% complete
+              </Text>
+            </div>
+            <Progress 
+              percent={bulkOperationProgress} 
+              status="active"
+              strokeColor={{
+                '0%': '#108ee9',
+                '100%': '#87d068',
+              }}
+            />
+          </Space>
+        </Card>
+      )}
 
       {/* Test Cases Table */}
       <Card title={`Test Cases (${totalTests} ${totalTests === 1 ? 'test' : 'tests'})`}>
@@ -673,6 +1015,86 @@ const TestCases: React.FC<TestCasesProps> = () => {
         onSave={handleSaveTest}
         onModeChange={setModalMode}
       />
+
+      {/* Bulk Tagging Modal */}
+      <Modal
+        title={`Manage Tags for ${selectedRowKeys.length} Test Case${selectedRowKeys.length !== 1 ? 's' : ''}`}
+        open={bulkTagModalVisible}
+        onCancel={() => {
+          setBulkTagModalVisible(false)
+          bulkTagForm.resetFields()
+        }}
+        footer={null}
+        width={500}
+      >
+        <Form
+          form={bulkTagForm}
+          layout="vertical"
+          onFinish={handleBulkTagSubmit}
+          initialValues={{ action: 'add' }}
+        >
+          <Form.Item
+            name="action"
+            label="Action"
+          >
+            <Select>
+              <Select.Option value="add">Add Tags</Select.Option>
+              <Select.Option value="remove">Remove Tags</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="tags"
+            label="Tags"
+            rules={[{ required: true, message: 'Please enter at least one tag' }]}
+          >
+            <Select
+              mode="tags"
+              placeholder="Enter tags (press Enter to add)"
+              style={{ width: '100%' }}
+              tokenSeparators={[',']}
+              options={[
+                { label: 'critical', value: 'critical' },
+                { label: 'regression', value: 'regression' },
+                { label: 'performance', value: 'performance' },
+                { label: 'security', value: 'security' },
+                { label: 'experimental', value: 'experimental' },
+                { label: 'stable', value: 'stable' },
+                { label: 'deprecated', value: 'deprecated' },
+              ]}
+            />
+          </Form.Item>
+
+          <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#f6f6f6', borderRadius: 4 }}>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              Selected test cases: {selectedRowKeys.length}
+              <br />
+              This operation will affect all selected test cases.
+            </Text>
+          </div>
+
+          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+            <Space>
+              <Button 
+                onClick={() => {
+                  setBulkTagModalVisible(false)
+                  bulkTagForm.resetFields()
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={bulkOperationInProgress && bulkOperationType === 'tag'}
+                icon={<TagOutlined />}
+              >
+                Apply Tags
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

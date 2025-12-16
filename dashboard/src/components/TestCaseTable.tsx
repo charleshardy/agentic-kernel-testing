@@ -176,7 +176,7 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
       width: 150,
       sorter: true,
       sortOrder: sortConfig?.field === 'created_at' ? sortConfig.order : null,
-      defaultSortOrder: 'descend',
+      defaultSortOrder: 'descend' as const,
       render: (date: string) => {
         if (!date) return 'Unknown'
         const createdDate = new Date(date)
@@ -263,10 +263,34 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
     onChange: (selectedRowKeys: React.Key[]) => {
       onSelect(selectedRowKeys as string[])
     },
+    onSelectAll: (selected: boolean, selectedRows: TestCase[], changeRows: TestCase[]) => {
+      if (selected) {
+        // Select all non-running tests
+        const selectableIds = tests
+          .filter(test => test.metadata?.execution_status !== 'running')
+          .map(test => test.id)
+        onSelect(selectableIds)
+      } else {
+        onSelect([])
+      }
+    },
+    onSelectNone: () => {
+      onSelect([])
+    },
     getCheckboxProps: (record: TestCase) => ({
       disabled: record.metadata?.execution_status === 'running',
       name: record.name,
     }),
+    columnTitle: (
+      <Space direction="vertical" size={0}>
+        <span>Select</span>
+        {selectedRowKeys.length > 0 && (
+          <Text type="secondary" style={{ fontSize: '11px' }}>
+            {selectedRowKeys.length} selected
+          </Text>
+        )}
+      </Space>
+    ),
   }
 
   return (
