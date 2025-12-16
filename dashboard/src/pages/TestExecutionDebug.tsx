@@ -28,67 +28,40 @@ import {
   CodeOutlined,
   FunctionOutlined,
 } from '@ant-design/icons'
-import { useQuery, useMutation, useQueryClient } from 'react-query'
-import { useDashboardStore } from '../store'
-import apiService from '../services/api'
-import useAIGeneration from '../hooks/useAIGeneration'
-import DiagnosticWrapper from '../components/DiagnosticWrapper'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
 
-interface TestExecutionProps {}
-
-const TestExecution: React.FC<TestExecutionProps> = () => {
+const TestExecutionDebug: React.FC = () => {
+  console.log('TestExecutionDebug: Starting component render')
+  
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([])
   const [isSubmitModalVisible, setIsSubmitModalVisible] = useState(false)
   const [isAutoGenModalVisible, setIsAutoGenModalVisible] = useState(false)
   const [autoGenType, setAutoGenType] = useState<'diff' | 'function'>('diff')
   const [form] = Form.useForm()
   const [autoGenForm] = Form.useForm()
-  const queryClient = useQueryClient()
-  const { activeExecutions } = useDashboardStore()
 
-  // AI Generation hook with custom handlers
-  const { generateFromDiff, generateFromFunction, isGenerating } = useAIGeneration({
-    onSuccess: (response, type) => {
-      setIsAutoGenModalVisible(false)
-      autoGenForm.resetFields()
-    },
-    preserveFilters: true, // Preserve current filters and pagination
-    enableOptimisticUpdates: false, // Disable optimistic updates on execution page to avoid confusion
-  })
+  console.log('TestExecutionDebug: State initialized')
 
-  // Fetch active test executions
-  const { data: executionsData, isLoading: executionsLoading } = useQuery(
-    'activeExecutions',
-    () => apiService.getActiveExecutions(),
+  // Mock data for testing
+  const executionsData = [
     {
-      refetchInterval: 5000, // Refresh every 5 seconds
+      plan_id: 'test-123',
+      overall_status: 'running',
+      progress: 0.6,
+      completed_tests: 6,
+      total_tests: 10,
+      started_at: new Date().toISOString(),
+      estimated_completion: new Date(Date.now() + 300000).toISOString()
     }
-  )
+  ]
 
-  // Fetch available environments
-  const { data: environments } = useQuery(
-    'environments',
-    () => apiService.getEnvironments()
-  )
+  const environments = [
+    { id: 'env-1', config: { architecture: 'x86_64', cpu_model: 'Intel Core i7' } }
+  ]
 
-  // Submit new tests mutation
-  const submitTestsMutation = useMutation(
-    (testData: any) => apiService.submitTests([testData]),
-    {
-      onSuccess: () => {
-        message.success('Tests submitted successfully')
-        setIsSubmitModalVisible(false)
-        form.resetFields()
-        queryClient.invalidateQueries('activeExecutions')
-      },
-      onError: (error: any) => {
-        message.error(`Failed to submit tests: ${error.message}`)
-      },
-    }
-  )
+  console.log('TestExecutionDebug: Mock data created')
 
   const columns = [
     {
@@ -133,98 +106,16 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
         </Space>
       ),
     },
-    {
-      title: 'Started',
-      dataIndex: 'started_at',
-      key: 'started_at',
-      render: (date: string) => date ? new Date(date).toLocaleString() : 'Not started',
-    },
-    {
-      title: 'ETA',
-      dataIndex: 'estimated_completion',
-      key: 'estimated_completion',
-      render: (date: string) => {
-        if (!date) return 'Unknown'
-        const eta = new Date(date)
-        const now = new Date()
-        const diff = eta.getTime() - now.getTime()
-        if (diff <= 0) return 'Overdue'
-        const minutes = Math.floor(diff / 60000)
-        return `${minutes}m`
-      },
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (record: any) => (
-        <Space>
-          <Button
-            type="text"
-            icon={<EyeOutlined />}
-            onClick={() => handleViewExecution(record.plan_id)}
-          >
-            View
-          </Button>
-          {record.overall_status === 'running' && (
-            <Button
-              type="text"
-              icon={<PauseCircleOutlined />}
-              onClick={() => handlePauseExecution(record.plan_id)}
-            >
-              Pause
-            </Button>
-          )}
-          {record.overall_status === 'pending' && (
-            <Button
-              type="text"
-              icon={<StopOutlined />}
-              onClick={() => handleCancelExecution(record.plan_id)}
-              danger
-            >
-              Cancel
-            </Button>
-          )}
-        </Space>
-      ),
-    },
   ]
 
-  const handleViewExecution = (planId: string) => {
-    // Navigate to detailed execution view
-    console.log('View execution:', planId)
-  }
-
-  const handlePauseExecution = (planId: string) => {
-    // Implement pause functionality
-    console.log('Pause execution:', planId)
-    message.info('Pause functionality not yet implemented')
-  }
-
-  const handleCancelExecution = (planId: string) => {
-    // Implement cancel functionality
-    console.log('Cancel execution:', planId)
-    message.info('Cancel functionality not yet implemented')
-  }
+  console.log('TestExecutionDebug: Columns defined')
 
   const handleSubmitTest = (values: any) => {
     console.log('Submitting test with values:', values)
-    const testData = {
-      name: values.name,
-      description: values.description,
-      test_type: values.test_type,
-      target_subsystem: values.subsystem,
-      test_script: values.test_script,
-      execution_time_estimate: parseInt(values.execution_time) || 60,
-      metadata: {
-        priority: values.priority || 5,
-        environment_preference: values.environment,
-      },
-    }
-
-    submitTestsMutation.mutate(testData)
+    message.success('Test submitted successfully (debug mode)')
+    setIsSubmitModalVisible(false)
+    form.resetFields()
   }
-
-
 
   const testTypes = [
     { label: 'Unit Test', value: 'unit' },
@@ -246,34 +137,35 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
     'arch/arm64',
   ]
 
-  // Calculate summary statistics
-  const totalExecutions = executionsData?.length || 0
-  const runningExecutions = executionsData?.filter(e => e.overall_status === 'running').length || 0
-  const completedExecutions = executionsData?.filter(e => e.overall_status === 'completed').length || 0
-  const failedExecutions = executionsData?.filter(e => e.overall_status === 'failed').length || 0
+  console.log('TestExecutionDebug: About to render JSX')
 
   return (
-    <DiagnosticWrapper componentName="TestExecution">
-      <div>
+    <div style={{ padding: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <Title level={2}>Test Execution</Title>
+        <Title level={2}>Test Execution (Debug Mode)</Title>
         <Space>
           <Button
             type="primary"
             icon={<RobotOutlined />}
-            onClick={() => setIsAutoGenModalVisible(true)}
+            onClick={() => {
+              console.log('AI Generate Tests clicked')
+              setIsAutoGenModalVisible(true)
+            }}
           >
             AI Generate Tests
           </Button>
           <Button
             icon={<PlusOutlined />}
-            onClick={() => setIsSubmitModalVisible(true)}
+            onClick={() => {
+              console.log('Manual Submit clicked')
+              setIsSubmitModalVisible(true)
+            }}
           >
             Manual Submit
           </Button>
           <Button
             icon={<ReloadOutlined />}
-            onClick={() => queryClient.invalidateQueries('activeExecutions')}
+            onClick={() => console.log('Refresh clicked')}
           >
             Refresh
           </Button>
@@ -286,7 +178,7 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
           <Card>
             <Statistic
               title="Total Executions"
-              value={totalExecutions}
+              value={1}
               valueStyle={{ color: '#1890ff' }}
             />
           </Card>
@@ -295,7 +187,7 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
           <Card>
             <Statistic
               title="Running"
-              value={runningExecutions}
+              value={1}
               valueStyle={{ color: '#52c41a' }}
             />
           </Card>
@@ -304,7 +196,7 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
           <Card>
             <Statistic
               title="Completed"
-              value={completedExecutions}
+              value={0}
               valueStyle={{ color: '#1890ff' }}
             />
           </Card>
@@ -313,7 +205,7 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
           <Card>
             <Statistic
               title="Failed"
-              value={failedExecutions}
+              value={0}
               valueStyle={{ color: '#ff4d4f' }}
             />
           </Card>
@@ -321,11 +213,11 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
       </Row>
 
       {/* Executions Table */}
-      <Card title="Active Test Executions">
+      <Card title="Active Test Executions (Debug Mode)">
         <Table
           columns={columns}
           dataSource={executionsData}
-          loading={executionsLoading}
+          loading={false}
           rowKey="plan_id"
           rowSelection={{
             selectedRowKeys,
@@ -343,7 +235,7 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
 
       {/* AI Test Generation Modal */}
       <Modal
-        title="AI Test Generation"
+        title="AI Test Generation (Debug Mode)"
         open={isAutoGenModalVisible}
         onCancel={() => setIsAutoGenModalVisible(false)}
         footer={null}
@@ -368,83 +260,15 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
           </Space>
         </div>
 
-        {autoGenType === 'diff' ? (
-          <Form
-            form={autoGenForm}
-            layout="vertical"
-            onFinish={(values) => {
-              generateFromDiff({
-                diff: values.diff,
-                maxTests: values.maxTests || 20,
-                testTypes: values.testTypes || ['unit']
-              })
-            }}
-          >
-            <Form.Item
-              name="diff"
-              label="Code Diff"
-              rules={[{ required: true, message: 'Please paste your git diff' }]}
-            >
-              <TextArea
-                rows={8}
-                placeholder="Paste your git diff here..."
-                style={{ fontFamily: 'monospace', fontSize: '12px' }}
-              />
-            </Form.Item>
-
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  name="maxTests"
-                  label="Max Tests to Generate"
-                  initialValue={20}
-                >
-                  <Input type="number" min={1} max={100} />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  name="testTypes"
-                  label="Test Types"
-                  initialValue={['unit']}
-                >
-                  <Select
-                    mode="multiple"
-                    placeholder="Select test types"
-                    options={testTypes}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-              <Space>
-                <Button onClick={() => setIsAutoGenModalVisible(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={isGenerating}
-                  icon={<RobotOutlined />}
-                >
-                  Generate Tests
-                </Button>
-              </Space>
-            </Form.Item>
-          </Form>
-        ) : (
+        {autoGenType === 'function' && (
           <Form
             form={autoGenForm}
             layout="vertical"
             onFinish={(values) => {
               console.log('AI Generation form values:', values)
-              generateFromFunction({
-                functionName: values.functionName,
-                filePath: values.filePath,
-                subsystem: values.subsystem || 'unknown',
-                maxTests: values.maxTests || 10
-              })
+              message.success('Test generation started (debug mode)')
+              setIsAutoGenModalVisible(false)
+              autoGenForm.resetFields()
             }}
           >
             <Form.Item
@@ -495,10 +319,9 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
                 <Button
                   type="primary"
                   htmlType="submit"
-                  loading={isGenerating}
                   icon={<RobotOutlined />}
                 >
-                  Generate Tests
+                  Generate Tests (Debug)
                 </Button>
               </Space>
             </Form.Item>
@@ -508,7 +331,7 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
 
       {/* Submit Test Modal */}
       <Modal
-        title="Submit New Test"
+        title="Submit New Test (Debug Mode)"
         open={isSubmitModalVisible}
         onCancel={() => setIsSubmitModalVisible(false)}
         footer={null}
@@ -559,58 +382,6 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
             </Col>
           </Row>
 
-          <Form.Item
-            name="test_script"
-            label="Test Script"
-            rules={[{ required: true, message: 'Please enter test script' }]}
-          >
-            <TextArea
-              rows={6}
-              placeholder="#!/bin/bash&#10;# Enter your test script here"
-              style={{ fontFamily: 'monospace' }}
-            />
-          </Form.Item>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="execution_time"
-                label="Estimated Time (seconds)"
-              >
-                <Input type="number" placeholder="60" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="priority"
-                label="Priority"
-              >
-                <Select
-                  placeholder="Select priority"
-                  options={[
-                    { label: 'Low (1)', value: 1 },
-                    { label: 'Normal (5)', value: 5 },
-                    { label: 'High (8)', value: 8 },
-                    { label: 'Critical (10)', value: 10 },
-                  ]}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item
-            name="environment"
-            label="Preferred Environment"
-          >
-            <Select
-              placeholder="Any available environment"
-              options={environments?.map(env => ({
-                label: `${env.config?.architecture} - ${env.config?.cpu_model}`,
-                value: env.id,
-              }))}
-            />
-          </Form.Item>
-
           <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
             <Space>
               <Button onClick={() => setIsSubmitModalVisible(false)}>
@@ -619,17 +390,15 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
               <Button
                 type="primary"
                 htmlType="submit"
-                loading={submitTestsMutation.isLoading}
               >
-                Submit Test
+                Submit Test (Debug)
               </Button>
             </Space>
           </Form.Item>
         </Form>
       </Modal>
-      </div>
-    </DiagnosticWrapper>
+    </div>
   )
 }
 
-export default TestExecution
+export default TestExecutionDebug
