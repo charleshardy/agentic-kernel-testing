@@ -124,7 +124,7 @@ const TestCases: React.FC<TestCasesProps> = () => {
   }, [searchText, filters, pagination, sortConfig, setSearchParams])
 
   // Fetch test cases with filters
-  const { data: testCasesData, isLoading, refetch } = useQuery(
+  const { data: testCasesData, isLoading, error, refetch } = useQuery(
     ['testCases', searchText, filters, dateRange],
     () => apiService.getTests({
       page: 1,
@@ -136,6 +136,14 @@ const TestCases: React.FC<TestCasesProps> = () => {
     {
       refetchInterval: 5000, // Refresh every 5 seconds for more responsive updates
       refetchOnWindowFocus: true, // Refetch when window gains focus
+      retry: 3, // Retry failed requests 3 times
+      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+      onError: (error) => {
+        console.error('Failed to fetch test cases:', error)
+      },
+      onSuccess: (data) => {
+        console.log('Successfully fetched test cases:', data)
+      }
     }
   )
 
@@ -603,15 +611,23 @@ const TestCases: React.FC<TestCasesProps> = () => {
   
   const manualTests = Math.max(0, totalTests - aiGeneratedTests)
 
-  // Error boundary for the component
-  if (!testCasesData && !isLoading) {
+
+
+  // Show error state if there's an actual error
+  if (error && !isLoading) {
     return (
       <div style={{ padding: '0 24px' }}>
         <div style={{ textAlign: 'center', padding: '50px' }}>
           <Title level={3}>Unable to load test cases</Title>
-          <Button onClick={() => refetch()} type="primary">
-            Retry
-          </Button>
+          <p>Error: {error instanceof Error ? error.message : 'Unknown error'}</p>
+          <Space>
+            <Button onClick={() => refetch()} type="primary">
+              Retry
+            </Button>
+            <Button onClick={() => window.location.reload()}>
+              Reload Page
+            </Button>
+          </Space>
         </div>
       </div>
     )
