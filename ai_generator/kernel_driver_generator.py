@@ -7,7 +7,7 @@ from datetime import datetime
 import uuid
 
 from .models import TestCase, TestType, Function
-from .interfaces import ITestGenerator
+# Removed ITestGenerator import as we don't need to inherit from it
 
 
 class KernelDriverTemplate:
@@ -437,7 +437,7 @@ test: install
 """
 
 
-class KernelDriverGenerator(ITestGenerator):
+class KernelDriverGenerator:
     """AI-powered kernel test driver generator."""
     
     def __init__(self, llm_provider=None):
