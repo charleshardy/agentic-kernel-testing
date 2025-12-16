@@ -206,6 +206,7 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
   }
 
   const handleSubmitTest = (values: any) => {
+    console.log('Submitting test with values:', values)
     const testData = {
       name: values.name,
       description: values.description,
@@ -435,6 +436,7 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
             form={autoGenForm}
             layout="vertical"
             onFinish={(values) => {
+              console.log('AI Generation form values:', values)
               generateFromFunction({
                 functionName: values.functionName,
                 filePath: values.filePath,
@@ -464,7 +466,7 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
                 <Form.Item
                   name="subsystem"
                   label="Subsystem"
-                  initialValue="unknown"
+                  rules={[{ required: true, message: 'Please select a subsystem' }]}
                 >
                   <Select
                     placeholder="Select subsystem"

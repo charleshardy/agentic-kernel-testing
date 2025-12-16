@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Modal Issue</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: #000;
+        }
+        .debug-info {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .issue-steps {
+            background: #fff2e8;
+            border: 1px solid #ffbb96;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .solution {
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug: AI Test Generation Modal Issue</h1>
+    
+    <div class="debug-info">
+        <h2>Issue Description</h2>
+        <div class="issue-steps">
+            <p><strong>Steps to reproduce:</strong></p>
+            <ol>
+                <li>Click "AI Test Generation" button</li>
+                <li>Click "from Function" tab</li>
+                <li>Select "Subsystem" from dropdown</li>
+                <li>Page becomes empty/dark</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="debug-info">
+        <h2>🛠️ Fixes Applied</h2>
+        <div class="solution">
+            <h3>1. CSS Theme Fix</h3>
+            <p>Fixed dark background issue in <code>dashboard/src/index.css</code>:</p>
+            <ul>
+                <li>Changed <code>background-color</code> from <code>#242424</code> to <code>#ffffff</code></li>
+                <li>Changed <code>color</code> from light to dark theme colors</li>
+                <li>Set <code>color-scheme: light</code></li>
+            </ul>
+        </div>
+
+        <div class="solution">
+            <h3>2. Form Validation Fix</h3>
+            <p>Added proper validation to subsystem field in <code>TestExecution.tsx</code>:</p>
+            <ul>
+                <li>Added required validation rule</li>
+                <li>Removed potentially problematic <code>initialValue="unknown"</code></li>
+            </ul>
+        </div>
+
+        <div class="solution">
+            <h3>3. Error Boundary Added</h3>
+            <p>Added error boundary to catch and display any JavaScript errors:</p>
+            <ul>
+                <li>Created <code>ErrorBoundary.tsx</code> component</li>
+                <li>Wrapped the entire app with error boundary</li>
+                <li>Added debugging console logs</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="debug-info">
+        <h2>🧪 Testing Steps</h2>
+        <ol>
+            <li><strong>Restart the development server:</strong>
+                <pre><code>cd dashboard && npm run dev</code></pre>
+            </li>
+            <li><strong>Open browser developer tools (F12)</strong></li>
+            <li><strong>Check the Console tab for any errors</strong></li>
+            <li><strong>Try the AI Test Generation flow again:</strong>
+                <ul>
+                    <li>Click "AI Test Generation"</li>
+                    <li>Click "from Function"</li>
+                    <li>Fill in the form fields</li>
+                    <li>Select a subsystem</li>
+                </ul>
+            </li>
+            <li><strong>If the page still goes dark:</strong>
+                <ul>
+                    <li>Check browser console for JavaScript errors</li>
+                    <li>Check if the error boundary displays an error message</li>
+                    <li>Try refreshing the page</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+
+    <div class="debug-info">
+        <h2>🔍 Additional Debugging</h2>
+        <p>If the issue persists, check these areas:</p>
+        <ul>
+            <li><strong>Network tab:</strong> Look for failed API requests</li>
+            <li><strong>Console tab:</strong> Look for JavaScript errors or warnings</li>
+            <li><strong>Elements tab:</strong> Check if the modal HTML is being rendered</li>
+            <li><strong>Application tab:</strong> Check if there are any localStorage/sessionStorage issues</li>
+        </ul>
+    </div>
+
+    <div class="debug-info">
+        <h2>📝 Expected Behavior</h2>
+        <p>After the fixes, the AI Test Generation modal should:</p>
+        <ol>
+            <li>Open with a white background (not dark)</li>
+            <li>Show two tabs: "From Code Diff" and "From Function"</li>
+            <li>When "From Function" is selected, show a form with:
+                <ul>
+                    <li>Function Name field</li>
+                    <li>File Path field</li>
+                    <li>Subsystem dropdown</li>
+                    <li>Max Tests field</li>
+                </ul>
+            </li>
+            <li>Allow you to select a subsystem without the page going dark</li>
+            <li>Show a "Generate Tests" button that works when clicked</li>
+        </ol>
+    </div>
+
+    <script>
+        console.log('Debug page loaded. Check the main application now.');
+    </script>
+</body>
+</html>
