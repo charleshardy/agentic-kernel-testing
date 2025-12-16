@@ -23,7 +23,8 @@ import {
 import { useQuery } from 'react-query'
 import dayjs from 'dayjs'
 import TestCaseTable from '../components/TestCaseTable'
-import apiService from '../services/api'
+import TestCaseModal from '../components/TestCaseModal'
+import apiService, { TestCase } from '../services/api'
 
 const { Title } = Typography
 const { RangePicker } = DatePicker
@@ -52,6 +53,11 @@ const TestCases: React.FC<TestCasesProps> = () => {
     field: searchParams.get('sortField') || undefined,
     order: (searchParams.get('sortOrder') as 'ascend' | 'descend') || undefined,
   })
+  
+  // Modal state
+  const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(null)
+  const [modalVisible, setModalVisible] = useState(false)
+  const [modalMode, setModalMode] = useState<'view' | 'edit'>('view')
 
   // Update URL when state changes
   useEffect(() => {
@@ -189,6 +195,55 @@ const TestCases: React.FC<TestCasesProps> = () => {
   const handleBulkAction = (action: string) => {
     console.log(`Bulk ${action} for tests:`, selectedRowKeys)
     // TODO: Implement bulk actions
+  }
+
+  const handleViewTest = (testId: string) => {
+    const test = filteredTests.find(t => t.id === testId)
+    if (test) {
+      setSelectedTestCase(test)
+      setModalMode('view')
+      setModalVisible(true)
+    }
+  }
+
+  const handleEditTest = (testId: string) => {
+    const test = filteredTests.find(t => t.id === testId)
+    if (test) {
+      setSelectedTestCase(test)
+      setModalMode('edit')
+      setModalVisible(true)
+    }
+  }
+
+  const handleDeleteTest = (testId: string) => {
+    console.log('Delete test:', testId)
+    // TODO: Implement delete functionality
+  }
+
+  const handleExecuteTests = (testIds: string[]) => {
+    console.log('Execute tests:', testIds)
+    // TODO: Implement execute functionality
+  }
+
+  const handleSaveTest = async (updatedTestCase: TestCase) => {
+    try {
+      // TODO: Implement API call to update test case
+      console.log('Saving test case:', updatedTestCase)
+      
+      // For now, just update local state
+      // In real implementation, this would call apiService.updateTest()
+      
+      // Refresh the test list
+      refetch()
+    } catch (error) {
+      console.error('Failed to save test case:', error)
+      throw error
+    }
+  }
+
+  const handleCloseModal = () => {
+    setModalVisible(false)
+    setSelectedTestCase(null)
   }
 
   const handleTableChange = (paginationConfig: any, filters: any, sorter: any) => {
@@ -401,12 +456,22 @@ const TestCases: React.FC<TestCasesProps> = () => {
           onSelect={setSelectedRowKeys}
           selectedRowKeys={selectedRowKeys}
           onTableChange={handleTableChange}
-          onView={(testId) => console.log('View test:', testId)}
-          onEdit={(testId) => console.log('Edit test:', testId)}
-          onDelete={(testId) => console.log('Delete test:', testId)}
-          onExecute={(testIds) => console.log('Execute tests:', testIds)}
+          onView={handleViewTest}
+          onEdit={handleEditTest}
+          onDelete={handleDeleteTest}
+          onExecute={handleExecuteTests}
         />
       </Card>
+
+      {/* Test Case Detail Modal */}
+      <TestCaseModal
+        testCase={selectedTestCase}
+        visible={modalVisible}
+        mode={modalMode}
+        onClose={handleCloseModal}
+        onSave={handleSaveTest}
+        onModeChange={setModalMode}
+      />
     </div>
   )
 }
