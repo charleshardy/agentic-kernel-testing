@@ -86,3 +86,7 @@ final_verification_*.py
 
 # Exclude the main setup verification script from the ignore pattern
 !verify_setup.py
+
+# AWS CLI installation files
+awscliv2.zip
+aws/
