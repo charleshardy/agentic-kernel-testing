@@ -26,7 +26,7 @@ except ImportError as e:
 
 # Strategy for generating test case data
 @st.composite
-def test_case_data_strategy(draw):
+def _test_case_data_strategy(draw):
     """Generate test case data for storage."""
     test_types = [TestType.UNIT, TestType.INTEGRATION, TestType.PERFORMANCE, TestType.SECURITY]
     subsystems = ['scheduler', 'memory', 'filesystem', 'networking', 'drivers']
@@ -76,13 +76,13 @@ def test_case_data_strategy(draw):
 
 
 @st.composite
-def test_database_state_strategy(draw):
+def _test_database_state_strategy(draw):
     """Generate a database state with multiple test cases."""
     num_tests = draw(st.integers(min_value=5, max_value=20))
     test_data = {}
     
     for _ in range(num_tests):
-        test_case_data = draw(test_case_data_strategy())
+        test_case_data = draw(_test_case_data_strategy())
         test_id = test_case_data["test_case"].id
         test_data[test_id] = test_case_data
     
@@ -90,7 +90,7 @@ def test_database_state_strategy(draw):
 
 
 @st.composite
-def bulk_operation_strategy(draw):
+def _bulk_operation_strategy(draw):
     """Generate bulk operation requests."""
     operations = ["delete", "execute", "update_tags", "update_favorite"]
     operation = draw(st.sampled_from(operations))
@@ -131,8 +131,8 @@ class TestBulkOperationAtomicityProperties:
         execution_plans.clear()
     
     @given(
-        test_data=test_database_state_strategy(),
-        operation_data=bulk_operation_strategy()
+        test_data=_test_database_state_strategy(),
+        operation_data=_bulk_operation_strategy()
     )
     @settings(max_examples=10)
     def test_bulk_operation_atomicity_success_case(self, test_data, operation_data):
@@ -326,7 +326,7 @@ class TestBulkOperationAtomicityProperties:
                     assert submitted_tests[test_id]["is_favorite"] == is_favorite, \
                         f"Favorite status should be updated for test {test_id}"
     
-    @given(test_data=test_database_state_strategy())
+    @given(test_data=_test_database_state_strategy())
     @settings(max_examples=5)
     def test_bulk_delete_with_running_tests_atomicity(self, test_data):
         """
@@ -390,7 +390,7 @@ class TestBulkOperationAtomicityProperties:
             "Running test status should be preserved when bulk operation fails"
     
     @given(
-        test_data=test_database_state_strategy(),
+        test_data=_test_database_state_strategy(),
         partial_failure_ratio=st.floats(min_value=0.1, max_value=0.9)
     )
     @settings(max_examples=5)

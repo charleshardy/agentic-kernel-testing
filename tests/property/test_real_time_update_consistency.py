@@ -20,7 +20,7 @@ import uuid
 
 # Mock test case data structure
 @st.composite
-def test_case_strategy(draw):
+def _test_case_strategy(draw):
     """Generate mock test case data."""
     test_id = str(uuid.uuid4())
     test_types = ['unit', 'integration', 'performance', 'security', 'fuzz']
@@ -47,7 +47,7 @@ def test_case_strategy(draw):
 
 
 @st.composite
-def generation_request_strategy(draw):
+def _generation_request_strategy(draw):
     """Generate AI generation request data."""
     generation_type = draw(st.sampled_from(['diff', 'function']))
     
@@ -253,8 +253,8 @@ class TestRealTimeUpdateConsistency:
     """Property-based tests for real-time update consistency."""
     
     @given(
-        initial_tests=st.lists(test_case_strategy(), min_size=0, max_size=10),
-        generation_requests=st.lists(generation_request_strategy(), min_size=2, max_size=5)
+        initial_tests=st.lists(_test_case_strategy(), min_size=0, max_size=10),
+        generation_requests=st.lists(_generation_request_strategy(), min_size=2, max_size=5)
     )
     @settings(max_examples=20, deadline=10000)
     def test_concurrent_generations_no_data_loss(self, initial_tests, generation_requests):
@@ -407,7 +407,7 @@ class TestRealTimeUpdateConsistency:
             "Should have query updates for each request"
     
     @given(
-        generation_requests=st.lists(generation_request_strategy(), min_size=2, max_size=4),
+        generation_requests=st.lists(_generation_request_strategy(), min_size=2, max_size=4),
         failure_rate=st.floats(min_value=0.0, max_value=0.5)
     )
     @settings(max_examples=15, deadline=10000)
@@ -487,8 +487,8 @@ class TestRealTimeUpdateConsistency:
             assert test.get('name'), "Test should have non-empty name"
     
     @given(
-        initial_tests=st.lists(test_case_strategy(), min_size=5, max_size=15),
-        generation_requests=st.lists(generation_request_strategy(), min_size=2, max_size=4)
+        initial_tests=st.lists(_test_case_strategy(), min_size=5, max_size=15),
+        generation_requests=st.lists(_generation_request_strategy(), min_size=2, max_size=4)
     )
     @settings(max_examples=10, deadline=8000)
     def test_optimistic_update_rollback_on_failure(self, initial_tests, generation_requests):

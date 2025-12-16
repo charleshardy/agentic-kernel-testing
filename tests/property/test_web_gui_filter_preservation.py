@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 
 # Strategy for generating filter states
 @st.composite
-def filter_state_strategy(draw):
+def _filter_state_strategy(draw):
     """Generate a filter state with various combinations of filters."""
     test_types = ['unit', 'integration', 'performance', 'security', 'fuzz']
     subsystems = ['kernel/core', 'kernel/mm', 'kernel/fs', 'kernel/net', 'drivers/block', 'drivers/char', 'arch/x86', 'arch/arm64']
@@ -45,7 +45,7 @@ def filter_state_strategy(draw):
 
 
 @st.composite
-def refresh_operation_strategy(draw):
+def _refresh_operation_strategy(draw):
     """Generate different types of refresh operations that might occur."""
     operations = [
         "manual_refresh",
@@ -150,8 +150,8 @@ class TestWebGUIFilterPreservationProperties:
     """Property-based tests for Web GUI filter preservation."""
     
     @given(
-        initial_filters=filter_state_strategy(),
-        refresh_operation=refresh_operation_strategy()
+        initial_filters=_filter_state_strategy(),
+        refresh_operation=_refresh_operation_strategy()
     )
     @settings(max_examples=20)
     def test_filter_preservation_after_refresh(self, initial_filters, refresh_operation):
@@ -212,7 +212,7 @@ class TestWebGUIFilterPreservationProperties:
                 f"Current page should be preserved when no new data is added. " \
                 f"Expected {initial_filters.get('page')}, got {filters_after_refresh.get('page')}"
     
-    @given(filter_state=filter_state_strategy())
+    @given(filter_state=_filter_state_strategy())
     @settings(max_examples=15)
     def test_url_state_round_trip_preservation(self, filter_state):
         """
@@ -252,8 +252,8 @@ class TestWebGUIFilterPreservationProperties:
                 f"Original: {original_value}, Restored: {restored_value}"
     
     @given(
-        filters=filter_state_strategy(),
-        concurrent_operations=st.lists(refresh_operation_strategy(), min_size=1, max_size=5)
+        filters=_filter_state_strategy(),
+        concurrent_operations=st.lists(_refresh_operation_strategy(), min_size=1, max_size=5)
     )
     @settings(max_examples=10)
     def test_concurrent_refresh_filter_consistency(self, filters, concurrent_operations):
@@ -312,7 +312,7 @@ class TestWebGUIFilterPreservationProperties:
                 f"Order: {current_filters.get('sortOrder')}"
     
     @given(
-        initial_filters=filter_state_strategy(),
+        initial_filters=_filter_state_strategy(),
         user_changes=st.dictionaries(
             st.sampled_from(["searchText", "testType", "subsystem", "generationMethod", "status"]),
             st.one_of(st.none(), st.text(min_size=1, max_size=50)),

@@ -28,7 +28,7 @@ except ImportError as e:
 
 # Strategy for generating diff content
 @st.composite
-def diff_content_strategy(draw):
+def _diff_content_strategy(draw):
     """Generate realistic diff content for testing."""
     file_paths = [
         "drivers/net/ethernet/intel/e1000e/netdev.c",
@@ -85,7 +85,7 @@ def _get_subsystem_from_path(file_path: str) -> str:
 
 # Strategy for generating function data
 @st.composite
-def function_data_strategy(draw):
+def _function_data_strategy(draw):
     """Generate function data for testing."""
     subsystems = ['scheduler', 'memory_management', 'networking', 'filesystem', 'drivers', 'core_kernel']
     
@@ -127,7 +127,7 @@ class TestGenerationSourceTraceabilityProperties:
         # Clear the global test storage after each test
         submitted_tests.clear()
     
-    @given(diff_data=diff_content_strategy())
+    @given(diff_data=_diff_content_strategy())
     @settings(max_examples=10)
     def test_ai_diff_generation_traceability(self, diff_data):
         """
@@ -276,7 +276,7 @@ class TestGenerationSourceTraceabilityProperties:
             assert "ai_generated" in tags, "Test should be tagged as AI-generated"
             assert "diff_based" in tags, "Test should be tagged as diff-based"
     
-    @given(function_data=function_data_strategy())
+    @given(function_data=_function_data_strategy())
     @settings(max_examples=10)
     def test_ai_function_generation_traceability(self, function_data):
         """
@@ -440,8 +440,8 @@ class TestGenerationSourceTraceabilityProperties:
             assert subsystem in tags, "Test should be tagged with the subsystem"
     
     @given(
-        diff_data=diff_content_strategy(),
-        function_data=function_data_strategy()
+        diff_data=_diff_content_strategy(),
+        function_data=_function_data_strategy()
     )
     @settings(max_examples=5)
     def test_generation_method_distinction(self, diff_data, function_data):
@@ -603,7 +603,7 @@ class TestGenerationSourceTraceabilityProperties:
             assert "diff_size" not in source_data, "Function tests should not have diff size"
             assert "diff_hash" not in source_data, "Function tests should not have diff hash"
     
-    @given(diff_data=diff_content_strategy())
+    @given(diff_data=_diff_content_strategy())
     @settings(max_examples=5)
     def test_generation_metadata_persistence(self, diff_data):
         """

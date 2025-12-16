@@ -194,7 +194,7 @@
   - Set up optimistic updates for mutations
   - _Requirements: 2.1_
 
-- [ ] 9. Checkpoint - Ensure all tests pass
+- [x] 9. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 10. Add Navigation and Routing
