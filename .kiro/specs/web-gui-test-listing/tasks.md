@@ -197,25 +197,25 @@
 - [x] 9. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 10. Add Navigation and Routing
+- [x] 10. Add Navigation and Routing
   - Update main navigation to include Test Cases page
   - Add routing configuration for new components
   - Implement breadcrumb navigation
   - _Requirements: 1.1_
 
-- [ ] 10.1 Update main navigation menu
+- [x] 10.1 Update main navigation menu
   - Add "Test Cases" menu item alongside "Test Executions"
   - Update active state highlighting
   - Ensure consistent navigation styling
   - _Requirements: 1.1_
 
-- [ ] 10.2 Configure routing for test case pages
+- [x] 10.2 Configure routing for test case pages
   - Add routes for test cases list and detail views
   - Implement URL parameters for filters and pagination
   - Add navigation guards if needed
   - _Requirements: 1.1_
 
-- [ ] 10.3 Write unit tests for navigation components
+- [x] 10.3 Write unit tests for navigation components
   - Test navigation menu rendering and interactions
   - Verify routing configuration and URL handling
   - Test breadcrumb navigation functionality
