@@ -972,7 +972,7 @@ const TestCases: React.FC<TestCasesProps> = () => {
                 >
                   <Select
                     placeholder="Select subsystem"
-                    options={subsystems.map(s => ({ label: s, value: s }))}
+                    options={subsystems}
                   />
                 </Form.Item>
               </Col>
