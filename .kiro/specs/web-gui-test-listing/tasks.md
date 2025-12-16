@@ -112,25 +112,25 @@
   - **Property 2: Filter Preservation**
   - **Validates: Requirements 2.2**
 
-- [ ] 5. Create Test Case Detail Modal Component
+- [x] 5. Create Test Case Detail Modal Component
   - Build modal component for viewing and editing individual test cases
   - Display complete test information including generation source
   - Support inline editing with validation
   - _Requirements: 1.5, 3.1, 3.2, 4.1, 4.2, 4.3, 4.4_
 
-- [ ] 5.1 Create TestCaseModal component structure
+- [x] 5.1 Create TestCaseModal component structure
   - Set up modal layout with tabs for details, script, and metadata
   - Add view and edit modes with appropriate controls
   - Implement form validation for edit mode
   - _Requirements: 1.5, 3.1_
 
-- [ ] 5.2 Display generation source information
+- [x] 5.2 Display generation source information
   - Show diff content for AI-generated tests from diffs
   - Display function information for function-based tests
   - Include generation parameters and AI model details
   - _Requirements: 4.1, 4.2, 4.3, 4.4_
 
-- [ ] 5.3 Implement test case editing functionality
+- [x] 5.3 Implement test case editing functionality
   - Allow editing of name, description, and test script
   - Add syntax highlighting for test scripts
   - Validate changes before saving
