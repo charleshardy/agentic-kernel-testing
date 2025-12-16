@@ -224,15 +224,37 @@ class APIService {
       delete queryParams.date_range
     }
     
-    const response: AxiosResponse<APIResponse<TestListResponse>> = await this.client.get('/tests', { 
-      params: queryParams 
-    })
-    return response.data.data!
+    try {
+      const response: AxiosResponse<APIResponse<TestListResponse>> = await this.client.get('/tests', { 
+        params: queryParams 
+      })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        // Try to get demo token and retry
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<TestListResponse>> = await this.client.get('/tests', { 
+          params: queryParams 
+        })
+        return response.data.data!
+      }
+      throw error
+    }
   }
 
   async getTestById(testId: string): Promise<EnhancedTestCase> {
-    const response: AxiosResponse<APIResponse<EnhancedTestCase>> = await this.client.get(`/tests/${testId}`)
-    return response.data.data!
+    try {
+      const response: AxiosResponse<APIResponse<EnhancedTestCase>> = await this.client.get(`/tests/${testId}`)
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        // Try to get demo token and retry
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<EnhancedTestCase>> = await this.client.get(`/tests/${testId}`)
+        return response.data.data!
+      }
+      throw error
+    }
   }
 
   async updateTest(testId: string, updates: Partial<TestCase>): Promise<EnhancedTestCase> {
@@ -458,8 +480,11 @@ class APIService {
         return
       }
 
-      // Get demo token
-      const response: AxiosResponse<APIResponse> = await this.client.post('/auth/login')
+      // Get demo token with admin credentials
+      const response: AxiosResponse<APIResponse> = await this.client.post('/auth/login', {
+        username: 'admin',
+        password: 'admin123'
+      })
       if (response.data.success && response.data.data?.access_token) {
         localStorage.setItem('auth_token', response.data.data.access_token)
       }
@@ -470,7 +495,10 @@ class APIService {
 
   async getDemoToken(): Promise<string | null> {
     try {
-      const response: AxiosResponse<APIResponse> = await this.client.post('/auth/login')
+      const response: AxiosResponse<APIResponse> = await this.client.post('/auth/login', {
+        username: 'admin',
+        password: 'admin123'
+      })
       if (response.data.success && response.data.data?.access_token) {
         const token = response.data.data.access_token
         localStorage.setItem('auth_token', token)
