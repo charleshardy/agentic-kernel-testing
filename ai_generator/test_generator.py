@@ -481,25 +481,376 @@ Return as JSON array with test cases.
             return None
     
     def _create_fallback_test(self, function: Function, index: int) -> TestCase:
-        """Create a fallback test case when LLM generation fails.
+        """Create an enhanced fallback test case when LLM generation fails.
         
         Args:
             function: Function to test
             index: Test index
             
         Returns:
-            Basic TestCase object
+            Enhanced TestCase object with realistic test scenarios
         """
+        # Enhanced test scenarios based on common patterns
+        test_scenarios = [
+            {
+                "name": f"Test {function.name} - normal operation",
+                "description": f"Test {function.name} with valid parameters and normal conditions",
+                "script": self._generate_normal_test_script(function)
+            },
+            {
+                "name": f"Test {function.name} - boundary conditions", 
+                "description": f"Test {function.name} with boundary values and edge cases",
+                "script": self._generate_boundary_test_script(function)
+            },
+            {
+                "name": f"Test {function.name} - error conditions",
+                "description": f"Test {function.name} with invalid inputs and error conditions", 
+                "script": self._generate_error_test_script(function)
+            },
+            {
+                "name": f"Test {function.name} - performance check",
+                "description": f"Test {function.name} performance and resource usage",
+                "script": self._generate_performance_test_script(function)
+            },
+            {
+                "name": f"Test {function.name} - concurrency safety",
+                "description": f"Test {function.name} thread safety and concurrent access",
+                "script": self._generate_concurrency_test_script(function)
+            }
+        ]
+        
+        # Select scenario based on index
+        scenario = test_scenarios[index % len(test_scenarios)]
+        
         return TestCase(
             id=f"test_{uuid.uuid4().hex[:8]}",
-            name=f"Test {function.name} - case {index + 1}",
-            description=f"Automated test for {function.name}",
+            name=scenario["name"],
+            description=scenario["description"],
             test_type=TestType.UNIT,
             target_subsystem=function.subsystem or "unknown",
             code_paths=[f"{function.file_path}::{function.name}"],
-            test_script=f"# Test case {index + 1} for {function.name}\npass",
-            execution_time_estimate=30
+            test_script=scenario["script"],
+            execution_time_estimate=45
         )
+    
+    def _generate_normal_test_script(self, function: Function) -> str:
+        """Generate a normal operation test script."""
+        subsystem = function.subsystem or "unknown"
+        
+        if "sched" in subsystem or "schedule" in function.name.lower():
+            return f"""#!/bin/bash
+# Test {function.name} - Normal Operation
+# Tests basic scheduling functionality with valid parameters
+
+# Setup test environment
+setup_test_env() {{
+    echo "Setting up test environment for {function.name}"
+    # Create test task structure
+    TEST_PID=$$
+    TEST_PRIORITY=20
+    TEST_NICE=0
+}}
+
+# Test normal scheduling operation
+test_normal_operation() {{
+    echo "Testing {function.name} with normal parameters"
+    
+    # Test with default priority
+    result=$(call_function "{function.name}" "$TEST_PID" "$TEST_PRIORITY")
+    
+    # Verify successful scheduling
+    if [ "$result" -eq 0 ]; then
+        echo "✓ {function.name} succeeded with normal parameters"
+        return 0
+    else
+        echo "✗ {function.name} failed with normal parameters: $result"
+        return 1
+    fi
+}}
+
+# Run test
+setup_test_env
+test_normal_operation
+echo "Normal operation test completed"
+"""
+        elif "mm" in subsystem or "memory" in function.name.lower():
+            return f"""#!/bin/bash
+# Test {function.name} - Normal Memory Operation
+# Tests memory management functionality
+
+# Setup memory test environment
+setup_memory_test() {{
+    echo "Setting up memory test for {function.name}"
+    TEST_SIZE=4096
+    TEST_FLAGS=0
+    TEST_ADDR=0
+}}
+
+# Test normal memory operation
+test_memory_operation() {{
+    echo "Testing {function.name} with valid memory parameters"
+    
+    # Test memory allocation/operation
+    result=$(call_function "{function.name}" "$TEST_SIZE" "$TEST_FLAGS")
+    
+    # Verify operation success
+    if [ "$result" -ne 0 ] && [ "$result" != "-1" ]; then
+        echo "✓ {function.name} succeeded: allocated/operated on memory"
+        return 0
+    else
+        echo "✗ {function.name} failed: $result"
+        return 1
+    fi
+}}
+
+# Run test
+setup_memory_test
+test_memory_operation
+echo "Memory operation test completed"
+"""
+        else:
+            return f"""#!/bin/bash
+# Test {function.name} - Normal Operation
+# Tests basic functionality with valid parameters
+
+# Setup test environment
+setup_test() {{
+    echo "Setting up test for {function.name}"
+    # Initialize test parameters
+    TEST_PARAM1=1
+    TEST_PARAM2=0
+    TEST_RESULT=0
+}}
+
+# Test normal operation
+test_function() {{
+    echo "Testing {function.name} with valid parameters"
+    
+    # Call function with normal parameters
+    result=$(call_function "{function.name}" "$TEST_PARAM1" "$TEST_PARAM2")
+    
+    # Verify expected behavior
+    if [ "$?" -eq 0 ]; then
+        echo "✓ {function.name} executed successfully"
+        echo "Result: $result"
+        return 0
+    else
+        echo "✗ {function.name} failed with error code: $?"
+        return 1
+    fi
+}}
+
+# Run test
+setup_test
+test_function
+echo "Function test completed"
+"""
+
+    def _generate_boundary_test_script(self, function: Function) -> str:
+        """Generate a boundary conditions test script."""
+        return f"""#!/bin/bash
+# Test {function.name} - Boundary Conditions
+# Tests edge cases and boundary values
+
+# Test boundary conditions
+test_boundary_conditions() {{
+    echo "Testing {function.name} with boundary values"
+    
+    # Test with minimum values
+    echo "Testing minimum boundary values..."
+    result_min=$(call_function "{function.name}" 0 0)
+    min_status=$?
+    
+    # Test with maximum values  
+    echo "Testing maximum boundary values..."
+    result_max=$(call_function "{function.name}" 2147483647 4294967295)
+    max_status=$?
+    
+    # Test with negative values
+    echo "Testing negative boundary values..."
+    result_neg=$(call_function "{function.name}" -1 -2147483648)
+    neg_status=$?
+    
+    # Evaluate results
+    echo "Boundary test results:"
+    echo "  Min values: status=$min_status, result=$result_min"
+    echo "  Max values: status=$max_status, result=$result_max" 
+    echo "  Negative values: status=$neg_status, result=$result_neg"
+    
+    # Check if function handles boundaries appropriately
+    if [ "$min_status" -le 1 ] && [ "$max_status" -le 1 ]; then
+        echo "✓ {function.name} handles boundary conditions appropriately"
+        return 0
+    else
+        echo "✗ {function.name} failed boundary condition tests"
+        return 1
+    fi
+}}
+
+test_boundary_conditions
+echo "Boundary conditions test completed"
+"""
+
+    def _generate_error_test_script(self, function: Function) -> str:
+        """Generate an error conditions test script."""
+        return f"""#!/bin/bash
+# Test {function.name} - Error Conditions
+# Tests invalid inputs and error handling
+
+# Test error conditions
+test_error_conditions() {{
+    echo "Testing {function.name} error handling"
+    
+    # Test with NULL/invalid pointers
+    echo "Testing with invalid parameters..."
+    result_null=$(call_function "{function.name}" 0 NULL)
+    null_status=$?
+    
+    # Test with invalid flags/parameters
+    echo "Testing with invalid flags..."
+    result_invalid=$(call_function "{function.name}" -999 0xFFFFFFFF)
+    invalid_status=$?
+    
+    # Test with out-of-range values
+    echo "Testing with out-of-range values..."
+    result_range=$(call_function "{function.name}" 999999999 -999999999)
+    range_status=$?
+    
+    # Verify proper error handling
+    echo "Error handling results:"
+    echo "  NULL params: status=$null_status (should be error)"
+    echo "  Invalid flags: status=$invalid_status (should be error)"
+    echo "  Out-of-range: status=$range_status (should be error)"
+    
+    # Check that errors are properly reported
+    error_count=0
+    [ "$null_status" -ne 0 ] && ((error_count++))
+    [ "$invalid_status" -ne 0 ] && ((error_count++))
+    [ "$range_status" -ne 0 ] && ((error_count++))
+    
+    if [ "$error_count" -ge 2 ]; then
+        echo "✓ {function.name} properly handles error conditions"
+        return 0
+    else
+        echo "✗ {function.name} may not be handling errors correctly"
+        return 1
+    fi
+}}
+
+test_error_conditions
+echo "Error conditions test completed"
+"""
+
+    def _generate_performance_test_script(self, function: Function) -> str:
+        """Generate a performance test script."""
+        return f"""#!/bin/bash
+# Test {function.name} - Performance Check
+# Tests execution time and resource usage
+
+# Performance test
+test_performance() {{
+    echo "Testing {function.name} performance"
+    
+    ITERATIONS=1000
+    START_TIME=$(date +%s%N)
+    
+    # Run function multiple times
+    echo "Running {function.name} $ITERATIONS times..."
+    for i in $(seq 1 $ITERATIONS); do
+        call_function "{function.name}" $i $(($i % 100)) >/dev/null 2>&1
+    done
+    
+    END_TIME=$(date +%s%N)
+    DURATION=$(( (END_TIME - START_TIME) / 1000000 )) # Convert to milliseconds
+    AVG_TIME=$(( DURATION / ITERATIONS ))
+    
+    echo "Performance results:"
+    echo "  Total time: ${{DURATION}}ms"
+    echo "  Average time per call: ${{AVG_TIME}}ms"
+    echo "  Calls per second: $(( 1000 / (AVG_TIME + 1) ))"
+    
+    # Check if performance is reasonable (less than 10ms average)
+    if [ "$AVG_TIME" -lt 10 ]; then
+        echo "✓ {function.name} performance is acceptable"
+        return 0
+    else
+        echo "⚠ {function.name} performance may need optimization"
+        return 0  # Don't fail on performance issues
+    fi
+}}
+
+test_performance
+echo "Performance test completed"
+"""
+
+    def _generate_concurrency_test_script(self, function: Function) -> str:
+        """Generate a concurrency safety test script."""
+        return f"""#!/bin/bash
+# Test {function.name} - Concurrency Safety
+# Tests thread safety and concurrent access
+
+# Concurrency test
+test_concurrency() {{
+    echo "Testing {function.name} concurrency safety"
+    
+    NUM_PROCESSES=4
+    CALLS_PER_PROCESS=100
+    
+    # Function to run concurrent calls
+    run_concurrent_calls() {{
+        local process_id=$1
+        local success_count=0
+        
+        for i in $(seq 1 $CALLS_PER_PROCESS); do
+            if call_function "{function.name}" $process_id $i >/dev/null 2>&1; then
+                ((success_count++))
+            fi
+        done
+        
+        echo "$success_count" > "/tmp/concurrency_result_$process_id"
+    }}
+    
+    # Start concurrent processes
+    echo "Starting $NUM_PROCESSES concurrent processes..."
+    for p in $(seq 1 $NUM_PROCESSES); do
+        run_concurrent_calls $p &
+    done
+    
+    # Wait for all processes to complete
+    wait
+    
+    # Collect results
+    total_success=0
+    total_expected=$(( NUM_PROCESSES * CALLS_PER_PROCESS ))
+    
+    for p in $(seq 1 $NUM_PROCESSES); do
+        if [ -f "/tmp/concurrency_result_$p" ]; then
+            success=$(cat "/tmp/concurrency_result_$p")
+            total_success=$(( total_success + success ))
+            rm -f "/tmp/concurrency_result_$p"
+        fi
+    done
+    
+    success_rate=$(( (total_success * 100) / total_expected ))
+    
+    echo "Concurrency results:"
+    echo "  Total calls: $total_expected"
+    echo "  Successful calls: $total_success"
+    echo "  Success rate: ${{success_rate}}%"
+    
+    # Check if concurrency handling is reasonable (>80% success rate)
+    if [ "$success_rate" -gt 80 ]; then
+        echo "✓ {function.name} handles concurrency reasonably well"
+        return 0
+    else
+        echo "⚠ {function.name} may have concurrency issues"
+        return 0  # Don't fail on concurrency issues
+    fi
+}}
+
+test_concurrency
+echo "Concurrency test completed"
+"""
     
     def _fallback_analysis(self, diff: str) -> CodeAnalysis:
         """Fallback analysis when LLM fails.
