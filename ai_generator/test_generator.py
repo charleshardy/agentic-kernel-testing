@@ -1375,7 +1375,7 @@ def test_allocation_monotonicity(allocator, size_kb):
         smaller_result = allocator.simulate_allocation(smaller_size)
         
         # Property: If allocation of size N succeeds, allocation of size N/2 should succeed
-        assert smaller_result is not None, f"Large allocation ({size_kb}KB) succeeded but smaller ({smaller_size}KB) failed"
+        assert smaller_result is not None, f"Large allocation ({{size_kb}}KB) succeeded but smaller ({{smaller_size}}KB) failed"
 
 # Property 2: Allocation Bounds
 # Allocation should respect system limits and fail gracefully for excessive requests
@@ -1425,7 +1425,7 @@ def test_invalid_size_handling(allocator, invalid_size):
 
 if __name__ == "__main__":
     # Run the property tests
-    print(f"Running property-based tests for {function.name}")
+    print(f"Running property-based tests for {{function.name}}")
     print("Testing memory allocation properties...")
     
     # Run with pytest
@@ -1511,7 +1511,7 @@ print("DEALLOCATED")
                 # Property: Memory should be reclaimed (some increase in available memory)
                 memory_change = final_memory - initial_memory
                 # Allow for some variance due to system activity
-                assert memory_change >= -alloc_size_mb * 1024 * 0.5, f"Memory not properly reclaimed: {memory_change}KB change"
+                assert memory_change >= -alloc_size_mb * 1024 * 0.5, f"Memory not properly reclaimed: {{memory_change}}KB change"
     
     except subprocess.TimeoutExpired:
         pytest.fail("Memory deallocation test timed out")
@@ -1552,7 +1552,7 @@ except Exception as e:
     assert "SAFE_DEALLOCATION" in result.stdout
 
 if __name__ == "__main__":
-    print(f"Running property-based tests for {function.name}")
+    print(f"Running property-based tests for {{function.name}}")
     print("Testing memory deallocation properties...")
     
     exit_code = pytest.main([__file__, "-v", "--tb=short"])
@@ -1735,7 +1735,7 @@ print("FAIRNESS_TEST_COMPLETED")
         pytest.skip("Fairness test timed out")
 
 if __name__ == "__main__":
-    print(f"Running property-based tests for {function.name}")
+    print(f"Running property-based tests for {{function.name}}")
     print("Testing scheduler properties...")
     
     exit_code = pytest.main([__file__, "-v", "--tb=short"])
@@ -1967,7 +1967,7 @@ except Exception as e:
                 pass
 
 if __name__ == "__main__":
-    print(f"Running property-based tests for {function.name}")
+    print(f"Running property-based tests for {{function.name}}")
     print("Testing synchronization properties...")
     
     exit_code = pytest.main([__file__, "-v", "--tb=short"])
@@ -2078,7 +2078,7 @@ def test_hash_collision_resistance(text_list):
     assert len(set(hashes)) == len(hashes), f"Hash collision found among {{len(unique_texts)}} unique inputs"
 
 if __name__ == "__main__":
-    print(f"Running property-based tests for {function.name}")
+    print(f"Running property-based tests for {{function.name}}")
     print("Testing hash function properties...")
     
     exit_code = pytest.main([__file__, "-v", "--tb=short"])
@@ -2247,7 +2247,7 @@ def test_containment_property(items, search_item):
         assert item in data_structure, f"Original item {{item}} lost from data structure"
 
 if __name__ == "__main__":
-    print(f"Running property-based tests for {function.name}")
+    print(f"Running property-based tests for {{function.name}}")
     print("Testing data structure properties...")
     
     exit_code = pytest.main([__file__, "-v", "--tb=short"])
@@ -2426,7 +2426,7 @@ def test_boundary_behavior_property(boundary_inputs):
         assert isinstance(result, int) and result >= 0, f"Boundary case should return non-negative int, got {{result}}"
 
 if __name__ == "__main__":
-    print(f"Running property-based tests for {function.name}")
+    print(f"Running property-based tests for {{function.name}}")
     print("Testing generic function properties...")
     
     exit_code = pytest.main([__file__, "-v", "--tb=short"])
