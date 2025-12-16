@@ -141,52 +141,88 @@ const TestCases: React.FC<TestCasesProps> = () => {
 
   // Client-side filtering for now (until backend supports all filters)
   const filteredTests = React.useMemo(() => {
-    if (!testCasesData?.tests) return []
-    
-    let filtered = testCasesData.tests
+    try {
+      if (!testCasesData?.tests || !Array.isArray(testCasesData.tests)) {
+        return []
+      }
+      
+      let filtered = testCasesData.tests
 
-    // Search text filter
-    if (searchText) {
-      const searchLower = searchText.toLowerCase()
-      filtered = filtered.filter(test => 
-        test.name.toLowerCase().includes(searchLower) ||
-        test.description?.toLowerCase().includes(searchLower) ||
-        test.target_subsystem?.toLowerCase().includes(searchLower)
-      )
+      // Search text filter
+      if (searchText) {
+        const searchLower = searchText.toLowerCase()
+        filtered = filtered.filter(test => {
+          try {
+            return (
+              (test.name && test.name.toLowerCase().includes(searchLower)) ||
+              (test.description && test.description.toLowerCase().includes(searchLower)) ||
+              (test.target_subsystem && test.target_subsystem.toLowerCase().includes(searchLower))
+            )
+          } catch (error) {
+            console.warn('Error filtering test by search text:', test, error)
+            return false
+          }
+        })
+      }
+
+      // Subsystem filter
+      if (filters.subsystem) {
+        filtered = filtered.filter(test => {
+          try {
+            return test.target_subsystem === filters.subsystem
+          } catch (error) {
+            console.warn('Error filtering test by subsystem:', test, error)
+            return false
+          }
+        })
+      }
+
+      // Generation method filter
+      if (filters.generationMethod) {
+        filtered = filtered.filter(test => {
+          try {
+            const method = test.metadata?.generation_method || 'manual'
+            return method === filters.generationMethod
+          } catch (error) {
+            console.warn('Error filtering test by generation method:', test, error)
+            return false
+          }
+        })
+      }
+
+      // Status filter (based on execution status)
+      if (filters.status) {
+        filtered = filtered.filter(test => {
+          try {
+            const status = test.metadata?.execution_status || 'never_run'
+            return status === filters.status
+          } catch (error) {
+            console.warn('Error filtering test by status:', test, error)
+            return false
+          }
+        })
+      }
+
+      // Date range filter
+      if (dateRange && dateRange[0] && dateRange[1]) {
+        const startDate = dateRange[0].startOf('day')
+        const endDate = dateRange[1].endOf('day')
+        filtered = filtered.filter(test => {
+          try {
+            const createdAt = dayjs(test.created_at)
+            return createdAt.isAfter(startDate) && createdAt.isBefore(endDate)
+          } catch (error) {
+            console.warn('Error filtering test by date range:', test, error)
+            return false
+          }
+        })
+      }
+
+      return filtered
+    } catch (error) {
+      console.error('Error in filteredTests calculation:', error)
+      return []
     }
-
-    // Subsystem filter
-    if (filters.subsystem) {
-      filtered = filtered.filter(test => test.target_subsystem === filters.subsystem)
-    }
-
-    // Generation method filter
-    if (filters.generationMethod) {
-      filtered = filtered.filter(test => {
-        const method = test.metadata?.generation_method || 'manual'
-        return method === filters.generationMethod
-      })
-    }
-
-    // Status filter (based on execution status)
-    if (filters.status) {
-      filtered = filtered.filter(test => {
-        const status = test.metadata?.execution_status || 'never_run'
-        return status === filters.status
-      })
-    }
-
-    // Date range filter
-    if (dateRange && dateRange[0] && dateRange[1]) {
-      const startDate = dateRange[0].startOf('day')
-      const endDate = dateRange[1].endOf('day')
-      filtered = filtered.filter(test => {
-        const createdAt = dayjs(test.created_at)
-        return createdAt.isAfter(startDate) && createdAt.isBefore(endDate)
-      })
-    }
-
-    return filtered
   }, [testCasesData?.tests, searchText, filters, dateRange])
 
   const testTypes = [
@@ -304,23 +340,44 @@ const TestCases: React.FC<TestCasesProps> = () => {
   const handleBulkDelete = async (tests: TestCase[]) => {
     message.info(`Deleting ${tests.length} test cases...`)
     
+    let successCount = 0
+    let failureCount = 0
+    
     for (let i = 0; i < tests.length; i++) {
       const test = tests[i]
       setBulkOperationProgress(((i + 1) / tests.length) * 100)
       
       try {
-        // Simulate API call - replace with actual API call
-        await new Promise(resolve => setTimeout(resolve, 300))
-        console.log(`Deleting test: ${test.name}`)
-        // TODO: Call actual API - apiService.deleteTest(test.id)
+        // Call actual API to delete the test
+        await apiService.deleteTest(test.id)
+        console.log(`Successfully deleted test: ${test.name}`)
+        successCount++
       } catch (error) {
         console.error(`Failed to delete test ${test.name}:`, error)
+        failureCount++
       }
     }
     
-    message.success(`Successfully deleted ${tests.length} test cases`)
+    // Clear selected rows immediately to prevent state issues
     setSelectedRowKeys([])
-    refetch()
+    
+    // Show appropriate message based on results
+    if (failureCount === 0) {
+      message.success(`Successfully deleted ${successCount} test cases`)
+    } else if (successCount === 0) {
+      message.error(`Failed to delete all ${tests.length} test cases`)
+    } else {
+      message.warning(`Deleted ${successCount} test cases, ${failureCount} failed`)
+    }
+    
+    // Refresh the data
+    try {
+      await refetch()
+    } catch (error) {
+      console.error('Failed to refresh test list after deletion:', error)
+      // Force a page reload if refetch fails
+      window.location.reload()
+    }
   }
 
   const handleBulkExport = async (tests: TestCase[]) => {
@@ -492,6 +549,21 @@ const TestCases: React.FC<TestCasesProps> = () => {
     setSelectedRowKeys([])
   }
 
+  // Clear selected rows if they no longer exist in the filtered tests
+  React.useEffect(() => {
+    if (selectedRowKeys.length > 0 && filteredTests.length > 0) {
+      const existingIds = new Set(filteredTests.map(test => test.id))
+      const validSelectedKeys = selectedRowKeys.filter(key => existingIds.has(key))
+      
+      if (validSelectedKeys.length !== selectedRowKeys.length) {
+        setSelectedRowKeys(validSelectedKeys)
+      }
+    } else if (selectedRowKeys.length > 0 && filteredTests.length === 0) {
+      // Clear all selections if no tests remain
+      setSelectedRowKeys([])
+    }
+  }, [filteredTests, selectedRowKeys])
+
   const handleSelectByType = (testType: string) => {
     const testsOfType = filteredTests.filter(test => 
       test.test_type === testType && test.metadata?.execution_status !== 'running'
@@ -507,13 +579,43 @@ const TestCases: React.FC<TestCasesProps> = () => {
     setSelectedRowKeys(testsWithStatus.map(test => test.id))
   }
 
-  // Calculate statistics based on filtered data
-  const totalTests = filteredTests.length
-  const neverRunTests = filteredTests.filter(t => !t.metadata?.last_execution).length
-  const aiGeneratedTests = filteredTests.filter(t => 
-    t.metadata?.generation_method && t.metadata.generation_method !== 'manual'
-  ).length
-  const manualTests = totalTests - aiGeneratedTests
+  // Calculate statistics based on filtered data with error handling
+  const totalTests = filteredTests?.length || 0
+  const neverRunTests = React.useMemo(() => {
+    try {
+      return filteredTests.filter(t => !t?.metadata?.last_execution).length
+    } catch (error) {
+      console.warn('Error calculating neverRunTests:', error)
+      return 0
+    }
+  }, [filteredTests])
+  
+  const aiGeneratedTests = React.useMemo(() => {
+    try {
+      return filteredTests.filter(t => 
+        t?.metadata?.generation_method && t.metadata.generation_method !== 'manual'
+      ).length
+    } catch (error) {
+      console.warn('Error calculating aiGeneratedTests:', error)
+      return 0
+    }
+  }, [filteredTests])
+  
+  const manualTests = Math.max(0, totalTests - aiGeneratedTests)
+
+  // Error boundary for the component
+  if (!testCasesData && !isLoading) {
+    return (
+      <div style={{ padding: '0 24px' }}>
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+          <Title level={3}>Unable to load test cases</Title>
+          <Button onClick={() => refetch()} type="primary">
+            Retry
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ padding: '0 24px' }}>
@@ -831,17 +933,17 @@ const TestCases: React.FC<TestCasesProps> = () => {
       {/* Test Cases Table */}
       <Card title={`Test Cases (${totalTests} ${totalTests === 1 ? 'test' : 'tests'})`}>
         <TestCaseTable
-          tests={filteredTests}
+          tests={filteredTests || []}
           loading={isLoading}
           pagination={{
             current: pagination.current,
             pageSize: pagination.pageSize,
-            total: filteredTests.length,
+            total: (filteredTests || []).length,
           }}
           sortConfig={sortConfig}
           onRefresh={refetch}
           onSelect={setSelectedRowKeys}
-          selectedRowKeys={selectedRowKeys}
+          selectedRowKeys={selectedRowKeys || []}
           onTableChange={handleTableChange}
           onView={handleViewTest}
           onEdit={handleEditTest}
