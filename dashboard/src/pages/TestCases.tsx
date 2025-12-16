@@ -12,6 +12,8 @@ import {
   Select,
   DatePicker,
   Divider,
+  Modal,
+  Form,
 } from 'antd'
 import {
   ReloadOutlined,
@@ -19,15 +21,21 @@ import {
   FilterOutlined,
   ExportOutlined,
   PlusOutlined,
+  RobotOutlined,
+  CodeOutlined,
+  FunctionOutlined,
 } from '@ant-design/icons'
 import { useQuery } from 'react-query'
 import dayjs from 'dayjs'
 import TestCaseTable from '../components/TestCaseTable'
 import TestCaseModal from '../components/TestCaseModal'
+import AIGenerationProgress from '../components/AIGenerationProgress'
 import apiService, { TestCase } from '../services/api'
+import useAIGeneration from '../hooks/useAIGeneration'
 
 const { Title } = Typography
 const { RangePicker } = DatePicker
+const { TextArea } = Input
 
 interface TestCasesProps {}
 
@@ -58,6 +66,22 @@ const TestCases: React.FC<TestCasesProps> = () => {
   const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(null)
   const [modalVisible, setModalVisible] = useState(false)
   const [modalMode, setModalMode] = useState<'view' | 'edit'>('view')
+  
+  // AI Generation modal state
+  const [isAIGenModalVisible, setIsAIGenModalVisible] = useState(false)
+  const [aiGenType, setAIGenType] = useState<'diff' | 'function'>('diff')
+  const [aiGenForm] = Form.useForm()
+
+  // AI Generation hook that preserves current filters and pagination
+  const { generateFromDiff, generateFromFunction, isGenerating } = useAIGeneration({
+    onSuccess: (response, type) => {
+      setIsAIGenModalVisible(false)
+      aiGenForm.resetFields()
+      // The hook automatically refreshes the test list while preserving filters
+    },
+    preserveFilters: true,
+    enableOptimisticUpdates: true, // Enable optimistic updates for better UX
+  })
 
   // Update URL when state changes
   useEffect(() => {
@@ -282,6 +306,13 @@ const TestCases: React.FC<TestCasesProps> = () => {
         <Title level={2} style={{ margin: 0 }}>Test Cases</Title>
         <Space>
           <Button
+            type="primary"
+            icon={<RobotOutlined />}
+            onClick={() => setIsAIGenModalVisible(true)}
+          >
+            AI Generate Tests
+          </Button>
+          <Button
             icon={<PlusOutlined />}
             onClick={() => {/* TODO: Navigate to test creation */}}
           >
@@ -441,6 +472,12 @@ const TestCases: React.FC<TestCasesProps> = () => {
         </Row>
       </Card>
 
+      {/* AI Generation Progress */}
+      <AIGenerationProgress 
+        isGenerating={isGenerating}
+        message="Generating test cases and updating the list..."
+      />
+
       {/* Test Cases Table */}
       <Card title={`Test Cases (${totalTests} ${totalTests === 1 ? 'test' : 'tests'})`}>
         <TestCaseTable
@@ -462,6 +499,170 @@ const TestCases: React.FC<TestCasesProps> = () => {
           onExecute={handleExecuteTests}
         />
       </Card>
+
+      {/* AI Test Generation Modal */}
+      <Modal
+        title="AI Test Generation"
+        open={isAIGenModalVisible}
+        onCancel={() => setIsAIGenModalVisible(false)}
+        footer={null}
+        width={700}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <Space>
+            <Button
+              type={aiGenType === 'diff' ? 'primary' : 'default'}
+              icon={<CodeOutlined />}
+              onClick={() => setAIGenType('diff')}
+            >
+              From Code Diff
+            </Button>
+            <Button
+              type={aiGenType === 'function' ? 'primary' : 'default'}
+              icon={<FunctionOutlined />}
+              onClick={() => setAIGenType('function')}
+            >
+              From Function
+            </Button>
+          </Space>
+        </div>
+
+        {aiGenType === 'diff' ? (
+          <Form
+            form={aiGenForm}
+            layout="vertical"
+            onFinish={(values) => {
+              generateFromDiff({
+                diff: values.diff,
+                maxTests: values.maxTests || 20,
+                testTypes: values.testTypes || ['unit']
+              })
+            }}
+          >
+            <Form.Item
+              name="diff"
+              label="Code Diff"
+              rules={[{ required: true, message: 'Please paste your git diff' }]}
+            >
+              <TextArea
+                rows={8}
+                placeholder="Paste your git diff here..."
+                style={{ fontFamily: 'monospace', fontSize: '12px' }}
+              />
+            </Form.Item>
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  name="maxTests"
+                  label="Max Tests to Generate"
+                  initialValue={20}
+                >
+                  <Input type="number" min={1} max={100} />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="testTypes"
+                  label="Test Types"
+                  initialValue={['unit']}
+                >
+                  <Select
+                    mode="multiple"
+                    placeholder="Select test types"
+                    options={testTypes}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+              <Space>
+                <Button onClick={() => setIsAIGenModalVisible(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={isGenerating}
+                  icon={<RobotOutlined />}
+                >
+                  Generate Tests
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        ) : (
+          <Form
+            form={aiGenForm}
+            layout="vertical"
+            onFinish={(values) => {
+              generateFromFunction({
+                functionName: values.functionName,
+                filePath: values.filePath,
+                subsystem: values.subsystem || 'unknown',
+                maxTests: values.maxTests || 10
+              })
+            }}
+          >
+            <Form.Item
+              name="functionName"
+              label="Function Name"
+              rules={[{ required: true, message: 'Please enter function name' }]}
+            >
+              <Input placeholder="e.g., schedule_task" />
+            </Form.Item>
+
+            <Form.Item
+              name="filePath"
+              label="File Path"
+              rules={[{ required: true, message: 'Please enter file path' }]}
+            >
+              <Input placeholder="e.g., kernel/sched/core.c" />
+            </Form.Item>
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  name="subsystem"
+                  label="Subsystem"
+                  initialValue="unknown"
+                >
+                  <Select
+                    placeholder="Select subsystem"
+                    options={subsystems.map(s => ({ label: s, value: s }))}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="maxTests"
+                  label="Max Tests to Generate"
+                  initialValue={10}
+                >
+                  <Input type="number" min={1} max={50} />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+              <Space>
+                <Button onClick={() => setIsAIGenModalVisible(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={isGenerating}
+                  icon={<RobotOutlined />}
+                >
+                  Generate Tests
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
 
       {/* Test Case Detail Modal */}
       <TestCaseModal
