@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Authentication Fix</title>
+</head>
+<body>
+    <h1>Test Authentication Fix</h1>
+    
+    <h2>Steps to Test:</h2>
+    <ol>
+        <li><strong>Clear existing token:</strong>
+            <br>Open browser console (F12) and run:
+            <br><code>localStorage.removeItem('auth_token')</code>
+        </li>
+        <li><strong>Refresh the page:</strong>
+            <br>Press F5 or Ctrl+R to reload http://localhost:3001/test-cases
+        </li>
+        <li><strong>Check authentication:</strong>
+            <br>In console, you should see: "Demo authentication successful"
+        </li>
+        <li><strong>Test AI generation:</strong>
+            <br>Click "AI Generate Tests" → "From Function" → fill form → submit
+        </li>
+        <li><strong>Check if test cases appear:</strong>
+            <br>After generation, the test case count should increase and new tests should appear in the list
+        </li>
+    </ol>
+    
+    <h2>Expected Results:</h2>
+    <ul>
+        <li>✅ No authentication errors in console</li>
+        <li>✅ Test cases list loads with existing tests (should show 23+ tests)</li>
+        <li>✅ AI generation works without errors</li>
+        <li>✅ New test cases appear in the list after generation</li>
+        <li>✅ Test case count updates correctly</li>
+    </ul>
+    
+    <h2>Debug Commands:</h2>
+    <p>If issues persist, run these in browser console:</p>
+    <pre>
+// Check current token
+console.log('Token:', localStorage.getItem('auth_token'))
+
+// Test API call manually
+fetch('http://localhost:8000/api/v1/tests?page=1&page_size=5', {
+  headers: {
+    'Authorization': 'Bearer ' + localStorage.getItem('auth_token')
+  }
+}).then(r => r.json()).then(console.log)
+    </pre>
+</body>
+</html>
