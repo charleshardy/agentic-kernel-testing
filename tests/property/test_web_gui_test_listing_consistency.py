@@ -6,7 +6,7 @@ Validates: Requirements 1.1, 2.1
 
 import pytest
 from hypothesis import given, strategies as st, settings, assume
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List
 import uuid
 import asyncio
@@ -27,7 +27,7 @@ except ImportError as e:
 
 # Strategy for generating test case data
 @st.composite
-def test_case_data_strategy(draw):
+def _test_case_data_strategy(draw):
     """Generate test case data for storage."""
     test_types = ['unit', 'integration', 'performance', 'security', 'fuzz']
     subsystems = ['scheduler', 'memory', 'filesystem', 'networking', 'drivers']
@@ -52,7 +52,7 @@ def test_case_data_strategy(draw):
     test_case.metadata = {}
     
     # Generate creation time within last 30 days
-    base_time = datetime.utcnow()
+    base_time = datetime.now(timezone.utc)
     time_offset = draw(st.integers(min_value=0, max_value=30 * 24 * 3600))  # 30 days in seconds
     created_at = base_time - timedelta(seconds=time_offset)
     
@@ -86,13 +86,13 @@ def test_case_data_strategy(draw):
 
 
 @st.composite
-def test_database_state_strategy(draw):
+def _test_database_state_strategy(draw):
     """Generate a database state with multiple test cases."""
     num_tests = draw(st.integers(min_value=1, max_value=50))
     test_data = {}
     
     for _ in range(num_tests):
-        test_case_data = draw(test_case_data_strategy())
+        test_case_data = draw(_test_case_data_strategy())
         test_id = test_case_data["test_case"].id
         test_data[test_id] = test_case_data
     
@@ -113,7 +113,7 @@ class TestWebGUITestListingConsistencyProperties:
         # Clear the global test storage after each test
         submitted_tests.clear()
     
-    @given(test_data=test_database_state_strategy())
+    @given(test_data=_test_database_state_strategy())
     @settings(max_examples=10)  # Reduced for faster testing
     def test_list_reflects_all_stored_tests(self, test_data):
         """
@@ -204,7 +204,7 @@ class TestWebGUITestListingConsistencyProperties:
                 assert returned_test["generation_info"]["method"] == "manual"
     
     @given(
-        test_data=test_database_state_strategy(),
+        test_data=_test_database_state_strategy(),
         filter_params=st.fixed_dictionaries({
             "test_type": st.one_of(st.none(), st.sampled_from(['unit', 'integration', 'performance', 'security'])),
             "subsystem": st.one_of(st.none(), st.sampled_from(['scheduler', 'memory', 'filesystem', 'networking', 'drivers'])),
@@ -275,8 +275,8 @@ class TestWebGUITestListingConsistencyProperties:
             f"Filters: {filter_params}"
     
     @given(
-        initial_data=test_database_state_strategy(),
-        new_test_data=test_case_data_strategy()
+        initial_data=_test_database_state_strategy(),
+        new_test_data=_test_case_data_strategy()
     )
     @settings(max_examples=5)
     def test_real_time_update_consistency(self, initial_data, new_test_data):
