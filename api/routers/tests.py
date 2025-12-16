@@ -1043,7 +1043,7 @@ async def generate_tests_from_function(
     file_path: str,
     subsystem: str = "unknown",
     max_tests: int = Query(10, ge=1, le=50, description="Maximum tests to generate"),
-    include_property_tests: bool = Query(True, description="Include property-based tests"),
+    include_property_tests: bool = Query(False, description="Include property-based tests"),
     current_user: Dict[str, Any] = Depends(get_demo_user)
 ):
     """Auto-generate test cases for a specific function using AI."""
