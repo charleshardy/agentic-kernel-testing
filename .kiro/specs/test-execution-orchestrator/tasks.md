@@ -50,13 +50,13 @@
   - **Property 9: FIFO for equal priority**
   - **Validates: Requirements 6.3**
 
-- [ ] 3. Create basic test execution infrastructure
+- [x] 3. Create basic test execution infrastructure
   - Implement Docker-based test runner for initial functionality
   - Create test result capture and storage
   - Add basic environment management
   - _Requirements: 3.2, 4.1, 4.2, 4.3_
 
-- [ ] 3.1 Create test runner factory
+- [x] 3.1 Create test runner factory
   - Write `execution/runner_factory.py` with runner creation logic
   - Implement factory pattern for different test runner types
   - Add runner selection based on test type and requirements
@@ -66,7 +66,7 @@
   - **Property 10: Environment type selection**
   - **Validates: Requirements 7.1, 7.2, 7.5**
 
-- [ ] 3.3 Implement Docker test runner
+- [x] 3.3 Implement Docker test runner
   - Write `execution/runners/docker_runner.py` with container execution
   - Implement test script execution in isolated Docker containers
   - Add result capture (stdout, stderr, exit code, timing)
