@@ -46,7 +46,7 @@
   - **Property 8: Priority ordering**
   - **Validates: Requirements 6.1, 6.2**
 
-- [ ]* 2.4 Write property test for FIFO equal priority
+- [x] 2.4 Write property test for FIFO equal priority
   - **Property 9: FIFO for equal priority**
   - **Validates: Requirements 6.3**
 

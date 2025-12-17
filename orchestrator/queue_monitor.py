@@ -60,7 +60,16 @@ class QueueMonitor:
                         
                         # Add to priority queue
                         priority = plan_data.get('priority', 5)  # Default priority 5
-                        timestamp = current_time.timestamp()
+                        
+                        # Use the plan's creation time if available, otherwise use current time
+                        # This ensures FIFO ordering for plans with equal priority
+                        if 'created_at' in plan_data and plan_data['created_at']:
+                            timestamp = plan_data['created_at'].timestamp()
+                        elif 'submitted_at' in plan_data and plan_data['submitted_at']:
+                            timestamp = plan_data['submitted_at'].timestamp()
+                        else:
+                            # Fallback: use current time with a small increment to maintain order
+                            timestamp = current_time.timestamp() + len(self._processed_plans) * 0.001
                         
                         # Priority: 1=highest, 10=lowest, so use priority directly for min-heap
                         heapq.heappush(self._priority_queue, (priority, timestamp, plan_id, plan_data))
