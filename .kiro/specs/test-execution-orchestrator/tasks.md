@@ -42,7 +42,7 @@
   - **Property 1: Automatic plan processing**
   - **Validates: Requirements 1.1**
 
-- [ ]* 2.3 Write property test for priority ordering
+- [x] 2.3 Write property test for priority ordering
   - **Property 8: Priority ordering**
   - **Validates: Requirements 6.1, 6.2**
 
