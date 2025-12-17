@@ -240,24 +240,17 @@ const TestCaseModal: React.FC<TestCaseModalProps> = ({
 
   // Get kernel driver files
   const getKernelDriverFiles = () => {
-    // Debug: log the test case structure
-    console.log('TestCase data structure:', testCase)
-    
     // Check multiple possible locations for driver files
     if (testCase?.test_metadata?.driver_files) {
-      console.log('Found driver files in test_metadata:', testCase.test_metadata.driver_files)
       return testCase.test_metadata.driver_files
     }
     if (testCase?.metadata?.driver_files) {
-      console.log('Found driver files in metadata:', testCase.metadata.driver_files)
       return testCase.metadata.driver_files
     }
     if (testCase?.generation_info?.driver_files) {
-      console.log('Found driver files in generation_info:', testCase.generation_info.driver_files)
       return testCase.generation_info.driver_files
     }
     
-    console.log('No driver files found in any location')
     return null
   }
 
@@ -943,172 +936,7 @@ echo "Test completed successfully"`}
                 </Card>
               )}
 
-              {/* Sample Generated Code Section */}
-              {getKernelDriverFiles() && (
-                <Card size="small" title="Sample Generated Code" style={{ marginBottom: 16 }}>
-                  <Alert
-                    message="Kernel Test Driver Code Preview"
-                    description="Preview of the main kernel test driver source code with syntax highlighting."
-                    type="info"
-                    showIcon
-                    style={{ marginBottom: 16 }}
-                  />
-                  
-                  <Collapse defaultActiveKey={['main-code']}>
-                    {/* Show the main .c file first */}
-                    {Object.entries(getKernelDriverFiles()!).filter(([filename]) => filename.endsWith('.c')).map(([filename, content]) => (
-                      <Panel
-                        header={
-                          <Space>
-                            <CodeOutlined />
-                            <Text strong>Main Test Driver: {filename}</Text>
-                            <Tag color="blue" style={{ fontSize: '10px' }}>C SOURCE</Tag>
-                          </Space>
-                        }
-                        key="main-code"
-                        extra={
-                          <Space onClick={(e) => e.stopPropagation()}>
-                            <Tooltip title="View full source">
-                              <Button
-                                size="small"
-                                icon={<CodeOutlined />}
-                                onClick={() => openSourceView(filename, content as string)}
-                              />
-                            </Tooltip>
-                            <Tooltip title="Copy to clipboard">
-                              <Button
-                                size="small"
-                                icon={<CopyOutlined />}
-                                onClick={() => copyToClipboard(content as string, filename)}
-                              />
-                            </Tooltip>
-                          </Space>
-                        }
-                      >
-                        <div style={{ marginBottom: 12 }}>
-                          <Text type="secondary" style={{ fontSize: '12px' }}>
-                            This is the main kernel module source code that tests the target kernel function directly in kernel space.
-                          </Text>
-                        </div>
-                        <div style={{ 
-                          backgroundColor: '#f6f8fa', 
-                          border: '1px solid #d0d7de',
-                          borderRadius: '6px',
-                          padding: '16px',
-                          fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
-                          fontSize: '12px',
-                          lineHeight: '1.45',
-                          overflow: 'auto',
-                          maxHeight: '400px'
-                        }}>
-                          <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-                            {typeof content === 'string' ? content.substring(0, 2000) + (content.length > 2000 ? '\n\n... (truncated, click "View full source" to see complete code)' : '') : 'No content available'}
-                          </pre>
-                        </div>
-                      </Panel>
-                    ))}
-                    
-                    {/* Show Makefile */}
-                    {Object.entries(getKernelDriverFiles()!).filter(([filename]) => filename === 'Makefile' || filename.includes('Makefile')).map(([filename, content]) => (
-                      <Panel
-                        header={
-                          <Space>
-                            <SettingOutlined />
-                            <Text strong>Build System: {filename}</Text>
-                            <Tag color="green" style={{ fontSize: '10px' }}>MAKEFILE</Tag>
-                          </Space>
-                        }
-                        key="makefile"
-                        extra={
-                          <Space onClick={(e) => e.stopPropagation()}>
-                            <Tooltip title="Copy to clipboard">
-                              <Button
-                                size="small"
-                                icon={<CopyOutlined />}
-                                onClick={() => copyToClipboard(content as string, filename)}
-                              />
-                            </Tooltip>
-                          </Space>
-                        }
-                      >
-                        <div style={{ marginBottom: 12 }}>
-                          <Text type="secondary" style={{ fontSize: '12px' }}>
-                            Makefile for building the kernel module with proper kernel build system integration.
-                          </Text>
-                        </div>
-                        <div style={{ 
-                          backgroundColor: '#f6f8fa', 
-                          border: '1px solid #d0d7de',
-                          borderRadius: '6px',
-                          padding: '16px',
-                          fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
-                          fontSize: '12px',
-                          lineHeight: '1.45',
-                          overflow: 'auto'
-                        }}>
-                          <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-                            {content as string}
-                          </pre>
-                        </div>
-                      </Panel>
-                    ))}
-                    
-                    {/* Show execution script */}
-                    {Object.entries(getKernelDriverFiles()!).filter(([filename]) => filename.endsWith('.sh')).slice(0, 1).map(([filename, content]) => (
-                      <Panel
-                        header={
-                          <Space>
-                            <ToolOutlined />
-                            <Text strong>Execution Script: {filename}</Text>
-                            <Tag color="orange" style={{ fontSize: '10px' }}>BASH</Tag>
-                          </Space>
-                        }
-                        key="script"
-                        extra={
-                          <Space onClick={(e) => e.stopPropagation()}>
-                            <Tooltip title="Copy to clipboard">
-                              <Button
-                                size="small"
-                                icon={<CopyOutlined />}
-                                onClick={() => copyToClipboard(content as string, filename)}
-                              />
-                            </Tooltip>
-                          </Space>
-                        }
-                      >
-                        <div style={{ marginBottom: 12 }}>
-                          <Text type="secondary" style={{ fontSize: '12px' }}>
-                            Automated script for building, loading, and executing the kernel test driver.
-                          </Text>
-                        </div>
-                        <div style={{ 
-                          backgroundColor: '#f6f8fa', 
-                          border: '1px solid #d0d7de',
-                          borderRadius: '6px',
-                          padding: '16px',
-                          fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
-                          fontSize: '12px',
-                          lineHeight: '1.45',
-                          overflow: 'auto'
-                        }}>
-                          <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-                            {content as string}
-                          </pre>
-                        </div>
-                      </Panel>
-                    ))}
-                  </Collapse>
-                  
-                  <div style={{ marginTop: 16 }}>
-                    <Alert
-                      message="Production Ready Code"
-                      description="Generated kernel drivers include comprehensive error handling, cleanup routines, and safety checks for production kernel testing environments."
-                      type="success"
-                      showIcon
-                    />
-                  </div>
-                </Card>
-              )}
+
 
               {/* Kernel Driver Capabilities */}
               <Card size="small" title="Kernel Driver Capabilities" style={{ marginBottom: 16 }}>

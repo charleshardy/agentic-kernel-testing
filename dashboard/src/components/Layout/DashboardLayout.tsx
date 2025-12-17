@@ -70,11 +70,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       icon: <ExperimentOutlined />,
       label: 'Test Cases',
     },
-    {
-      key: '/kernel-driver-demo',
-      icon: <RobotOutlined />,
-      label: 'Kernel Driver Demo',
-    },
+
     {
       key: '/tests',
       icon: <ExperimentOutlined />,

@@ -11,7 +11,7 @@ import TestResults from './pages/TestResults'
 import Coverage from './pages/Coverage'
 import Performance from './pages/Performance'
 import Settings from './pages/Settings'
-import KernelDriverDemo from './components/KernelDriverDemo'
+
 
 const { Content } = Layout
 
@@ -44,7 +44,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/test-cases" element={<TestCases />} />
-            <Route path="/kernel-driver-demo" element={<KernelDriverDemo />} />
+
             <Route path="/tests" element={<TestExecutionDebug />} />
             <Route path="/results" element={<TestResults />} />
             <Route path="/coverage" element={<Coverage />} />
