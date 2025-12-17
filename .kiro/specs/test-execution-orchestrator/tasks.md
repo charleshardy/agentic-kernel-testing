@@ -62,7 +62,7 @@
   - Add runner selection based on test type and requirements
   - _Requirements: 7.1, 7.2, 7.5_
 
-- [ ]* 3.2 Write property test for runner selection
+- [x] 3.2 Write property test for runner selection
   - **Property 10: Environment type selection**
   - **Validates: Requirements 7.1, 7.2, 7.5**
 
@@ -79,7 +79,7 @@
 - [ ]* 3.5 Write property test for test isolation
   - **Property 5: Test isolation**
   - **Validates: Requirements 3.2, 3.5**
-
+https://d-926706e585.awsapps.com/start
 - [ ] 4. Add resource management and environment allocation
   - Create resource manager for environment allocation
   - Implement environment pool management
