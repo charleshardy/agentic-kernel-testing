@@ -26,23 +26,27 @@ export interface TestCase {
 
 export interface EnhancedTestCase extends TestCase {
   generation_info?: {
-    method: 'manual' | 'ai_diff' | 'ai_function'
+    method: 'manual' | 'ai_diff' | 'ai_function' | 'ai_kernel_driver'
     source_data: any
     generated_at: string
     ai_model?: string
     generation_params?: Record<string, any>
+    driver_files?: Record<string, string>
   }
   execution_status?: 'never_run' | 'running' | 'completed' | 'failed'
   last_execution_at?: string
   tags?: string[]
   is_favorite?: boolean
+  requires_root?: boolean
+  kernel_module?: boolean
+  driver_files?: Record<string, string>
 }
 
 export interface TestCaseFilters {
   test_type?: string
   subsystem?: string
   status?: string
-  generation_method?: 'manual' | 'ai_diff' | 'ai_function'
+  generation_method?: 'manual' | 'ai_diff' | 'ai_function' | 'ai_kernel_driver'
   date_range?: [string, string]
   search?: string
 }

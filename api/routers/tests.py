@@ -255,6 +255,20 @@ async def list_tests(
                     search_lower not in test_case.description.lower()):
                     continue
             
+            # Create enhanced metadata that includes kernel driver information
+            enhanced_metadata = test_case.metadata or {}
+            
+            # Add kernel driver specific metadata if available
+            if generation_info and generation_info.get("method") == "ai_kernel_driver":
+                enhanced_metadata.update({
+                    "generation_method": "ai_kernel_driver",
+                    "kernel_module": generation_info.get("source_data", {}).get("kernel_module"),
+                    "requires_root": generation_info.get("source_data", {}).get("requires_root", True),
+                    "requires_kernel_headers": generation_info.get("source_data", {}).get("requires_kernel_headers", True),
+                    "test_types": generation_info.get("source_data", {}).get("test_types", []),
+                    "driver_files": generation_info.get("driver_files", {})
+                })
+            
             # Create enhanced test response
             test_response = TestCaseResponse(
                 id=test_case.id,
@@ -268,7 +282,7 @@ async def list_tests(
                 required_hardware=test_case.required_hardware.to_dict() if test_case.required_hardware else None,
                 test_script=test_case.test_script,
                 expected_outcome=test_case.expected_outcome.to_dict() if test_case.expected_outcome else None,
-                test_metadata=test_case.metadata or {},
+                test_metadata=enhanced_metadata,
                 generation_info=generation_info,
                 execution_status=execution_status,
                 last_execution_at=test_data.get("last_execution_at"),
@@ -358,6 +372,21 @@ async def get_test(
     test_data = submitted_tests[test_id]
     test_case = test_data["test_case"]
     
+    # Create enhanced metadata that includes kernel driver information
+    enhanced_metadata = test_case.metadata or {}
+    
+    # Add kernel driver specific metadata if available
+    generation_info = test_data.get("generation_info")
+    if generation_info and generation_info.get("method") == "ai_kernel_driver":
+        enhanced_metadata.update({
+            "generation_method": "ai_kernel_driver",
+            "kernel_module": generation_info.get("source_data", {}).get("kernel_module"),
+            "requires_root": generation_info.get("source_data", {}).get("requires_root", True),
+            "requires_kernel_headers": generation_info.get("source_data", {}).get("requires_kernel_headers", True),
+            "test_types": generation_info.get("source_data", {}).get("test_types", []),
+            "driver_files": generation_info.get("driver_files", {})
+        })
+    
     response = TestCaseResponse(
         id=test_case.id,
         name=test_case.name,
@@ -369,23 +398,20 @@ async def get_test(
         required_hardware=test_case.required_hardware.to_dict() if test_case.required_hardware else None,
         test_script=test_case.test_script,
         expected_outcome=test_case.expected_outcome.to_dict() if test_case.expected_outcome else None,
-        test_metadata=test_case.metadata or {},
+        test_metadata=enhanced_metadata,
+        generation_info=generation_info,
+        execution_status=test_data.get("execution_status", "never_run"),
+        last_execution_at=test_data.get("last_execution_at"),
+        tags=test_data.get("tags", []),
+        is_favorite=test_data.get("is_favorite", False),
         created_at=test_data["submitted_at"],
-        updated_at=test_data["submitted_at"]
+        updated_at=test_data.get("updated_at", test_data["submitted_at"])
     )
     
     return APIResponse(
         success=True,
         message="Test case retrieved successfully",
-        data={
-            "test": response.model_dump(),
-            "submission_info": {
-                "submission_id": test_data["submission_id"],
-                "submitted_by": test_data["submitted_by"],
-                "submitted_at": test_data["submitted_at"].isoformat(),
-                "priority": test_data["priority"]
-            }
-        }
+        data=response.model_dump()
     )
 
 

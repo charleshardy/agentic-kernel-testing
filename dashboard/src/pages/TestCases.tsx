@@ -42,7 +42,7 @@ import TestCaseTable from '../components/TestCaseTable'
 import TestCaseModal from '../components/TestCaseModal'
 import AIGenerationProgress from '../components/AIGenerationProgress'
 import KernelDriverInfo from '../components/KernelDriverInfo'
-import apiService, { TestCase } from '../services/api'
+import apiService, { TestCase, EnhancedTestCase } from '../services/api'
 import useAIGeneration from '../hooks/useAIGeneration'
 
 const { Title } = Typography
@@ -75,7 +75,7 @@ const TestCases: React.FC<TestCasesProps> = () => {
   })
   
   // Modal state
-  const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(null)
+  const [selectedTestCase, setSelectedTestCase] = useState<EnhancedTestCase | null>(null)
   const [modalVisible, setModalVisible] = useState(false)
   const [modalMode, setModalMode] = useState<'view' | 'edit'>('view')
   
@@ -325,7 +325,7 @@ const TestCases: React.FC<TestCasesProps> = () => {
     }
   }
 
-  const handleBulkExecute = async (tests: TestCase[]) => {
+  const handleBulkExecute = async (tests: EnhancedTestCase[]) => {
     message.info(`Starting execution of ${tests.length} test cases...`)
     
     for (let i = 0; i < tests.length; i++) {
@@ -347,7 +347,7 @@ const TestCases: React.FC<TestCasesProps> = () => {
     refetch()
   }
 
-  const handleBulkDelete = async (tests: TestCase[]) => {
+  const handleBulkDelete = async (tests: EnhancedTestCase[]) => {
     message.info(`Deleting ${tests.length} test cases...`)
     
     let successCount = 0
@@ -390,7 +390,7 @@ const TestCases: React.FC<TestCasesProps> = () => {
     }
   }
 
-  const handleBulkExport = async (tests: TestCase[]) => {
+  const handleBulkExport = async (tests: EnhancedTestCase[]) => {
     message.info(`Exporting ${tests.length} test cases...`)
     
     try {
@@ -438,7 +438,7 @@ const TestCases: React.FC<TestCasesProps> = () => {
     }
   }
 
-  const handleBulkTag = async (tests: TestCase[]) => {
+  const handleBulkTag = async (tests: EnhancedTestCase[]) => {
     // This will be called from the modal form submission
     // The actual implementation is in handleBulkTagSubmit
   }
@@ -511,7 +511,7 @@ const TestCases: React.FC<TestCasesProps> = () => {
     // TODO: Implement execute functionality
   }
 
-  const handleSaveTest = async (updatedTestCase: TestCase) => {
+  const handleSaveTest = async (updatedTestCase: EnhancedTestCase) => {
     try {
       // TODO: Implement API call to update test case
       console.log('Saving test case:', updatedTestCase)

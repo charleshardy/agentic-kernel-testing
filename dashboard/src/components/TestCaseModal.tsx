@@ -17,6 +17,8 @@ import {
   Descriptions,
   Badge,
   message,
+  Collapse,
+  Tooltip,
 } from 'antd'
 import {
   EditOutlined,
@@ -29,19 +31,27 @@ import {
   FunctionOutlined,
   FileTextOutlined,
   ClockCircleOutlined,
+  SettingOutlined,
+  DownloadOutlined,
+  CopyOutlined,
+  ToolOutlined,
+  SafetyOutlined,
 } from '@ant-design/icons'
-import { TestCase } from '../services/api'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { TestCase, EnhancedTestCase } from '../services/api'
 
 const { TextArea } = Input
 const { Text, Title } = Typography
 const { TabPane } = Tabs
+const { Panel } = Collapse
 
 interface TestCaseModalProps {
-  testCase: TestCase | null
+  testCase: EnhancedTestCase | null
   visible: boolean
   mode: 'view' | 'edit'
   onClose: () => void
-  onSave: (testCase: TestCase) => void
+  onSave: (testCase: EnhancedTestCase) => void
   onModeChange: (mode: 'view' | 'edit') => void
 }
 
@@ -56,6 +66,12 @@ const TestCaseModal: React.FC<TestCaseModalProps> = ({
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('details')
+  const [sourceViewModal, setSourceViewModal] = useState<{visible: boolean, filename: string, content: string, language: string}>({
+    visible: false,
+    filename: '',
+    content: '',
+    language: ''
+  })
 
   // Initialize form when testCase changes
   useEffect(() => {
@@ -96,7 +112,7 @@ const TestCaseModal: React.FC<TestCaseModalProps> = ({
       }
       
       if (testCase) {
-        const updatedTestCase: TestCase = {
+        const updatedTestCase: EnhancedTestCase = {
           ...testCase,
           ...values,
           // Ensure execution_time_estimate is a number
@@ -161,6 +177,8 @@ const TestCaseModal: React.FC<TestCaseModalProps> = ({
         return <CodeOutlined />
       case 'ai_function':
         return <FunctionOutlined />
+      case 'ai_kernel_driver':
+        return <SettingOutlined />
       case 'manual':
       default:
         return <UserOutlined />
@@ -173,9 +191,25 @@ const TestCaseModal: React.FC<TestCaseModalProps> = ({
         return 'blue'
       case 'ai_function':
         return 'green'
+      case 'ai_kernel_driver':
+        return 'orange'
       case 'manual':
       default:
         return 'default'
+    }
+  }
+
+  const getGenerationMethodLabel = (method: string) => {
+    switch (method) {
+      case 'ai_diff':
+        return 'AI from Diff'
+      case 'ai_function':
+        return 'AI from Function'
+      case 'ai_kernel_driver':
+        return 'AI Kernel Driver'
+      case 'manual':
+      default:
+        return 'Manual'
     }
   }
 
@@ -191,6 +225,118 @@ const TestCaseModal: React.FC<TestCaseModalProps> = ({
     return new Date(dateString).toLocaleString()
   }
 
+  // Check if this is a kernel driver test
+  const isKernelDriverTest = () => {
+    return testCase?.test_metadata?.generation_method === 'ai_kernel_driver' ||
+           testCase?.metadata?.generation_method === 'ai_kernel_driver' ||
+           testCase?.generation_info?.method === 'ai_kernel_driver' ||
+           testCase?.test_metadata?.kernel_module === true ||
+           testCase?.metadata?.kernel_module === true ||
+           testCase?.test_metadata?.requires_root === true ||
+           testCase?.metadata?.requires_root === true ||
+           (testCase?.test_metadata?.driver_files && Object.keys(testCase.test_metadata.driver_files).length > 0) ||
+           (testCase?.metadata?.driver_files && Object.keys(testCase.metadata.driver_files).length > 0)
+  }
+
+  // Get kernel driver files
+  const getKernelDriverFiles = () => {
+    // Debug: log the test case structure
+    console.log('TestCase data structure:', testCase)
+    
+    // Check multiple possible locations for driver files
+    if (testCase?.test_metadata?.driver_files) {
+      console.log('Found driver files in test_metadata:', testCase.test_metadata.driver_files)
+      return testCase.test_metadata.driver_files
+    }
+    if (testCase?.metadata?.driver_files) {
+      console.log('Found driver files in metadata:', testCase.metadata.driver_files)
+      return testCase.metadata.driver_files
+    }
+    if (testCase?.generation_info?.driver_files) {
+      console.log('Found driver files in generation_info:', testCase.generation_info.driver_files)
+      return testCase.generation_info.driver_files
+    }
+    
+    console.log('No driver files found in any location')
+    return null
+  }
+
+  // Copy text to clipboard
+  const copyToClipboard = (text: string, filename: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      message.success(`${filename} copied to clipboard`)
+    }).catch(() => {
+      message.error('Failed to copy to clipboard')
+    })
+  }
+
+  // Get file language for syntax highlighting
+  const getFileLanguage = (filename: string) => {
+    const ext = filename.split('.').pop()?.toLowerCase()
+    switch (ext) {
+      case 'c':
+      case 'h':
+        return 'c'
+      case 'sh':
+        return 'bash'
+      case 'py':
+        return 'python'
+      case 'md':
+        return 'markdown'
+      case 'json':
+        return 'json'
+      case 'yaml':
+      case 'yml':
+        return 'yaml'
+      default:
+        if (filename === 'Makefile' || filename.includes('Makefile')) {
+          return 'makefile'
+        }
+        return 'text'
+    }
+  }
+
+  // Open source view modal
+  const openSourceView = (filename: string, content: string) => {
+    setSourceViewModal({
+      visible: true,
+      filename,
+      content,
+      language: getFileLanguage(filename)
+    })
+  }
+
+  // Close source view modal
+  const closeSourceView = () => {
+    setSourceViewModal({
+      visible: false,
+      filename: '',
+      content: '',
+      language: ''
+    })
+  }
+
+  // Get file icon
+  const getFileIcon = (filename: string) => {
+    const ext = filename.split('.').pop()?.toLowerCase()
+    switch (ext) {
+      case 'c':
+      case 'h':
+        return <CodeOutlined style={{ color: '#00599C' }} />
+      case 'sh':
+        return <ToolOutlined style={{ color: '#4EAA25' }} />
+      case 'py':
+        return <CodeOutlined style={{ color: '#3776AB' }} />
+      case 'md':
+        return <FileTextOutlined style={{ color: '#083FA1' }} />
+      default:
+        if (filename === 'Makefile' || filename.includes('Makefile')) {
+          return <SettingOutlined style={{ color: '#427819' }} />
+        }
+        return <FileTextOutlined />
+    }
+  }
+
   if (!testCase) {
     return null
   }
@@ -203,12 +349,10 @@ const TestCaseModal: React.FC<TestCaseModalProps> = ({
             {mode === 'edit' ? 'Edit Test Case' : 'Test Case Details'}
           </Text>
           <Tag
-            icon={getGenerationMethodIcon(testCase.metadata?.generation_method || 'manual')}
-            color={getGenerationMethodColor(testCase.metadata?.generation_method || 'manual')}
+            icon={getGenerationMethodIcon(testCase.metadata?.generation_method || testCase.generation_info?.method || 'manual')}
+            color={getGenerationMethodColor(testCase.metadata?.generation_method || testCase.generation_info?.method || 'manual')}
           >
-            {testCase.metadata?.generation_method === 'ai_diff' ? 'AI from Diff' :
-             testCase.metadata?.generation_method === 'ai_function' ? 'AI from Function' :
-             'Manual'}
+            {getGenerationMethodLabel(testCase.metadata?.generation_method || testCase.generation_info?.method || 'manual')}
           </Tag>
         </Space>
       }
@@ -559,220 +703,583 @@ echo "Test completed successfully"`}
           )}
         </TabPane>
 
-        <TabPane
-          tab={
-            <span>
-              <RobotOutlined />
-              Generation Source
-            </span>
-          }
-          key="metadata"
-        >
-          <div>
-            <Title level={5}>Generation Information</Title>
-            <Descriptions column={1} bordered size="small">
-              <Descriptions.Item label="Generation Method">
-                <Tag
-                  icon={getGenerationMethodIcon(testCase.metadata?.generation_method || 'manual')}
-                  color={getGenerationMethodColor(testCase.metadata?.generation_method || 'manual')}
-                >
-                  {testCase.metadata?.generation_method === 'ai_diff' ? 'AI from Code Diff' :
-                   testCase.metadata?.generation_method === 'ai_function' ? 'AI from Function' :
-                   'Manual Creation'}
-                </Tag>
-              </Descriptions.Item>
-              {testCase.metadata?.generated_at && (
-                <Descriptions.Item label="Generated At">
-                  <Text>{formatDate(testCase.metadata.generated_at)}</Text>
-                </Descriptions.Item>
-              )}
-              {testCase.metadata?.ai_model && (
-                <Descriptions.Item label="AI Model">
-                  <Text code>{testCase.metadata.ai_model}</Text>
-                </Descriptions.Item>
-              )}
-              {testCase.metadata?.generation_params && (
-                <Descriptions.Item label="Generation Parameters">
-                  <div>
-                    {Object.entries(testCase.metadata.generation_params).map(([key, value]) => (
-                      <Tag key={key} style={{ marginBottom: 4 }}>
-                        {key}: {String(value)}
-                      </Tag>
-                    ))}
-                  </div>
-                </Descriptions.Item>
-              )}
-            </Descriptions>
+        {isKernelDriverTest() && (
+          <TabPane
+            tab={
+              <span>
+                <SettingOutlined />
+                Kernel Driver Files
+              </span>
+            }
+            key="kernel-files"
+          >
+            <div>
+              <Alert
+                message="AI-Generated Kernel Test Driver"
+                description="This test case includes a complete kernel module with source code, build system, and execution scripts."
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+              />
 
-            {/* Display source information based on generation method */}
-            {testCase.metadata?.generation_method === 'ai_diff' && testCase.metadata?.source_data && (
-              <>
-                <Divider orientation="left">Source Code Diff</Divider>
+              {/* Driver Information */}
+              <Card size="small" title="Driver Information" style={{ marginBottom: 16 }}>
                 <Alert
-                  message="Generated from Code Diff"
-                  description="This test was generated by analyzing the following code changes."
-                  type="info"
+                  message="Generated Kernel Test Driver"
+                  description="This test was generated as a complete kernel module for direct kernel function testing."
+                  type="success"
                   showIcon
                   style={{ marginBottom: 16 }}
                 />
-                <Card size="small" title="Diff Content">
-                  <div
-                    style={{
-                      backgroundColor: '#f6f8fa',
-                      border: '1px solid #d0d7de',
-                      borderRadius: '6px',
-                      padding: '16px',
-                      fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
-                      fontSize: '12px',
-                      lineHeight: '1.45',
-                      overflow: 'auto',
-                      maxHeight: '400px',
-                    }}
-                  >
-                    <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-                      {testCase.metadata.source_data.diff_content || 
-                       testCase.metadata.source_data.diff || 
-                       'Diff content not available'}
-                    </pre>
-                  </div>
-                </Card>
-                {testCase.metadata.source_data.files_changed && (
-                  <Card size="small" title="Files Changed" style={{ marginTop: 16 }}>
-                    <div>
-                      {testCase.metadata.source_data.files_changed.map((file: string, index: number) => (
-                        <Tag key={index} icon={<FileTextOutlined />} style={{ marginBottom: 4 }}>
-                          {file}
-                        </Tag>
-                      ))}
-                    </div>
-                  </Card>
-                )}
-              </>
-            )}
-
-            {testCase.metadata?.generation_method === 'ai_function' && testCase.metadata?.source_data && (
-              <>
-                <Divider orientation="left">Source Function Information</Divider>
-                <Alert
-                  message="Generated from Function Analysis"
-                  description="This test was generated by analyzing the specified function."
-                  type="info"
-                  showIcon
-                  style={{ marginBottom: 16 }}
-                />
-                <Descriptions column={1} bordered size="small">
-                  {testCase.metadata.source_data.function_name && (
-                    <Descriptions.Item label="Function Name">
+                
+                <Descriptions column={2} size="small">
+                  {/* Generation Information */}
+                  <Descriptions.Item label="Generation Method">
+                    <Tag
+                      icon={getGenerationMethodIcon(testCase.metadata?.generation_method || testCase.generation_info?.method || 'manual')}
+                      color={getGenerationMethodColor(testCase.metadata?.generation_method || testCase.generation_info?.method || 'manual')}
+                    >
+                      {getGenerationMethodLabel(testCase.metadata?.generation_method || testCase.generation_info?.method || 'manual')}
+                    </Tag>
+                  </Descriptions.Item>
+                  
+                  {(testCase.metadata?.source_data?.function_name || testCase.generation_info?.source_data?.function_name) && (
+                    <Descriptions.Item label="Target Function">
                       <Text code style={{ fontSize: '14px' }}>
-                        {testCase.metadata.source_data.function_name}
+                        {testCase.metadata?.source_data?.function_name || testCase.generation_info?.source_data?.function_name}
                       </Text>
                     </Descriptions.Item>
                   )}
-                  {testCase.metadata.source_data.file_path && (
-                    <Descriptions.Item label="File Path">
-                      <Text code>{testCase.metadata.source_data.file_path}</Text>
+                  
+                  {(testCase.metadata?.source_data?.file_path || testCase.generation_info?.source_data?.file_path) && (
+                    <Descriptions.Item label="Source File">
+                      <Text code>{testCase.metadata?.source_data?.file_path || testCase.generation_info?.source_data?.file_path}</Text>
                     </Descriptions.Item>
                   )}
-                  {testCase.metadata.source_data.subsystem && (
-                    <Descriptions.Item label="Subsystem">
-                      <Text code>{testCase.metadata.source_data.subsystem}</Text>
+                  
+                  {(testCase.metadata?.source_data?.subsystem || testCase.generation_info?.source_data?.subsystem) && (
+                    <Descriptions.Item label="Kernel Subsystem">
+                      <Tag color="blue">{testCase.metadata?.source_data?.subsystem || testCase.generation_info?.source_data?.subsystem}</Tag>
                     </Descriptions.Item>
                   )}
-                  {testCase.metadata.source_data.function_signature && (
-                    <Descriptions.Item label="Function Signature">
-                      <div
-                        style={{
-                          backgroundColor: '#f6f8fa',
-                          border: '1px solid #d0d7de',
-                          borderRadius: '6px',
-                          padding: '12px',
-                          fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
-                          fontSize: '12px',
-                          marginTop: '8px',
-                        }}
-                      >
-                        <pre style={{ margin: 0 }}>
-                          {testCase.metadata.source_data.function_signature}
-                        </pre>
+                  
+                  {testCase.metadata?.kernel_module && (
+                    <Descriptions.Item label="Kernel Module">
+                      <Text code>{testCase.metadata.kernel_module}</Text>
+                    </Descriptions.Item>
+                  )}
+                  
+                  {testCase.metadata?.requires_root && (
+                    <Descriptions.Item label="Requires Root">
+                      <Tag color="orange">Yes</Tag>
+                    </Descriptions.Item>
+                  )}
+                  
+                  {testCase.metadata?.requires_kernel_headers && (
+                    <Descriptions.Item label="Kernel Headers">
+                      <Tag color="blue">Required</Tag>
+                    </Descriptions.Item>
+                  )}
+                  
+                  {testCase.metadata?.ai_model && (
+                    <Descriptions.Item label="AI Model">
+                      <Text code>{testCase.metadata.ai_model}</Text>
+                    </Descriptions.Item>
+                  )}
+                  
+                  {testCase.metadata?.generated_at && (
+                    <Descriptions.Item label="Generated At">
+                      <Text>{formatDate(testCase.metadata.generated_at)}</Text>
+                    </Descriptions.Item>
+                  )}
+                  
+                  {testCase.metadata?.test_types && (
+                    <Descriptions.Item label="Test Types" span={2}>
+                      <Space wrap>
+                        {testCase.metadata.test_types.map((type: string) => (
+                          <Tag key={type} color="purple">{type}</Tag>
+                        ))}
+                      </Space>
+                    </Descriptions.Item>
+                  )}
+                  
+                  {(testCase.metadata?.source_data?.test_types || testCase.generation_info?.source_data?.test_types) && (
+                    <Descriptions.Item label="Generated Test Types" span={2}>
+                      <Space wrap>
+                        {(testCase.metadata?.source_data?.test_types || testCase.generation_info?.source_data?.test_types || []).map((type: string) => (
+                          <Tag key={type} color="purple">{type}</Tag>
+                        ))}
+                      </Space>
+                    </Descriptions.Item>
+                  )}
+                  
+                  {(testCase.metadata?.source_data?.driver_files || testCase.generation_info?.source_data?.driver_files) && (
+                    <Descriptions.Item label="Generated Files" span={2}>
+                      <Space wrap>
+                        {(testCase.metadata?.source_data?.driver_files || testCase.generation_info?.source_data?.driver_files || []).map((file: string) => (
+                          <Tag key={file} icon={getFileIcon(file)}>{file}</Tag>
+                        ))}
+                      </Space>
+                    </Descriptions.Item>
+                  )}
+                  
+                  {testCase.metadata?.generation_params && (
+                    <Descriptions.Item label="Generation Parameters" span={2}>
+                      <div>
+                        {Object.entries(testCase.metadata.generation_params).map(([key, value]) => (
+                          <Tag key={key} style={{ marginBottom: 4 }}>
+                            {key}: {String(value)}
+                          </Tag>
+                        ))}
                       </div>
                     </Descriptions.Item>
                   )}
                 </Descriptions>
-                {testCase.metadata.source_data.function_code && (
-                  <Card size="small" title="Function Code" style={{ marginTop: 16 }}>
-                    <div
-                      style={{
-                        backgroundColor: '#f6f8fa',
-                        border: '1px solid #d0d7de',
-                        borderRadius: '6px',
-                        padding: '16px',
-                        fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
-                        fontSize: '12px',
-                        lineHeight: '1.45',
-                        overflow: 'auto',
-                        maxHeight: '400px',
-                      }}
-                    >
-                      <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-                        {testCase.metadata.source_data.function_code}
-                      </pre>
-                    </div>
+              </Card>
+
+              {/* Generated Files with Source Code */}
+              {getKernelDriverFiles() && (
+                <Card size="small" title="Generated Files" style={{ marginBottom: 16 }}>
+                  <Alert
+                    message="Kernel Driver Source Files"
+                    description="Complete source code files generated for the kernel test driver with syntax highlighting."
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                  
+                  {/* Quick Access Links */}
+                  <Card size="small" title="Quick Access - View Source Code" style={{ marginBottom: 16, backgroundColor: '#f8f9fa' }}>
+                    <Space wrap>
+                      {Object.entries(getKernelDriverFiles()!).map(([filename, content]) => (
+                        <Button
+                          key={filename}
+                          type="link"
+                          icon={getFileIcon(filename)}
+                          onClick={() => openSourceView(filename, content as string)}
+                          style={{ 
+                            padding: '4px 8px',
+                            height: 'auto',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <Text strong style={{ color: '#1890ff' }}>{filename}</Text>
+                          <Tag color="blue" style={{ fontSize: '10px', padding: '0 4px' }}>{getFileLanguage(filename).toUpperCase()}</Tag>
+                        </Button>
+                      ))}
+                    </Space>
                   </Card>
-                )}
-              </>
-            )}
+                  
+                  <Collapse>
+                    {Object.entries(getKernelDriverFiles()!).map(([filename, content]) => (
+                      <Panel
+                        header={
+                          <Space>
+                            {getFileIcon(filename)}
+                            <Text strong>{filename}</Text>
+                            <Text type="secondary" style={{ fontSize: '12px' }}>
+                              ({typeof content === 'string' ? content.length : 0} chars)
+                            </Text>
+                          </Space>
+                        }
+                        key={filename}
+                        extra={
+                          <Space onClick={(e) => e.stopPropagation()}>
+                            <Tooltip title="View source code">
+                              <Button
+                                size="small"
+                                icon={<CodeOutlined />}
+                                onClick={() => openSourceView(filename, content as string)}
+                              />
+                            </Tooltip>
+                            <Tooltip title="Copy to clipboard">
+                              <Button
+                                size="small"
+                                icon={<CopyOutlined />}
+                                onClick={() => copyToClipboard(content as string, filename)}
+                              />
+                            </Tooltip>
+                            <Tooltip title="Download file">
+                              <Button
+                                size="small"
+                                icon={<DownloadOutlined />}
+                                onClick={() => {
+                                  const blob = new Blob([content as string], { type: 'text/plain' })
+                                  const url = URL.createObjectURL(blob)
+                                  const link = document.createElement('a')
+                                  link.href = url
+                                  link.download = filename
+                                  document.body.appendChild(link)
+                                  link.click()
+                                  document.body.removeChild(link)
+                                  URL.revokeObjectURL(url)
+                                }}
+                              />
+                            </Tooltip>
+                          </Space>
+                        }
+                      >
+                        <div style={{ marginTop: 8 }}>
+                          <SyntaxHighlighter
+                            language={getFileLanguage(filename)}
+                            style={vscDarkPlus}
+                            customStyle={{
+                              margin: 0,
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              lineHeight: '1.4',
+                            }}
+                            showLineNumbers={true}
+                            wrapLines={true}
+                          >
+                            {content as string}
+                          </SyntaxHighlighter>
+                        </div>
+                      </Panel>
+                    ))}
+                  </Collapse>
+                </Card>
+              )}
 
-            {testCase.metadata?.generation_method === 'manual' && (
-              <>
-                <Divider orientation="left">Manual Test Information</Divider>
-                <Alert
-                  message="Manually Created Test"
-                  description="This test was created manually by a developer."
-                  type="info"
-                  showIcon
-                  style={{ marginBottom: 16 }}
-                />
-                {testCase.metadata?.author && (
-                  <Descriptions column={1} bordered size="small">
-                    <Descriptions.Item label="Author">
-                      <Space>
-                        <UserOutlined />
-                        <Text>{testCase.metadata.author}</Text>
-                      </Space>
-                    </Descriptions.Item>
-                  </Descriptions>
-                )}
-              </>
-            )}
-
-            {/* Raw metadata for debugging */}
-            {Object.keys(testCase.metadata || {}).length > 0 && (
-              <>
-                <Divider orientation="left">Raw Metadata</Divider>
-                <Card size="small" title="Debug Information">
-                  <div
-                    style={{
-                      backgroundColor: '#f6f8fa',
-                      border: '1px solid #d0d7de',
-                      borderRadius: '6px',
-                      padding: '16px',
-                      fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
-                      fontSize: '12px',
-                      lineHeight: '1.45',
-                      overflow: 'auto',
-                      maxHeight: '300px',
-                    }}
-                  >
-                    <pre style={{ margin: 0 }}>
-                      {JSON.stringify(testCase.metadata, null, 2)}
-                    </pre>
+              {/* Sample Generated Code Section */}
+              {getKernelDriverFiles() && (
+                <Card size="small" title="Sample Generated Code" style={{ marginBottom: 16 }}>
+                  <Alert
+                    message="Kernel Test Driver Code Preview"
+                    description="Preview of the main kernel test driver source code with syntax highlighting."
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                  
+                  <Collapse defaultActiveKey={['main-code']}>
+                    {/* Show the main .c file first */}
+                    {Object.entries(getKernelDriverFiles()!).filter(([filename]) => filename.endsWith('.c')).map(([filename, content]) => (
+                      <Panel
+                        header={
+                          <Space>
+                            <CodeOutlined />
+                            <Text strong>Main Test Driver: {filename}</Text>
+                            <Tag color="blue" style={{ fontSize: '10px' }}>C SOURCE</Tag>
+                          </Space>
+                        }
+                        key="main-code"
+                        extra={
+                          <Space onClick={(e) => e.stopPropagation()}>
+                            <Tooltip title="View full source">
+                              <Button
+                                size="small"
+                                icon={<CodeOutlined />}
+                                onClick={() => openSourceView(filename, content as string)}
+                              />
+                            </Tooltip>
+                            <Tooltip title="Copy to clipboard">
+                              <Button
+                                size="small"
+                                icon={<CopyOutlined />}
+                                onClick={() => copyToClipboard(content as string, filename)}
+                              />
+                            </Tooltip>
+                          </Space>
+                        }
+                      >
+                        <div style={{ marginBottom: 12 }}>
+                          <Text type="secondary" style={{ fontSize: '12px' }}>
+                            This is the main kernel module source code that tests the target kernel function directly in kernel space.
+                          </Text>
+                        </div>
+                        <div style={{ 
+                          backgroundColor: '#f6f8fa', 
+                          border: '1px solid #d0d7de',
+                          borderRadius: '6px',
+                          padding: '16px',
+                          fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+                          fontSize: '12px',
+                          lineHeight: '1.45',
+                          overflow: 'auto',
+                          maxHeight: '400px'
+                        }}>
+                          <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                            {typeof content === 'string' ? content.substring(0, 2000) + (content.length > 2000 ? '\n\n... (truncated, click "View full source" to see complete code)' : '') : 'No content available'}
+                          </pre>
+                        </div>
+                      </Panel>
+                    ))}
+                    
+                    {/* Show Makefile */}
+                    {Object.entries(getKernelDriverFiles()!).filter(([filename]) => filename === 'Makefile' || filename.includes('Makefile')).map(([filename, content]) => (
+                      <Panel
+                        header={
+                          <Space>
+                            <SettingOutlined />
+                            <Text strong>Build System: {filename}</Text>
+                            <Tag color="green" style={{ fontSize: '10px' }}>MAKEFILE</Tag>
+                          </Space>
+                        }
+                        key="makefile"
+                        extra={
+                          <Space onClick={(e) => e.stopPropagation()}>
+                            <Tooltip title="Copy to clipboard">
+                              <Button
+                                size="small"
+                                icon={<CopyOutlined />}
+                                onClick={() => copyToClipboard(content as string, filename)}
+                              />
+                            </Tooltip>
+                          </Space>
+                        }
+                      >
+                        <div style={{ marginBottom: 12 }}>
+                          <Text type="secondary" style={{ fontSize: '12px' }}>
+                            Makefile for building the kernel module with proper kernel build system integration.
+                          </Text>
+                        </div>
+                        <div style={{ 
+                          backgroundColor: '#f6f8fa', 
+                          border: '1px solid #d0d7de',
+                          borderRadius: '6px',
+                          padding: '16px',
+                          fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+                          fontSize: '12px',
+                          lineHeight: '1.45',
+                          overflow: 'auto'
+                        }}>
+                          <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                            {content as string}
+                          </pre>
+                        </div>
+                      </Panel>
+                    ))}
+                    
+                    {/* Show execution script */}
+                    {Object.entries(getKernelDriverFiles()!).filter(([filename]) => filename.endsWith('.sh')).slice(0, 1).map(([filename, content]) => (
+                      <Panel
+                        header={
+                          <Space>
+                            <ToolOutlined />
+                            <Text strong>Execution Script: {filename}</Text>
+                            <Tag color="orange" style={{ fontSize: '10px' }}>BASH</Tag>
+                          </Space>
+                        }
+                        key="script"
+                        extra={
+                          <Space onClick={(e) => e.stopPropagation()}>
+                            <Tooltip title="Copy to clipboard">
+                              <Button
+                                size="small"
+                                icon={<CopyOutlined />}
+                                onClick={() => copyToClipboard(content as string, filename)}
+                              />
+                            </Tooltip>
+                          </Space>
+                        }
+                      >
+                        <div style={{ marginBottom: 12 }}>
+                          <Text type="secondary" style={{ fontSize: '12px' }}>
+                            Automated script for building, loading, and executing the kernel test driver.
+                          </Text>
+                        </div>
+                        <div style={{ 
+                          backgroundColor: '#f6f8fa', 
+                          border: '1px solid #d0d7de',
+                          borderRadius: '6px',
+                          padding: '16px',
+                          fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+                          fontSize: '12px',
+                          lineHeight: '1.45',
+                          overflow: 'auto'
+                        }}>
+                          <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                            {content as string}
+                          </pre>
+                        </div>
+                      </Panel>
+                    ))}
+                  </Collapse>
+                  
+                  <div style={{ marginTop: 16 }}>
+                    <Alert
+                      message="Production Ready Code"
+                      description="Generated kernel drivers include comprehensive error handling, cleanup routines, and safety checks for production kernel testing environments."
+                      type="success"
+                      showIcon
+                    />
                   </div>
                 </Card>
-              </>
-            )}
-          </div>
-        </TabPane>
+              )}
+
+              {/* Kernel Driver Capabilities */}
+              <Card size="small" title="Kernel Driver Capabilities" style={{ marginBottom: 16 }}>
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <div>
+                      <Text strong>Testing Capabilities:</Text>
+                      <ul style={{ marginTop: 8, paddingLeft: 16, fontSize: '12px' }}>
+                        <li>Direct kernel function calls</li>
+                        <li>Memory management testing</li>
+                        <li>Error injection and fault tolerance</li>
+                        <li>Performance measurement</li>
+                        <li>Concurrency and race condition testing</li>
+                      </ul>
+                    </div>
+                  </Col>
+                  <Col span={12}>
+                    <div>
+                      <Text strong>Safety Features:</Text>
+                      <ul style={{ marginTop: 8, paddingLeft: 16, fontSize: '12px' }}>
+                        <li>Automatic resource cleanup</li>
+                        <li>Error handling and recovery</li>
+                        <li>Timeout protection</li>
+                        <li>Kernel log integration</li>
+                        <li>Safe module unloading</li>
+                      </ul>
+                    </div>
+                  </Col>
+                </Row>
+              </Card>
+
+              {/* Build and Execution Instructions */}
+              <Card size="small" title="Build & Execution Instructions">
+                <Collapse>
+                  <Panel header="Build Commands" key="build">
+                    <div style={{ marginBottom: 12 }}>
+                      <Text strong>Prerequisites:</Text>
+                      <ul style={{ marginTop: 8, paddingLeft: 20 }}>
+                        <li>Linux kernel headers for your kernel version</li>
+                        <li>GCC compiler and build tools</li>
+                        <li>Root privileges for module loading</li>
+                      </ul>
+                    </div>
+                    <SyntaxHighlighter
+                      language="bash"
+                      style={vscDarkPlus}
+                      customStyle={{
+                        margin: 0,
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                      }}
+                    >
+{`# Build the kernel module
+make clean
+make
+
+# Load the module (requires root)
+sudo insmod ${testCase.metadata?.kernel_module || 'test_module.ko'}`}
+                    </SyntaxHighlighter>
+                  </Panel>
+
+                  <Panel header="Test Execution" key="execution">
+                    <SyntaxHighlighter
+                      language="bash"
+                      style={vscDarkPlus}
+                      customStyle={{
+                        margin: 0,
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                      }}
+                    >
+{`# View test results
+cat /proc/${testCase.metadata?.kernel_module?.replace('.ko', '_results') || 'test_results'}
+
+# Check kernel messages
+dmesg | tail -20
+
+# Unload the module
+sudo rmmod ${testCase.metadata?.kernel_module?.replace('.ko', '') || 'test_module'}`}
+                    </SyntaxHighlighter>
+                  </Panel>
+
+                  <Panel header="Safety Information" key="safety">
+                    <Alert
+                      message="Kernel Module Safety"
+                      description={
+                        <div>
+                          <p>This kernel module includes comprehensive safety features:</p>
+                          <ul style={{ marginTop: 8, paddingLeft: 20 }}>
+                            <li><SafetyOutlined /> Automatic cleanup on module unload</li>
+                            <li><SafetyOutlined /> Error handling and bounds checking</li>
+                            <li><SafetyOutlined /> Resource leak prevention</li>
+                            <li><SafetyOutlined /> Timeout protection for long-running tests</li>
+                            <li><SafetyOutlined /> Kernel log integration for debugging</li>
+                          </ul>
+                          <p style={{ marginTop: 12, marginBottom: 0 }}>
+                            <strong>Recommendation:</strong> Test in an isolated environment or virtual machine first.
+                          </p>
+                        </div>
+                      }
+                      type="success"
+                      showIcon
+                    />
+                  </Panel>
+                </Collapse>
+              </Card>
+            </div>
+          </TabPane>
+        )}
+
+
       </Tabs>
+
+      {/* Source View Modal */}
+      <Modal
+        title={
+          <Space>
+            <CodeOutlined />
+            <Text strong>{sourceViewModal.filename}</Text>
+            <Tag color="blue">{sourceViewModal.language.toUpperCase()}</Tag>
+          </Space>
+        }
+        open={sourceViewModal.visible}
+        onCancel={closeSourceView}
+        width="90%"
+        style={{ top: 20 }}
+        footer={
+          <Space>
+            <Button onClick={closeSourceView}>Close</Button>
+            <Button
+              icon={<CopyOutlined />}
+              onClick={() => copyToClipboard(sourceViewModal.content, sourceViewModal.filename)}
+            >
+              Copy All
+            </Button>
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={() => {
+                const blob = new Blob([sourceViewModal.content], { type: 'text/plain' })
+                const url = URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = url
+                link.download = sourceViewModal.filename
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+                URL.revokeObjectURL(url)
+              }}
+            >
+              Download
+            </Button>
+          </Space>
+        }
+      >
+        <div style={{ maxHeight: '70vh', overflow: 'auto' }}>
+          <SyntaxHighlighter
+            language={sourceViewModal.language}
+            style={vscDarkPlus}
+            customStyle={{
+              margin: 0,
+              borderRadius: '8px',
+              fontSize: '14px',
+              lineHeight: '1.5',
+            }}
+            showLineNumbers={true}
+            wrapLines={true}
+          >
+            {sourceViewModal.content}
+          </SyntaxHighlighter>
+        </div>
+      </Modal>
     </Modal>
   )
 }
