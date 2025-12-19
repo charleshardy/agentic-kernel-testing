@@ -96,7 +96,7 @@
   - **Property 2: Environment allocation matching**
   - **Validates: Requirements 1.2, 3.1**
 
-- [ ]* 4.3 Write property test for resource recovery
+- [x] 4.3 Write property test for resource recovery
   - **Property 11: Resource recovery**
   - **Validates: Requirements 3.4, 5.1**
 
