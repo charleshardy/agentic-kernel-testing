@@ -92,7 +92,7 @@
   - Add hardware requirement matching algorithms
   - _Requirements: 1.2, 3.1, 3.4_
 
-- [ ]* 4.2 Write property test for environment allocation
+- [x] 4.2 Write property test for environment allocation
   - **Property 2: Environment allocation matching**
   - **Validates: Requirements 1.2, 3.1**
 
