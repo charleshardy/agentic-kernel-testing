@@ -76,7 +76,7 @@
   - **Property 6: Complete result capture**
   - **Validates: Requirements 4.1, 4.2**
 
-- [ ]* 3.5 Write property test for test isolation
+- [x] 3.5 Write property test for test isolation
   - **Property 5: Test isolation**
   - **Validates: Requirements 3.2, 3.5**
 https://d-926706e585.awsapps.com/start
