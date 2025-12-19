@@ -80,13 +80,13 @@
   - **Property 5: Test isolation**
   - **Validates: Requirements 3.2, 3.5**
 
-- [ ] 4. Add resource management and environment allocation
+- [x] 4. Add resource management and environment allocation
   - Create resource manager for environment allocation
   - Implement environment pool management
   - Add hardware requirement matching logic
   - _Requirements: 1.2, 3.1, 3.4, 5.1_
 
-- [ ] 4.1 Create resource manager component
+- [x] 4.1 Create resource manager component
   - Write `orchestrator/resource_manager.py` with environment allocation
   - Implement environment pool with availability tracking
   - Add hardware requirement matching algorithms
@@ -100,7 +100,7 @@
   - **Property 11: Resource recovery**
   - **Validates: Requirements 3.4, 5.1**
 
-- [ ] 4.4 Implement environment lifecycle management
+- [x] 4.4 Implement environment lifecycle management
   - Add environment provisioning and cleanup logic
   - Implement environment health monitoring
   - Add automatic environment recovery and replacement
