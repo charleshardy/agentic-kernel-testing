@@ -79,7 +79,7 @@
 - [x] 3.5 Write property test for test isolation
   - **Property 5: Test isolation**
   - **Validates: Requirements 3.2, 3.5**
-https://d-926706e585.awsapps.com/start
+
 - [ ] 4. Add resource management and environment allocation
   - Create resource manager for environment allocation
   - Implement environment pool management
