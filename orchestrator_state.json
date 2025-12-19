@@ -3,9 +3,9 @@
     "tests_processed": 158,
     "tests_completed": 148,
     "tests_failed": 10,
-    "uptime_seconds": 5.000517
+    "uptime_seconds": 5.000342
   },
-  "timestamp": "2025-12-17T10:08:04.712219",
+  "timestamp": "2025-12-18T02:15:03.186526",
   "config": {
     "poll_interval": 5.0,
     "max_concurrent_tests": 10,

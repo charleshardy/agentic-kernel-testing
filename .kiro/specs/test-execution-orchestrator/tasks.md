@@ -72,7 +72,7 @@
   - Add result capture (stdout, stderr, exit code, timing)
   - _Requirements: 3.2, 4.1, 4.2_
 
-- [ ]* 3.4 Write property test for result capture
+- [x] 3.4 Write property test for result capture
   - **Property 6: Complete result capture**
   - **Validates: Requirements 4.1, 4.2**
 
