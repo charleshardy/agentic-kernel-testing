@@ -12,7 +12,7 @@
   - Add configuration loading and validation
   - _Requirements: 1.1, 2.5_
 
-- [ ]* 1.2 Write property test for service lifecycle
+- [x] 1.2 Write property test for service lifecycle
   - **Property 1: Service startup and shutdown consistency**
   - **Validates: Requirements 1.1, 2.5**
 
