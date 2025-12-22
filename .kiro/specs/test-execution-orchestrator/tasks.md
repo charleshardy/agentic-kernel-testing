@@ -160,7 +160,7 @@
   - **Property 12: Service recovery**
   - **Validates: Requirements 5.3**
 
-- [ ] 7. Add advanced test execution features
+- [x] 7. Add advanced test execution features
   - Implement QEMU runner for kernel testing
   - Add artifact collection and storage
   - Create performance metrics capture
@@ -188,7 +188,7 @@
   - Create metrics reporting through API endpoints
   - _Requirements: 7.3_
 
-- [ ] 8. Checkpoint - Ensure all tests pass
+- [x] 8. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 9. Create comprehensive integration tests
