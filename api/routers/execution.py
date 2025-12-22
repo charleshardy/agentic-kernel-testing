@@ -86,11 +86,15 @@ async def start_test_execution(
     try:
         orchestrator = get_orchestrator()
         
+        # Try to start orchestrator if it's not running
         if not orchestrator or not orchestrator.is_running:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Test orchestrator is not available"
-            )
+            from ..orchestrator_integration import start_orchestrator
+            if not start_orchestrator():
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Test orchestrator is not available and failed to start"
+                )
+            orchestrator = get_orchestrator()
         
         # Create execution plan
         plan_id = str(uuid.uuid4())
@@ -113,6 +117,14 @@ async def start_test_execution(
             # Add to execution_plans dictionary that the orchestrator monitors
             from api.routers.tests import execution_plans
             execution_plans[plan_id] = execution_plan
+            
+            # Force orchestrator to poll for new plans immediately
+            if orchestrator and hasattr(orchestrator, 'queue_monitor'):
+                try:
+                    new_plans = orchestrator.queue_monitor.poll_for_new_plans()
+                    print(f"Forced poll detected {len(new_plans)} new plans")
+                except Exception as e:
+                    print(f"Error forcing poll: {e}")
             
             # Notify WebSocket clients
             await manager.broadcast(json.dumps({
@@ -394,4 +406,99 @@ async def get_execution_metrics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get execution metrics: {str(e)}"
+        )
+
+
+@router.post("/execution/orchestrator/restart", response_model=APIResponse)
+async def restart_orchestrator(
+    current_user: Dict[str, Any] = Depends(require_permission("admin:manage"))
+):
+    """Restart the orchestrator service (admin only)."""
+    try:
+        from ..orchestrator_integration import stop_orchestrator, start_orchestrator
+        
+        # Stop current orchestrator
+        stop_result = stop_orchestrator()
+        
+        # Start new orchestrator
+        start_result = start_orchestrator()
+        
+        if start_result:
+            return APIResponse(
+                success=True,
+                message="Orchestrator restarted successfully",
+                data={
+                    "stop_result": stop_result,
+                    "start_result": start_result,
+                    "restarted_by": current_user["username"],
+                    "restarted_at": datetime.utcnow().isoformat()
+                }
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to restart orchestrator"
+            )
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to restart orchestrator: {str(e)}"
+        )
+
+
+@router.post("/execution/orchestrator/poll", response_model=APIResponse)
+async def force_orchestrator_poll(
+    current_user: Dict[str, Any] = Depends(require_permission("test:submit"))
+):
+    """Force the orchestrator to poll for new execution plans."""
+    try:
+        orchestrator = get_orchestrator()
+        
+        if not orchestrator or not orchestrator.is_running:
+            # Try to start orchestrator
+            from ..orchestrator_integration import start_orchestrator
+            if start_orchestrator():
+                orchestrator = get_orchestrator()
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Orchestrator is not running and failed to start"
+                )
+        
+        if orchestrator and hasattr(orchestrator, 'queue_monitor'):
+            queue_monitor = orchestrator.queue_monitor
+            
+            # Force poll for new plans
+            new_plans = queue_monitor.poll_for_new_plans()
+            
+            return APIResponse(
+                success=True,
+                message=f"Forced orchestrator poll completed",
+                data={
+                    "new_plans_detected": len(new_plans),
+                    "queued_plans": queue_monitor.get_queued_plan_count(),
+                    "queued_tests": queue_monitor.get_queued_test_count(),
+                    "polled_by": current_user["username"],
+                    "polled_at": datetime.utcnow().isoformat(),
+                    "detected_plans": [
+                        {
+                            "plan_id": plan.get('plan_id'),
+                            "status": plan.get('status'),
+                            "test_count": len(plan.get('test_case_ids', []))
+                        }
+                        for plan in new_plans
+                    ]
+                }
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Queue monitor not available"
+            )
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to force orchestrator poll: {str(e)}"
         )

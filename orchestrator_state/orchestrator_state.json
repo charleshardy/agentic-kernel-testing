@@ -1,16 +1,16 @@
 {
-  "timestamp": "2025-12-22T09:22:43.744128",
+  "timestamp": "2025-12-22T10:17:12.095916",
   "version": "1.0",
   "plans": {},
   "tests": {},
   "statistics": {
-    "recoveries_attempted": 45,
-    "recoveries_successful": 45,
+    "recoveries_attempted": 53,
+    "recoveries_successful": 53,
     "recoveries_failed": 0,
     "tests_recovered": 0,
     "plans_recovered": 0,
-    "state_saves": 16,
-    "state_loads": 44,
+    "state_saves": 28,
+    "state_loads": 52,
     "start_time": "2025-12-22 06:32:33.307997"
   }
 }

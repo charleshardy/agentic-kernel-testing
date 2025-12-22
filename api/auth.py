@@ -47,7 +47,8 @@ USERS_DB = {
             "test:delete",
             "status:read",
             "results:read",
-            "system:admin"
+            "system:admin",
+            "admin:manage"
         ],
         "is_active": True,
         "created_at": datetime.utcnow(),
