@@ -96,14 +96,15 @@ class StatusTracker:
                 current_time = datetime.utcnow()
                 
                 # Get or create test status
-                if test_id not in self._test_statuses:
+                is_new_test = test_id not in self._test_statuses
+                if is_new_test:
                     self._test_statuses[test_id] = TestExecutionStatus(
                         test_id=test_id,
                         status='queued'
                     )
                 
                 test_status = self._test_statuses[test_id]
-                old_status = test_status.status
+                old_status = test_status.status if not is_new_test else None
                 
                 # Update status fields
                 test_status.status = status
@@ -172,7 +173,7 @@ class StatusTracker:
     
     def _update_counters_for_transition(self, old_status: str, new_status: str):
         """Update internal counters based on status transition."""
-        # Decrement old status counter
+        # Decrement old status counter (only if there was a previous status)
         if old_status == 'running':
             self._active_test_count = max(0, self._active_test_count - 1)
         elif old_status == 'queued':

@@ -118,7 +118,7 @@
   - Connect status tracker to API response generation
   - _Requirements: 2.1, 2.2, 2.5_
 
-- [ ]* 5.2 Write property test for status API accuracy
+- [x] 5.2 Write property test for status API accuracy
   - **Property 4: Real-time status accuracy**
   - **Validates: Requirements 2.1, 2.2**
 
