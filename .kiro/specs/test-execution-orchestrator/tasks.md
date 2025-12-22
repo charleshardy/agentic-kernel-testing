@@ -156,7 +156,7 @@
   - Add automatic retry logic for transient failures
   - _Requirements: 5.3_
 
-- [ ]* 6.5 Write property test for service recovery
+- [x] 6.5 Write property test for service recovery
   - **Property 12: Service recovery**
   - **Validates: Requirements 5.3**
 
