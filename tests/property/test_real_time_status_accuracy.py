@@ -66,7 +66,7 @@ class MockOrchestratorService:
 
 @given(gen_test_status_mix())
 @settings(max_examples=100, deadline=None)
-def test_api_status_matches_actual_running_tests(test_status_pairs: List[tuple]):
+def test_api_status_matches_actual_running_tests(test_status_pairs):
     """
     Property: For any system status query, the returned active test count should match 
     the actual number of tests currently in "running" status.
@@ -130,8 +130,8 @@ def test_api_status_matches_actual_running_tests(test_status_pairs: List[tuple])
 )
 @settings(max_examples=50, deadline=None)
 def test_concurrent_status_queries_return_consistent_counts(
-    test_ids: List[str],
-    num_query_threads: int
+    test_ids,
+    num_query_threads
 ):
     """
     Property: For any concurrent system status queries while tests are transitioning,
@@ -241,7 +241,7 @@ def test_concurrent_status_queries_return_consistent_counts(
 
 @given(st.lists(gen_test_id(), min_size=1, max_size=10, unique=True))
 @settings(max_examples=100, deadline=None)
-def test_status_api_reflects_immediate_changes(test_ids: List[str]):
+def test_status_api_reflects_immediate_changes(test_ids):
     """
     Property: For any test status change, the API should immediately reflect the new
     active test count without delay.
@@ -308,8 +308,8 @@ def test_status_api_reflects_immediate_changes(test_ids: List[str]):
 )
 @settings(max_examples=100, deadline=None)
 def test_api_metrics_include_all_required_fields(
-    test_ids: List[str],
-    statuses: List[str]
+    test_ids,
+    statuses
 ):
     """
     Property: For any system status query, the API should return all required metrics
@@ -392,7 +392,7 @@ def test_api_metrics_include_all_required_fields(
 
 @given(st.lists(gen_test_id(), min_size=1, max_size=8, unique=True))
 @settings(max_examples=50, deadline=None)
-def test_api_handles_orchestrator_service_unavailable(test_ids: List[str]):
+def test_api_handles_orchestrator_service_unavailable(test_ids):
     """
     Property: For any system status query when the orchestrator service is unavailable,
     the API should return default values without errors and indicate the service status.
@@ -431,8 +431,8 @@ def test_api_handles_orchestrator_service_unavailable(test_ids: List[str]):
 )
 @settings(max_examples=50, deadline=None)
 def test_api_status_accuracy_during_rapid_changes(
-    test_ids: List[str],
-    change_cycles: int
+    test_ids,
+    change_cycles
 ):
     """
     Property: For any rapid sequence of test status changes, the API should maintain
