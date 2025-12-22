@@ -45,12 +45,14 @@ class DockerTestRunner(BaseTestRunner):
         self.container = None
         self.temp_dir = None
     
-    def execute(self, test_case: TestCase, timeout: Optional[int] = None) -> Dict[str, Any]:
+    def execute(self, test_case: TestCase, timeout: Optional[int] = None,
+                timeout_manager=None) -> Dict[str, Any]:
         """Execute a test case in a Docker container.
         
         Args:
             test_case: The test case to execute
             timeout: Optional timeout in seconds
+            timeout_manager: Optional timeout manager for monitoring
             
         Returns:
             Dictionary containing execution results with keys:
@@ -77,8 +79,21 @@ class DockerTestRunner(BaseTestRunner):
             # Create and start container
             self.container = self._create_container(test_case, script_path)
             
+            # Register with timeout manager if provided
+            if timeout_manager:
+                timeout_manager.add_monitor(
+                    test_id=test_case.id,
+                    timeout_seconds=timeout,
+                    container_id=self.container.id,
+                    callback=lambda tid, reason: self._handle_timeout_callback(tid, reason)
+                )
+            
             # Execute the test
             result = self._execute_in_container(timeout)
+            
+            # Remove from timeout manager if registered
+            if timeout_manager:
+                timeout_manager.remove_monitor(test_case.id)
             
             # Capture artifacts
             artifacts = self._capture_artifacts(test_case.id)
@@ -122,6 +137,23 @@ class DockerTestRunner(BaseTestRunner):
         
         finally:
             self.cleanup()
+    
+    def _handle_timeout_callback(self, test_id: str, reason: str):
+        """Handle timeout callbacks from the timeout manager.
+        
+        Args:
+            test_id: Test ID that timed out
+            reason: Reason for the callback
+        """
+        if reason == "timeout_exceeded" and self.container:
+            try:
+                # Force kill the container
+                self.container.kill()
+                print(f"Container for test {test_id} killed due to timeout")
+            except Exception as e:
+                print(f"Error killing container for test {test_id}: {e}")
+        elif reason.startswith("timeout_warning:"):
+            print(f"Timeout warning for test {test_id}: {reason}")
     
     def _prepare_test_script(self, test_case: TestCase) -> Path:
         """Prepare the test script file.

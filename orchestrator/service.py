@@ -13,6 +13,9 @@ from .config import OrchestratorConfig
 from .status_tracker import StatusTracker
 from .queue_monitor import QueueMonitor
 from .resource_manager import ResourceManager
+from .timeout_manager import TimeoutManager
+from .error_recovery_manager import ErrorRecoveryManager, ErrorCategory, ErrorSeverity
+from .service_recovery_manager import ServiceRecoveryManager
 
 
 class OrchestratorService:
@@ -27,6 +30,9 @@ class OrchestratorService:
         self.status_tracker = StatusTracker()
         self.queue_monitor = QueueMonitor(self.config)
         self.resource_manager = ResourceManager(self.config)
+        self.timeout_manager = TimeoutManager()
+        self.error_recovery_manager = ErrorRecoveryManager(self.config)
+        self.service_recovery_manager = ServiceRecoveryManager(self.config)
         
         # Service state
         self.is_running = False
@@ -71,6 +77,19 @@ class OrchestratorService:
             # Initialize components
             self.status_tracker.start()
             self.resource_manager.start()
+            self.timeout_manager.start()
+            self.error_recovery_manager.start()
+            self.service_recovery_manager.start()
+            
+            # Perform recovery from previous session
+            recovery_results = self.service_recovery_manager.recover_on_startup(
+                self.status_tracker,
+                self.queue_monitor,
+                self.timeout_manager
+            )
+            
+            if recovery_results.get('plans_recovered', 0) > 0 or recovery_results.get('tests_recovered', 0) > 0:
+                self.logger.info(f"Recovery completed: {recovery_results}")
             
             # Load persisted state if enabled
             if self.config.enable_persistence:
@@ -116,6 +135,9 @@ class OrchestratorService:
                     self.logger.warning("Main thread did not stop gracefully")
             
             # Stop components
+            self.service_recovery_manager.stop()
+            self.error_recovery_manager.stop()
+            self.timeout_manager.stop()
             self.resource_manager.stop()
             self.status_tracker.stop()
             
@@ -154,6 +176,16 @@ class OrchestratorService:
                     
             except Exception as e:
                 self.logger.error(f"Error in main loop: {e}")
+                
+                # Report error to recovery manager
+                self.error_recovery_manager.report_error(
+                    category=ErrorCategory.SYSTEM_ERROR,
+                    severity=ErrorSeverity.HIGH,
+                    component="orchestrator_service",
+                    message=f"Main loop error: {str(e)}",
+                    stack_trace=str(e)
+                )
+                
                 # Continue running despite errors
                 time.sleep(1.0)
         
@@ -172,6 +204,15 @@ class OrchestratorService:
             
         except Exception as e:
             self.logger.error(f"Error processing execution plans: {e}")
+            
+            # Report error to recovery manager
+            self.error_recovery_manager.report_error(
+                category=ErrorCategory.SYSTEM_ERROR,
+                severity=ErrorSeverity.MEDIUM,
+                component="orchestrator_service",
+                message=f"Execution plan processing error: {str(e)}",
+                stack_trace=str(e)
+            )
     
     def _execute_plan(self, execution_plan: Dict[str, Any]):
         """Execute a specific execution plan."""
@@ -182,6 +223,15 @@ class OrchestratorService:
             # Update plan status to running
             self.status_tracker.update_plan_status(plan_id, 'running')
             
+            # Persist plan state for recovery
+            self.service_recovery_manager.persist_plan_state(
+                plan_id=plan_id,
+                submission_id=execution_plan.get('submission_id', f'sub-{plan_id[:8]}'),
+                status='running',
+                total_tests=len(test_case_ids),
+                started_at=datetime.utcnow()
+            )
+            
             # For now, simulate test execution
             # TODO: Replace with actual test execution logic
             for test_id in test_case_ids:
@@ -189,11 +239,28 @@ class OrchestratorService:
             
             # Update plan status to completed
             self.status_tracker.update_plan_status(plan_id, 'completed')
+            
+            # Remove from persistent state since completed
+            self.service_recovery_manager.remove_persisted_plan(plan_id)
+            
             self.logger.info(f"Completed execution plan: {plan_id}")
             
         except Exception as e:
             self.logger.error(f"Error executing plan {plan_id}: {e}")
             self.status_tracker.update_plan_status(plan_id, 'failed')
+            
+            # Remove from persistent state since failed
+            self.service_recovery_manager.remove_persisted_plan(plan_id)
+            
+            # Report error to recovery manager
+            self.error_recovery_manager.report_error(
+                category=ErrorCategory.SYSTEM_ERROR,
+                severity=ErrorSeverity.HIGH,
+                component="orchestrator_service",
+                message=f"Plan execution error: {str(e)}",
+                details={'plan_id': plan_id},
+                stack_trace=str(e)
+            )
     
     def _simulate_test_execution(self, test_id: str, plan_id: str):
         """Simulate test execution (temporary implementation)."""
@@ -202,12 +269,32 @@ class OrchestratorService:
             self.status_tracker.update_test_status(test_id, 'running')
             self.status_tracker.increment_active_tests()
             
+            # Persist test state for recovery
+            self.service_recovery_manager.persist_test_state(
+                test_id=test_id,
+                plan_id=plan_id,
+                status='running',
+                started_at=datetime.utcnow(),
+                timeout_seconds=self.config.default_timeout
+            )
+            
             self.logger.info(f"Simulating execution of test: {test_id}")
+            
+            # Add timeout monitoring
+            timeout_seconds = self.config.default_timeout
+            self.timeout_manager.add_monitor(
+                test_id=test_id,
+                timeout_seconds=timeout_seconds,
+                callback=self._handle_test_timeout
+            )
             
             # Simulate test execution time (2-5 seconds)
             import random
             execution_time = random.uniform(2.0, 5.0)
             time.sleep(execution_time)
+            
+            # Remove timeout monitor since test completed
+            self.timeout_manager.remove_monitor(test_id)
             
             # Simulate success/failure (90% success rate)
             success = random.random() > 0.1
@@ -221,13 +308,42 @@ class OrchestratorService:
                 self.stats['tests_failed'] += 1
                 self.logger.info(f"Test {test_id} failed")
             
+            # Remove from persistent state since completed
+            self.service_recovery_manager.remove_persisted_test(test_id)
+            
             # Decrement active test count
             self.status_tracker.decrement_active_tests()
             
         except Exception as e:
             self.logger.error(f"Error simulating test {test_id}: {e}")
+            self.timeout_manager.remove_monitor(test_id)
+            self.service_recovery_manager.remove_persisted_test(test_id)
             self.status_tracker.update_test_status(test_id, 'error')
             self.status_tracker.decrement_active_tests()
+    
+    def _handle_test_timeout(self, test_id: str, reason: str):
+        """Handle timeout events from the timeout manager.
+        
+        Args:
+            test_id: The test that timed out
+            reason: Reason for the timeout callback
+        """
+        try:
+            if reason == "timeout_exceeded":
+                self.logger.warning(f"Test {test_id} exceeded timeout, marking as timed out")
+                self.status_tracker.update_test_status(test_id, 'timeout')
+                self.status_tracker.decrement_active_tests()
+                self.stats['tests_failed'] += 1
+                
+                # Remove from persistent state since timed out
+                self.service_recovery_manager.remove_persisted_test(test_id)
+                
+            elif reason.startswith("timeout_warning:"):
+                remaining = reason.split(":")[1]
+                self.logger.info(f"Test {test_id} timeout warning: {remaining}s remaining")
+                
+        except Exception as e:
+            self.logger.error(f"Error handling timeout for test {test_id}: {e}")
     
     def _update_metrics(self):
         """Update system metrics."""
@@ -286,7 +402,10 @@ class OrchestratorService:
             'components': {
                 'status_tracker': self.status_tracker.get_health_status(),
                 'resource_manager': self.resource_manager.get_health_status(),
-                'queue_monitor': self.queue_monitor.get_health_status()
+                'queue_monitor': self.queue_monitor.get_health_status(),
+                'timeout_manager': self.timeout_manager.get_health_status(),
+                'error_recovery_manager': self.error_recovery_manager.get_health_status(),
+                'service_recovery_manager': self.service_recovery_manager.get_health_status()
             }
         }
     

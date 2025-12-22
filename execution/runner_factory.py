@@ -33,12 +33,14 @@ class BaseTestRunner(ABC):
         self.environment = environment
     
     @abstractmethod
-    def execute(self, test_case: TestCase, timeout: Optional[int] = None) -> Dict:
+    def execute(self, test_case: TestCase, timeout: Optional[int] = None,
+                timeout_manager=None) -> Dict:
         """Execute a test case and return results.
         
         Args:
             test_case: The test case to execute
             timeout: Optional timeout in seconds
+            timeout_manager: Optional timeout manager for monitoring
             
         Returns:
             Dictionary containing execution results
