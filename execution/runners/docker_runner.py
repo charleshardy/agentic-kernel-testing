@@ -27,6 +27,8 @@ from ai_generator.models import (
     ArtifactBundle, FailureInfo, CoverageData
 )
 from execution.runner_factory import BaseTestRunner
+from execution.artifact_collector import get_artifact_collector
+from execution.performance_monitor import get_performance_monitor
 
 
 class DockerTestRunner(BaseTestRunner):
@@ -69,6 +71,10 @@ class DockerTestRunner(BaseTestRunner):
         
         start_time = time.time()
         
+        # Start performance monitoring
+        performance_monitor = get_performance_monitor()
+        performance_monitor.start_monitoring(test_case.id)
+        
         try:
             # Create temporary directory for test files
             self.temp_dir = tempfile.mkdtemp(prefix=f"test_{test_case.id}_")
@@ -88,6 +94,17 @@ class DockerTestRunner(BaseTestRunner):
                     callback=lambda tid, reason: self._handle_timeout_callback(tid, reason)
                 )
             
+            # Add container process to performance monitoring
+            try:
+                # Get container's main process PID
+                container_info = self.container.attrs
+                if 'State' in container_info and 'Pid' in container_info['State']:
+                    container_pid = container_info['State']['Pid']
+                    if container_pid > 0:
+                        performance_monitor.add_process(container_pid)
+            except Exception as e:
+                print(f"Warning: Could not add container process to monitoring: {e}")
+            
             # Execute the test
             result = self._execute_in_container(timeout)
             
@@ -95,8 +112,23 @@ class DockerTestRunner(BaseTestRunner):
             if timeout_manager:
                 timeout_manager.remove_monitor(test_case.id)
             
+            # Stop performance monitoring and get metrics
+            performance_metrics = performance_monitor.stop_monitoring()
+            
             # Capture artifacts
             artifacts = self._capture_artifacts(test_case.id)
+            
+            # Store artifacts using artifact collector
+            collector = get_artifact_collector()
+            from ai_generator.models import TestResult
+            temp_result = TestResult(
+                test_id=test_case.id,
+                status=TestStatus.PASSED,  # Temporary status
+                execution_time=execution_time,
+                environment=self.environment,
+                artifacts=artifacts
+            )
+            stored_artifacts = collector.collect_artifacts(temp_result)
             
             # Calculate execution time
             execution_time = time.time() - start_time
@@ -104,18 +136,29 @@ class DockerTestRunner(BaseTestRunner):
             # Determine test status and create failure info if needed
             status, failure_info = self._analyze_result(result, timeout, execution_time)
             
+            # Add performance metrics to artifacts metadata
+            if performance_metrics:
+                stored_artifacts.metadata['performance_metrics'] = performance_metrics.to_dict()
+            
             return {
                 'status': status,
                 'stdout': result.get('stdout', ''),
                 'stderr': result.get('stderr', ''),
                 'exit_code': result.get('exit_code', -1),
                 'execution_time': execution_time,
-                'artifacts': artifacts,
+                'artifacts': stored_artifacts,
                 'failure_info': failure_info
             }
             
         except Exception as e:
             execution_time = time.time() - start_time
+            
+            # Stop performance monitoring
+            try:
+                performance_monitor = get_performance_monitor()
+                performance_monitor.stop_monitoring()
+            except:
+                pass
             
             failure_info = FailureInfo(
                 error_message=f"Docker execution error: {str(e)}",

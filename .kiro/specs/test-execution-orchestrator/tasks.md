@@ -166,13 +166,13 @@
   - Create performance metrics capture
   - _Requirements: 4.4, 7.3, 7.4_
 
-- [ ] 7.1 Implement QEMU test runner
+- [x] 7.1 Implement QEMU test runner
   - Write `execution/runners/qemu_runner.py` for VM-based testing
   - Add kernel image loading and VM boot logic
   - Implement test execution inside QEMU VMs
   - _Requirements: 7.2, 7.4_
 
-- [ ] 7.2 Add artifact collection system
+- [x] 7.2 Add artifact collection system
   - Implement artifact capture during test execution
   - Add storage and retrieval mechanisms for test artifacts
   - Create artifact cleanup and retention policies
@@ -182,7 +182,7 @@
   - **Property 13: Artifact collection completeness**
   - **Validates: Requirements 4.4**
 
-- [ ] 7.3 Add performance metrics capture
+- [x] 7.3 Add performance metrics capture
   - Implement resource usage monitoring during test execution
   - Add performance metric collection and storage
   - Create metrics reporting through API endpoints
