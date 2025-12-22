@@ -140,7 +140,7 @@
   - Add timeout status recording and reporting
   - _Requirements: 4.3, 5.2_
 
-- [ ]* 6.2 Write property test for timeout enforcement
+- [x] 6.2 Write property test for timeout enforcement
   - **Property 7: Timeout enforcement**
   - **Validates: Requirements 4.3, 5.2**
 
