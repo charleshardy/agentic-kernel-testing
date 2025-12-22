@@ -91,7 +91,8 @@ USERS_DB = {
         "permissions": [
             "test:submit",
             "test:read",
-            "test:delete"
+            "test:delete",
+            "status:read"
         ],
         "is_active": True,
         "created_at": datetime.utcnow(),

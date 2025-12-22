@@ -339,8 +339,8 @@ class APIService {
   }
 
   async getActiveExecutions(): Promise<ExecutionPlanStatus[]> {
-    const response: AxiosResponse<APIResponse<ExecutionPlanStatus[]>> = await this.client.get('/execution/active')
-    return response.data.data!
+    const response: AxiosResponse<APIResponse<{executions: ExecutionPlanStatus[]}>> = await this.client.get('/execution/active')
+    return response.data.data?.executions || []
   }
 
   async startTestExecution(testIds: string[], options?: {
