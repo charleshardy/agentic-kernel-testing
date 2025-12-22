@@ -178,7 +178,7 @@
   - Create artifact cleanup and retention policies
   - _Requirements: 4.4_
 
-- [ ]* 7.3 Write property test for artifact collection
+- [x] 7.3 Write property test for artifact collection
   - **Property 13: Artifact collection completeness**
   - **Validates: Requirements 4.4**
 

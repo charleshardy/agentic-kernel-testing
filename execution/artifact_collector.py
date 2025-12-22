@@ -95,9 +95,10 @@ class ArtifactCollector:
         self.traces_dir = self.storage_root / "traces"
         self.screenshots_dir = self.storage_root / "screenshots"
         self.metadata_dir = self.storage_root / "metadata"
+        self.other_dir = self.storage_root / "other"
         
         for directory in [self.logs_dir, self.core_dumps_dir, self.traces_dir, 
-                         self.screenshots_dir, self.metadata_dir]:
+                         self.screenshots_dir, self.metadata_dir, self.other_dir]:
             directory.mkdir(exist_ok=True)
         
         # Default retention policies
@@ -268,7 +269,7 @@ class ArtifactCollector:
             "screenshot": self.screenshots_dir
         }
         
-        return storage_dirs.get(artifact_type, self.storage_root / "other")
+        return storage_dirs.get(artifact_type, self.other_dir)
     
     def _calculate_checksum(self, file_path: Path) -> str:
         """Calculate SHA-256 checksum of a file.
