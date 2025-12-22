@@ -11,10 +11,11 @@ from ..models import (
 )
 from ..auth import get_current_user, require_permission
 from ai_generator.models import TestStatus
+from ..orchestrator_integration import get_orchestrator
 
 router = APIRouter()
 
-# Mock execution status data (in production, this would come from orchestrator)
+# Mock execution status data (fallback when orchestrator not available)
 execution_statuses = {}
 plan_statuses = {}
 webhook_events = {}
@@ -244,6 +245,42 @@ async def get_active_executions(
 ):
     """Get all currently active test executions."""
     try:
+        orchestrator = get_orchestrator()
+        
+        if orchestrator and orchestrator.is_running:
+            # Get real data from orchestrator
+            try:
+                orchestrator_status = orchestrator.get_system_metrics()
+                status_tracker = orchestrator.status_tracker
+                
+                # Get active execution plans from orchestrator
+                active_plans = []
+                if hasattr(status_tracker, 'get_active_plans'):
+                    plans = status_tracker.get_active_plans()
+                    for plan in plans:
+                        active_plans.append({
+                            "plan_id": plan.get('plan_id'),
+                            "submission_id": plan.get('submission_id'),
+                            "overall_status": plan.get('status', 'running'),
+                            "total_tests": plan.get('total_tests', 0),
+                            "completed_tests": plan.get('completed_tests', 0),
+                            "failed_tests": plan.get('failed_tests', 0),
+                            "progress": plan.get('progress', 0.0),
+                            "started_at": plan.get('started_at', datetime.utcnow()).isoformat() if plan.get('started_at') else None,
+                            "estimated_completion": plan.get('estimated_completion').isoformat() if plan.get('estimated_completion') else None
+                        })
+                
+                return APIResponse(
+                    success=True,
+                    message=f"Found {len(active_plans)} active executions from orchestrator",
+                    data=active_plans
+                )
+                
+            except Exception as e:
+                # Fall back to mock data if orchestrator fails
+                print(f"Orchestrator error, using fallback: {e}")
+        
+        # Fallback to mock data when orchestrator not available
         active_tests = []
         active_plans = []
         
@@ -270,25 +307,19 @@ async def get_active_executions(
             active_plans.append({
                 "plan_id": plan_id,
                 "submission_id": plan_data["submission_id"],
-                "status": plan_data["overall_status"],
+                "overall_status": plan_data["overall_status"],
                 "progress": plan_data["progress"],
                 "total_tests": plan_data["total_tests"],
                 "completed_tests": plan_data["completed_tests"],
-                "started_at": plan_data["started_at"].isoformat()
+                "failed_tests": plan_data["failed_tests"],
+                "started_at": plan_data["started_at"].isoformat(),
+                "estimated_completion": plan_data.get("estimated_completion").isoformat() if plan_data.get("estimated_completion") else None
             })
         
         return APIResponse(
             success=True,
-            message=f"Found {len(active_tests)} active tests and {len(active_plans)} active plans",
-            data={
-                "active_tests": active_tests,
-                "active_plans": active_plans,
-                "summary": {
-                    "total_active_tests": len(active_tests),
-                    "total_active_plans": len(active_plans),
-                    "system_load": "moderate"
-                }
-            }
+            message=f"Found {len(active_plans)} active executions (mock data)",
+            data=active_plans
         )
         
     except Exception as e:

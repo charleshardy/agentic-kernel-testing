@@ -1,11 +1,8 @@
 import React, { useState } from 'react'
 import {
   Card,
-  Table,
   Button,
   Space,
-  Tag,
-  Progress,
   Modal,
   Form,
   Input,
@@ -13,66 +10,44 @@ import {
   Typography,
   Row,
   Col,
-  Statistic,
-  Tooltip,
   message,
 } from 'antd'
 import {
-  PlayCircleOutlined,
-  PauseCircleOutlined,
-  StopOutlined,
-  ReloadOutlined,
   PlusOutlined,
-  EyeOutlined,
   RobotOutlined,
   CodeOutlined,
   FunctionOutlined,
 } from '@ant-design/icons'
-import { useQuery, useMutation, useQueryClient } from 'react-query'
+import { useMutation, useQueryClient } from 'react-query'
 import { useDashboardStore } from '../store'
 import apiService from '../services/api'
 import useAIGeneration from '../hooks/useAIGeneration'
 import DiagnosticWrapper from '../components/DiagnosticWrapper'
+import RealTimeExecutionMonitor from '../components/RealTimeExecutionMonitor'
 
-const { Title, Text } = Typography
+const { Title } = Typography
 const { TextArea } = Input
 
 interface TestExecutionProps {}
 
 const TestExecution: React.FC<TestExecutionProps> = () => {
-  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([])
   const [isSubmitModalVisible, setIsSubmitModalVisible] = useState(false)
   const [isAutoGenModalVisible, setIsAutoGenModalVisible] = useState(false)
   const [autoGenType, setAutoGenType] = useState<'diff' | 'function'>('diff')
   const [form] = Form.useForm()
   const [autoGenForm] = Form.useForm()
   const queryClient = useQueryClient()
-  const { activeExecutions } = useDashboardStore()
 
   // AI Generation hook with custom handlers
   const { generateFromDiff, generateFromFunction, isGenerating } = useAIGeneration({
     onSuccess: (response, type) => {
       setIsAutoGenModalVisible(false)
       autoGenForm.resetFields()
+      message.success(`Successfully generated tests from ${type}`)
     },
-    preserveFilters: true, // Preserve current filters and pagination
-    enableOptimisticUpdates: false, // Disable optimistic updates on execution page to avoid confusion
+    preserveFilters: true,
+    enableOptimisticUpdates: false,
   })
-
-  // Fetch active test executions
-  const { data: executionsData, isLoading: executionsLoading } = useQuery(
-    'activeExecutions',
-    () => apiService.getActiveExecutions(),
-    {
-      refetchInterval: 5000, // Refresh every 5 seconds
-    }
-  )
-
-  // Fetch available environments
-  const { data: environments } = useQuery(
-    'environments',
-    () => apiService.getEnvironments()
-  )
 
   // Submit new tests mutation
   const submitTestsMutation = useMutation(
@@ -90,120 +65,10 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
     }
   )
 
-  const columns = [
-    {
-      title: 'Execution ID',
-      dataIndex: 'plan_id',
-      key: 'plan_id',
-      render: (id: string) => (
-        <Tooltip title={id}>
-          <Text code>{id.slice(0, 8)}...</Text>
-        </Tooltip>
-      ),
-    },
-    {
-      title: 'Status',
-      dataIndex: 'overall_status',
-      key: 'status',
-      render: (status: string) => {
-        const colors = {
-          running: 'blue',
-          completed: 'green',
-          failed: 'red',
-          pending: 'orange',
-          cancelled: 'default',
-        }
-        return <Tag color={colors[status as keyof typeof colors]}>{status.toUpperCase()}</Tag>
-      },
-    },
-    {
-      title: 'Progress',
-      dataIndex: 'progress',
-      key: 'progress',
-      render: (progress: number, record: any) => (
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <Progress
-            percent={Math.round(progress * 100)}
-            size="small"
-            status={record.overall_status === 'failed' ? 'exception' : 'normal'}
-          />
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            {record.completed_tests}/{record.total_tests} tests
-          </Text>
-        </Space>
-      ),
-    },
-    {
-      title: 'Started',
-      dataIndex: 'started_at',
-      key: 'started_at',
-      render: (date: string) => date ? new Date(date).toLocaleString() : 'Not started',
-    },
-    {
-      title: 'ETA',
-      dataIndex: 'estimated_completion',
-      key: 'estimated_completion',
-      render: (date: string) => {
-        if (!date) return 'Unknown'
-        const eta = new Date(date)
-        const now = new Date()
-        const diff = eta.getTime() - now.getTime()
-        if (diff <= 0) return 'Overdue'
-        const minutes = Math.floor(diff / 60000)
-        return `${minutes}m`
-      },
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (record: any) => (
-        <Space>
-          <Button
-            type="text"
-            icon={<EyeOutlined />}
-            onClick={() => handleViewExecution(record.plan_id)}
-          >
-            View
-          </Button>
-          {record.overall_status === 'running' && (
-            <Button
-              type="text"
-              icon={<PauseCircleOutlined />}
-              onClick={() => handlePauseExecution(record.plan_id)}
-            >
-              Pause
-            </Button>
-          )}
-          {record.overall_status === 'pending' && (
-            <Button
-              type="text"
-              icon={<StopOutlined />}
-              onClick={() => handleCancelExecution(record.plan_id)}
-              danger
-            >
-              Cancel
-            </Button>
-          )}
-        </Space>
-      ),
-    },
-  ]
-
   const handleViewExecution = (planId: string) => {
-    // Navigate to detailed execution view
-    console.log('View execution:', planId)
-  }
-
-  const handlePauseExecution = (planId: string) => {
-    // Implement pause functionality
-    console.log('Pause execution:', planId)
-    message.info('Pause functionality not yet implemented')
-  }
-
-  const handleCancelExecution = (planId: string) => {
-    // Implement cancel functionality
-    console.log('Cancel execution:', planId)
-    message.info('Cancel functionality not yet implemented')
+    // Navigate to detailed execution view or show modal
+    message.info(`Viewing execution details for ${planId}`)
+    // TODO: Implement detailed execution view
   }
 
   const handleSubmitTest = (values: any) => {
@@ -246,100 +111,30 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
     'arch/arm64',
   ]
 
-  // Calculate summary statistics
-  const totalExecutions = executionsData?.length || 0
-  const runningExecutions = executionsData?.filter(e => e.overall_status === 'running').length || 0
-  const completedExecutions = executionsData?.filter(e => e.overall_status === 'completed').length || 0
-  const failedExecutions = executionsData?.filter(e => e.overall_status === 'failed').length || 0
-
   return (
     <DiagnosticWrapper componentName="TestExecution">
       <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <Title level={2}>Test Execution</Title>
-        <Space>
-          <Button
-            type="primary"
-            icon={<RobotOutlined />}
-            onClick={() => setIsAutoGenModalVisible(true)}
-          >
-            AI Generate Tests
-          </Button>
-          <Button
-            icon={<PlusOutlined />}
-            onClick={() => setIsSubmitModalVisible(true)}
-          >
-            Manual Submit
-          </Button>
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={() => queryClient.invalidateQueries('activeExecutions')}
-          >
-            Refresh
-          </Button>
-        </Space>
-      </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <Title level={2}>Test Execution</Title>
+          <Space>
+            <Button
+              type="primary"
+              icon={<RobotOutlined />}
+              onClick={() => setIsAutoGenModalVisible(true)}
+            >
+              AI Generate Tests
+            </Button>
+            <Button
+              icon={<PlusOutlined />}
+              onClick={() => setIsSubmitModalVisible(true)}
+            >
+              Manual Submit
+            </Button>
+          </Space>
+        </div>
 
-      {/* Summary Statistics */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={6}>
-          <Card>
-            <Statistic
-              title="Total Executions"
-              value={totalExecutions}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={6}>
-          <Card>
-            <Statistic
-              title="Running"
-              value={runningExecutions}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={6}>
-          <Card>
-            <Statistic
-              title="Completed"
-              value={completedExecutions}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={6}>
-          <Card>
-            <Statistic
-              title="Failed"
-              value={failedExecutions}
-              valueStyle={{ color: '#ff4d4f' }}
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Executions Table */}
-      <Card title="Active Test Executions">
-        <Table
-          columns={columns}
-          dataSource={executionsData}
-          loading={executionsLoading}
-          rowKey="plan_id"
-          rowSelection={{
-            selectedRowKeys,
-            onChange: (selectedRowKeys: React.Key[]) => setSelectedRowKeys(selectedRowKeys as string[]),
-          }}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) =>
-              `${range[0]}-${range[1]} of ${total} executions`,
-          }}
-        />
-      </Card>
+        {/* Real-time Execution Monitor */}
+        <RealTimeExecutionMonitor onViewExecution={handleViewExecution} />
 
       {/* AI Test Generation Modal */}
       <Modal

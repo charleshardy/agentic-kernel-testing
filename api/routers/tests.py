@@ -13,6 +13,7 @@ from ..models import (
     BulkOperationResult
 )
 from ..auth import get_current_user, require_permission
+from ..orchestrator_integration import get_orchestrator
 
 def get_demo_user():
     """Return demo user for testing."""

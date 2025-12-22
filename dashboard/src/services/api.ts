@@ -334,12 +334,34 @@ class APIService {
 
   // Test execution and status
   async getExecutionStatus(planId: string): Promise<ExecutionPlanStatus> {
-    const response: AxiosResponse<APIResponse<ExecutionPlanStatus>> = await this.client.get(`/status/execution/${planId}`)
+    const response: AxiosResponse<APIResponse<ExecutionPlanStatus>> = await this.client.get(`/execution/${planId}/status`)
     return response.data.data!
   }
 
   async getActiveExecutions(): Promise<ExecutionPlanStatus[]> {
-    const response: AxiosResponse<APIResponse<ExecutionPlanStatus[]>> = await this.client.get('/status/active')
+    const response: AxiosResponse<APIResponse<ExecutionPlanStatus[]>> = await this.client.get('/execution/active')
+    return response.data.data!
+  }
+
+  async startTestExecution(testIds: string[], options?: {
+    priority?: number
+    environment_preference?: string
+  }): Promise<{ execution_plan_id: string, submission_id: string, status: string }> {
+    const response: AxiosResponse<APIResponse> = await this.client.post('/execution/start', {
+      test_ids: testIds,
+      priority: options?.priority || 5,
+      environment_preference: options?.environment_preference
+    })
+    return response.data.data!
+  }
+
+  async cancelExecution(planId: string): Promise<{ success: boolean, message: string }> {
+    const response: AxiosResponse<APIResponse> = await this.client.post(`/execution/${planId}/cancel`)
+    return response.data.data!
+  }
+
+  async getExecutionMetrics(): Promise<any> {
+    const response: AxiosResponse<APIResponse> = await this.client.get('/execution/metrics')
     return response.data.data!
   }
 
