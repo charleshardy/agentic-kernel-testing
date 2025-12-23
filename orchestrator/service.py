@@ -420,3 +420,21 @@ class OrchestratorService:
             'available_environments': self.resource_manager.get_available_environment_count(),
             'uptime_seconds': self.stats['uptime_seconds']
         }
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get current orchestrator status.
+        
+        Returns:
+            Dictionary containing orchestrator status information
+        """
+        return {
+            'is_running': self.is_running,
+            'status': 'running' if self.is_running else 'stopped',
+            'uptime_seconds': self.stats['uptime_seconds'],
+            'start_time': self.start_time.isoformat() if self.start_time else None,
+            'active_tests': self.status_tracker.get_active_test_count(),
+            'queued_tests': self.queue_monitor.get_queued_test_count(),
+            'completed_tests': self.stats['tests_completed'],
+            'failed_tests': self.stats['tests_failed'],
+            'total_processed': self.stats['tests_processed']
+        }

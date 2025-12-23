@@ -522,3 +522,54 @@ class FailureAnalysis:
     def from_json(cls, json_str: str) -> 'FailureAnalysis':
         """Deserialize from JSON string."""
         return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
+class ExecutionPlan:
+    """A plan for executing a collection of test cases."""
+    plan_id: str
+    submission_id: str
+    test_case_ids: List[str]
+    priority: int = 5
+    status: str = "queued"
+    created_at: datetime = field(default_factory=datetime.now)
+    hardware_requirements: Optional[HardwareConfig] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def __post_init__(self):
+        """Validate execution plan."""
+        if not self.plan_id:
+            raise ValueError("plan_id cannot be empty")
+        if not self.submission_id:
+            raise ValueError("submission_id cannot be empty")
+        if not self.test_case_ids:
+            raise ValueError("test_case_ids cannot be empty")
+        if not 1 <= self.priority <= 10:
+            raise ValueError("priority must be between 1 and 10")
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        data = asdict(self)
+        data['created_at'] = self.created_at.isoformat()
+        if self.hardware_requirements:
+            data['hardware_requirements'] = self.hardware_requirements.to_dict()
+        return data
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ExecutionPlan':
+        """Create from dictionary."""
+        hw_data = data.pop('hardware_requirements', None)
+        created_at = datetime.fromisoformat(data.pop('created_at'))
+        
+        hardware = HardwareConfig.from_dict(hw_data) if hw_data else None
+        
+        return cls(**data, hardware_requirements=hardware, created_at=created_at)
+    
+    def to_json(self) -> str:
+        """Serialize to JSON string."""
+        return json.dumps(self.to_dict(), indent=2)
+    
+    @classmethod
+    def from_json(cls, json_str: str) -> 'ExecutionPlan':
+        """Deserialize from JSON string."""
+        return cls.from_dict(json.loads(json_str))
