@@ -1,11 +1,11 @@
 {
   "stats": {
-    "tests_processed": 257,
-    "tests_completed": 250,
-    "tests_failed": 23,
-    "uptime_seconds": 187.174139
+    "tests_processed": 263,
+    "tests_completed": 255,
+    "tests_failed": 24,
+    "uptime_seconds": 65.764135
   },
-  "timestamp": "2025-12-23T05:18:46.753259",
+  "timestamp": "2025-12-23T05:36:12.251618",
   "config": {
     "poll_interval": 5.0,
     "max_concurrent_tests": 10,

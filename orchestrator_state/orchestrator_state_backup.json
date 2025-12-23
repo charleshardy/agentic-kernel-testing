@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-12-23T05:38:12.620585",
+  "timestamp": "2025-12-23T05:31:24.115058",
   "version": "1.0",
   "plans": {
     "f62e0fed-4ab4-40c2-972b-be78bd72a986": {
@@ -27,13 +27,13 @@
     }
   },
   "statistics": {
-    "recoveries_attempted": 194,
-    "recoveries_successful": 194,
+    "recoveries_attempted": 190,
+    "recoveries_successful": 190,
     "recoveries_failed": 0,
     "tests_recovered": 3,
-    "plans_recovered": 140,
-    "state_saves": 2068,
-    "state_loads": 192,
+    "plans_recovered": 136,
+    "state_saves": 2057,
+    "state_loads": 188,
     "start_time": "2025-12-22 06:32:33.307997"
   }
 }
