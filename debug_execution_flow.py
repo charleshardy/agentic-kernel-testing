@@ -102,7 +102,7 @@ def check_execution_flow():
         test_plan_id = str(uuid.uuid4())
         test_plan = {
             "submission_id": str(uuid.uuid4()),
-            "test_case_ids": ["test-123"],
+            "test_case_ids": ["test-123-debug"],
             "priority": 5,
             "status": "queued",
             "created_at": datetime.utcnow(),
@@ -123,14 +123,62 @@ def check_execution_flow():
             new_plans = queue_monitor.poll_for_new_plans()
             print(f"   - Plans detected after creation: {len(new_plans)}")
             print(f"   - Queue count: {queue_monitor.get_queued_plan_count()}")
+        
+        # Always clean up the test plan
+        if test_plan_id in execution_plans:
+            del execution_plans[test_plan_id]
+            print(f"   - Cleaned up test plan")
+        
+        # Clean up any other debug test plans
+        debug_plans_to_remove = []
+        for plan_id, plan_data in execution_plans.items():
+            created_by = plan_data.get("created_by", "")
+            test_case_ids = plan_data.get("test_case_ids", [])
             
-            # Clean up
-            if test_plan_id in execution_plans:
-                del execution_plans[test_plan_id]
-                print(f"   - Cleaned up test plan")
+            is_debug_test = (
+                created_by == "debug_script" or 
+                any(test_id.startswith("test-123") for test_id in test_case_ids) or
+                any(test_id.startswith("test_") and test_id.endswith("123") for test_id in test_case_ids)
+            )
+            
+            if is_debug_test:
+                debug_plans_to_remove.append(plan_id)
+        
+        for plan_id in debug_plans_to_remove:
+            if plan_id in execution_plans:
+                del execution_plans[plan_id]
+        
+        if debug_plans_to_remove:
+            print(f"   - Cleaned up {len(debug_plans_to_remove)} additional debug plans")
         
     except Exception as e:
         print(f"4. Testing Execution Plan Creation: ERROR - {e}")
+        
+        # Try to clean up even if there was an error
+        try:
+            from api.routers.tests import execution_plans
+            debug_plans_to_remove = []
+            for plan_id, plan_data in execution_plans.items():
+                created_by = plan_data.get("created_by", "")
+                test_case_ids = plan_data.get("test_case_ids", [])
+                
+                is_debug_test = (
+                    created_by == "debug_script" or 
+                    any(test_id.startswith("test-123") for test_id in test_case_ids) or
+                    any(test_id.startswith("test_") and test_id.endswith("123") for test_id in test_case_ids)
+                )
+                
+                if is_debug_test:
+                    debug_plans_to_remove.append(plan_id)
+            
+            for plan_id in debug_plans_to_remove:
+                if plan_id in execution_plans:
+                    del execution_plans[plan_id]
+            
+            if debug_plans_to_remove:
+                print(f"   - Emergency cleanup: removed {len(debug_plans_to_remove)} debug plans")
+        except:
+            pass
     
     print()
     print("=== Debug Complete ===")

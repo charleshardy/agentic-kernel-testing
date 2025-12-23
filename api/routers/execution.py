@@ -296,55 +296,28 @@ async def get_active_executions(
 ):
     """Get all currently active executions with real-time data."""
     try:
-        orchestrator = get_orchestrator()
-        
-        if orchestrator and orchestrator.is_running:
-            # Get real data from orchestrator
-            try:
-                metrics = orchestrator.get_system_metrics()
-                status_tracker = orchestrator.status_tracker
-                
-                active_executions = []
-                
-                # Get active plans from status tracker
-                if hasattr(status_tracker, 'get_active_plans'):
-                    plans = status_tracker.get_active_plans()
-                    for plan in plans:
-                        active_executions.append({
-                            "plan_id": plan.get('plan_id'),
-                            "submission_id": plan.get('submission_id'),
-                            "overall_status": plan.get('status', 'running'),
-                            "total_tests": plan.get('total_tests', 0),
-                            "completed_tests": plan.get('completed_tests', 0),
-                            "failed_tests": plan.get('failed_tests', 0),
-                            "progress": plan.get('progress', 0.0),
-                            "started_at": plan.get('started_at').isoformat() if plan.get('started_at') else None,
-                            "estimated_completion": plan.get('estimated_completion').isoformat() if plan.get('estimated_completion') else None
-                        })
-                
-                return APIResponse(
-                    success=True,
-                    message=f"Retrieved {len(active_executions)} active executions from orchestrator",
-                    data={"executions": active_executions}
-                )
-                
-            except Exception as e:
-                print(f"Error getting active executions from orchestrator: {e}")
-        
-        # Fallback to mock/local data
+        # Always use the execution_plans data directly for Web GUI
         from api.routers.tests import execution_plans
-        
-        print(f"DEBUG: execution_plans has {len(execution_plans)} plans")
-        for plan_id, plan_data in execution_plans.items():
-            print(f"DEBUG: Plan {plan_id}: status={plan_data.get('status')}")
         
         active_executions = []
         for plan_id, plan_data in execution_plans.items():
             status = plan_data.get("status")
-            print(f"DEBUG: Checking plan {plan_id} with status '{status}'")
+            created_by = plan_data.get("created_by", "")
+            test_case_ids = plan_data.get("test_case_ids", [])
             
+            # Filter out debug test cases and old test plans
+            is_debug_test = (
+                created_by == "debug_script" or 
+                any(test_id.startswith("test-123") for test_id in test_case_ids) or
+                any(test_id.startswith("test_") and test_id.endswith("123") for test_id in test_case_ids)
+            )
+            
+            # Skip debug tests and completed/failed/cancelled plans
+            if is_debug_test or status in ["completed", "failed", "cancelled"]:
+                continue
+            
+            # Include plans that are queued, running, or any status that's not final
             if status not in ["completed", "failed", "cancelled"]:
-                print(f"DEBUG: Including plan {plan_id} in active executions")
                 # Handle datetime serialization
                 started_at = plan_data.get("created_at")
                 if started_at and hasattr(started_at, 'isoformat'):
@@ -362,23 +335,19 @@ async def get_active_executions(
                 
                 active_executions.append({
                     "plan_id": plan_id,
-                    "submission_id": plan_data["submission_id"],
+                    "submission_id": plan_data.get("submission_id", f"sub-{plan_id[:8]}"),
                     "overall_status": plan_data.get("status", "queued"),
-                    "total_tests": len(plan_data["test_case_ids"]),
+                    "total_tests": len(plan_data.get("test_case_ids", [])),
                     "completed_tests": 0,
                     "failed_tests": 0,
                     "progress": 0.0,
                     "started_at": started_at,
                     "estimated_completion": estimated_completion
                 })
-            else:
-                print(f"DEBUG: Excluding plan {plan_id} (status: {status})")
-        
-        print(f"DEBUG: Final active_executions count: {len(active_executions)}")
         
         return APIResponse(
             success=True,
-            message=f"Retrieved {len(active_executions)} active executions (fallback data)",
+            message=f"Retrieved {len(active_executions)} active executions",
             data={"executions": active_executions}
         )
         
@@ -538,4 +507,132 @@ async def force_orchestrator_poll(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to force orchestrator poll: {str(e)}"
+        )
+
+
+@router.post("/execution/cleanup", response_model=APIResponse)
+async def cleanup_old_executions(
+    max_age_hours: int = Query(1, description="Maximum age in hours for executions to keep"),
+    current_user: Dict[str, Any] = Depends(require_permission("admin:manage"))
+):
+    """Clean up old execution plans that are no longer active."""
+    try:
+        from api.routers.tests import execution_plans
+        
+        cutoff_time = datetime.utcnow() - timedelta(hours=max_age_hours)
+        plans_to_remove = []
+        
+        for plan_id, plan_data in execution_plans.items():
+            created_at = plan_data.get("created_at")
+            status = plan_data.get("status", "unknown")
+            created_by = plan_data.get("created_by", "")
+            test_case_ids = plan_data.get("test_case_ids", [])
+            
+            # Remove plans that are old, completed, or debug tests
+            should_remove = False
+            
+            # Always remove debug test cases
+            is_debug_test = (
+                created_by == "debug_script" or 
+                any(test_id.startswith("test-123") for test_id in test_case_ids) or
+                any(test_id.startswith("test_") and test_id.endswith("123") for test_id in test_case_ids)
+            )
+            
+            if is_debug_test:
+                should_remove = True
+            elif status in ["completed", "failed", "cancelled"]:
+                should_remove = True
+            elif created_at and created_at < cutoff_time:
+                should_remove = True
+            
+            if should_remove:
+                plans_to_remove.append(plan_id)
+        
+        # Remove the plans
+        removed_count = 0
+        debug_removed = 0
+        for plan_id in plans_to_remove:
+            if plan_id in execution_plans:
+                plan_data = execution_plans[plan_id]
+                created_by = plan_data.get("created_by", "")
+                test_case_ids = plan_data.get("test_case_ids", [])
+                
+                is_debug_test = (
+                    created_by == "debug_script" or 
+                    any(test_id.startswith("test-123") for test_id in test_case_ids) or
+                    any(test_id.startswith("test_") and test_id.endswith("123") for test_id in test_case_ids)
+                )
+                
+                if is_debug_test:
+                    debug_removed += 1
+                
+                del execution_plans[plan_id]
+                removed_count += 1
+        
+        return APIResponse(
+            success=True,
+            message=f"Cleaned up {removed_count} old execution plans ({debug_removed} debug tests)",
+            data={
+                "removed_count": removed_count,
+                "debug_removed": debug_removed,
+                "remaining_count": len(execution_plans),
+                "cutoff_time": cutoff_time.isoformat(),
+                "cleaned_by": current_user["username"],
+                "cleaned_at": datetime.utcnow().isoformat()
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to cleanup executions: {str(e)}"
+        )
+
+
+@router.post("/execution/cleanup-debug", response_model=APIResponse)
+async def cleanup_debug_executions(
+    current_user: Dict[str, Any] = Depends(get_demo_user)
+):
+    """Clean up debug test execution plans specifically."""
+    try:
+        from api.routers.tests import execution_plans
+        
+        plans_to_remove = []
+        
+        for plan_id, plan_data in execution_plans.items():
+            created_by = plan_data.get("created_by", "")
+            test_case_ids = plan_data.get("test_case_ids", [])
+            
+            # Identify debug test cases
+            is_debug_test = (
+                created_by == "debug_script" or 
+                any(test_id.startswith("test-123") for test_id in test_case_ids) or
+                any(test_id.startswith("test_") and test_id.endswith("123") for test_id in test_case_ids)
+            )
+            
+            if is_debug_test:
+                plans_to_remove.append(plan_id)
+        
+        # Remove the debug plans
+        removed_count = 0
+        for plan_id in plans_to_remove:
+            if plan_id in execution_plans:
+                del execution_plans[plan_id]
+                removed_count += 1
+        
+        return APIResponse(
+            success=True,
+            message=f"Cleaned up {removed_count} debug execution plans",
+            data={
+                "removed_count": removed_count,
+                "remaining_count": len(execution_plans),
+                "cleaned_by": current_user["username"],
+                "cleaned_at": datetime.utcnow().isoformat()
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to cleanup debug executions: {str(e)}"
         )
