@@ -27,6 +27,8 @@ import {
   RobotOutlined,
   CodeOutlined,
   FunctionOutlined,
+  DownOutlined,
+  RightOutlined,
 } from '@ant-design/icons'
 import { useQuery, useQueryClient } from 'react-query'
 import apiService from '../services/api'
@@ -41,11 +43,43 @@ const TestExecutionDebug: React.FC = () => {
   const [isSubmitModalVisible, setIsSubmitModalVisible] = useState(false)
   const [isAutoGenModalVisible, setIsAutoGenModalVisible] = useState(false)
   const [autoGenType, setAutoGenType] = useState<'diff' | 'function'>('diff')
+  const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([])
+  const [executionDetails, setExecutionDetails] = useState<Record<string, any>>({})
   const [form] = Form.useForm()
   const [autoGenForm] = Form.useForm()
   const queryClient = useQueryClient()
 
   console.log('TestExecutionDebug: State initialized')
+
+  // Function to fetch execution details including test cases
+  const fetchExecutionDetails = async (planId: string) => {
+    try {
+      console.log(`Fetching details for execution plan: ${planId}`)
+      const response = await apiService.getExecutionStatus(planId)
+      setExecutionDetails(prev => ({
+        ...prev,
+        [planId]: response
+      }))
+      return response
+    } catch (error) {
+      console.error(`Error fetching execution details for ${planId}:`, error)
+      return null
+    }
+  }
+
+  // Handle row expansion
+  const handleExpand = async (expanded: boolean, record: any) => {
+    const planId = record.plan_id
+    
+    if (expanded) {
+      setExpandedRowKeys(prev => [...prev, planId])
+      if (!executionDetails[planId]) {
+        await fetchExecutionDetails(planId)
+      }
+    } else {
+      setExpandedRowKeys(prev => prev.filter(key => key !== planId))
+    }
+  }
 
   // Use real API data instead of mock data
   const { data: executionsData = [], isLoading, error } = useQuery(
@@ -96,10 +130,24 @@ const TestExecutionDebug: React.FC = () => {
           completed: 'green',
           failed: 'red',
           pending: 'orange',
+          queued: 'orange',
           cancelled: 'default',
         }
         return <Tag color={colors[status as keyof typeof colors]}>{status.toUpperCase()}</Tag>
       },
+    },
+    {
+      title: 'Test Count',
+      dataIndex: 'total_tests',
+      key: 'total_tests',
+      render: (count: number, record: any) => (
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Text strong>{count} tests</Text>
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            {record.completed_tests || 0} completed, {record.failed_tests || 0} failed
+          </Text>
+        </Space>
+      ),
     },
     {
       title: 'Progress',
@@ -118,9 +166,146 @@ const TestExecutionDebug: React.FC = () => {
         </Space>
       ),
     },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record: any) => (
+        <Space>
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => {
+              const isExpanded = expandedRowKeys.includes(record.plan_id)
+              handleExpand(!isExpanded, record)
+            }}
+          >
+            {expandedRowKeys.includes(record.plan_id) ? 'Hide' : 'View'} Details
+          </Button>
+        </Space>
+      ),
+    },
   ]
 
   console.log('TestExecutionDebug: Columns defined')
+
+  // Expandable row render function
+  const expandedRowRender = (record: any) => {
+    const planId = record.plan_id
+    const details = executionDetails[planId]
+    
+    if (!details) {
+      return (
+        <div style={{ padding: '16px', textAlign: 'center' }}>
+          <Text type="secondary">Loading execution details...</Text>
+        </div>
+      )
+    }
+
+    // Use real test case data from the API
+    const testCases = details.test_cases || []
+
+    const testColumns = [
+      {
+        title: 'Test Case ID',
+        dataIndex: 'test_id',
+        key: 'test_id',
+        render: (id: string) => (
+          <Tooltip title={id}>
+            <Text code>{id.slice(0, 8)}...</Text>
+          </Tooltip>
+        )
+      },
+      {
+        title: 'Test Name',
+        dataIndex: 'name',
+        key: 'name',
+        render: (name: string) => (
+          <Tooltip title={name}>
+            <Text>{name.length > 50 ? `${name.slice(0, 50)}...` : name}</Text>
+          </Tooltip>
+        )
+      },
+      {
+        title: 'Type',
+        dataIndex: 'test_type',
+        key: 'test_type',
+        render: (type: string) => <Tag color="blue">{type}</Tag>
+      },
+      {
+        title: 'Subsystem',
+        dataIndex: 'target_subsystem',
+        key: 'target_subsystem',
+        render: (subsystem: string) => <Tag color="green">{subsystem}</Tag>
+      },
+      {
+        title: 'Status',
+        dataIndex: 'execution_status',
+        key: 'execution_status',
+        render: (status: string) => {
+          const colors = {
+            queued: 'orange',
+            running: 'blue',
+            completed: 'green',
+            failed: 'red',
+            never_run: 'default'
+          }
+          return <Tag color={colors[status as keyof typeof colors]}>{status.toUpperCase()}</Tag>
+        }
+      },
+      {
+        title: 'Est. Time',
+        dataIndex: 'execution_time_estimate',
+        key: 'execution_time_estimate',
+        render: (time: number) => <Text type="secondary">{time}s</Text>
+      }
+    ]
+
+    return (
+      <div style={{ margin: '16px 0', padding: '16px', backgroundColor: '#fafafa', borderRadius: '6px' }}>
+        <Title level={5}>Test Cases in Execution Plan: {planId.slice(0, 8)}...</Title>
+        <Text type="secondary" style={{ display: 'block', marginBottom: '12px' }}>
+          This execution plan contains {testCases.length} test cases. Below are the individual tests that will be executed:
+        </Text>
+        
+        {testCases.length > 0 ? (
+          <Table
+            columns={testColumns}
+            dataSource={testCases}
+            pagination={testCases.length > 10 ? { pageSize: 10, size: 'small' } : false}
+            size="small"
+            rowKey="test_id"
+            scroll={{ x: 800 }}
+          />
+        ) : (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <Text type="secondary">No test case details available</Text>
+          </div>
+        )}
+        
+        <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#e6f7ff', borderRadius: '4px' }}>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Text type="secondary">
+                <strong>Execution Plan Details:</strong><br/>
+                • Plan ID: <Text code>{planId}</Text><br/>
+                • Submission ID: <Text code>{details.submission_id}</Text><br/>
+                • Status: <Tag color="orange">{details.overall_status}</Tag>
+              </Text>
+            </Col>
+            <Col span={12}>
+              <Text type="secondary">
+                <strong>Progress Information:</strong><br/>
+                • Total Tests: {details.total_tests}<br/>
+                • Completed: {details.completed_tests}<br/>
+                • Failed: {details.failed_tests}<br/>
+                • Progress: {Math.round(details.progress * 100)}%
+              </Text>
+            </Col>
+          </Row>
+        </div>
+      </div>
+    )
+  }
 
   const handleSubmitTest = (values: any) => {
     console.log('Submitting test with values:', values)
@@ -234,6 +419,19 @@ const TestExecutionDebug: React.FC = () => {
           dataSource={executionsData}
           loading={isLoading}
           rowKey="plan_id"
+          expandable={{
+            expandedRowKeys,
+            onExpand: handleExpand,
+            expandedRowRender,
+            expandIcon: ({ expanded, onExpand, record }) => (
+              <Button
+                type="text"
+                size="small"
+                icon={expanded ? <DownOutlined /> : <RightOutlined />}
+                onClick={e => onExpand(record, e)}
+              />
+            ),
+          }}
           rowSelection={{
             selectedRowKeys,
             onChange: (selectedRowKeys: React.Key[]) => setSelectedRowKeys(selectedRowKeys as string[]),

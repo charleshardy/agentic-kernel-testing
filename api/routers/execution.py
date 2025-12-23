@@ -203,7 +203,25 @@ async def get_execution_status(
         
         plan_data = execution_plans[plan_id]
         
-        # Create mock status response
+        # Get actual test case details
+        from api.routers.tests import submitted_tests
+        test_case_details = []
+        
+        for test_id in plan_data["test_case_ids"]:
+            if test_id in submitted_tests:
+                test_data = submitted_tests[test_id]
+                test_case = test_data["test_case"]
+                test_case_details.append({
+                    "test_id": test_id,
+                    "name": test_case.name,
+                    "description": test_case.description,
+                    "test_type": test_case.test_type.value if hasattr(test_case.test_type, 'value') else str(test_case.test_type),
+                    "target_subsystem": test_case.target_subsystem,
+                    "execution_status": test_data.get("execution_status", "queued"),
+                    "execution_time_estimate": test_case.execution_time_estimate
+                })
+        
+        # Create enhanced status response with test case details
         mock_status = {
             "plan_id": plan_id,
             "submission_id": plan_data["submission_id"],
@@ -214,6 +232,7 @@ async def get_execution_status(
             "progress": 0.0,
             "started_at": plan_data["created_at"].isoformat(),
             "estimated_completion": plan_data.get("estimated_completion", datetime.utcnow() + timedelta(minutes=10)).isoformat(),
+            "test_cases": test_case_details,
             "test_statuses": []
         }
         
