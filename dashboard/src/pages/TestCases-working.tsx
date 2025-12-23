@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Card,
   Typography,
@@ -15,6 +15,7 @@ import {
   Alert,
   Modal,
   Form,
+  Checkbox,
 } from 'antd'
 import {
   ReloadOutlined,
@@ -25,9 +26,15 @@ import {
   EditOutlined,
   DeleteOutlined,
   EyeOutlined,
+  CodeOutlined,
+  FunctionOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons'
 import { useQuery } from 'react-query'
-import apiService from '../services/api'
+import apiService, { EnhancedTestCase } from '../services/api'
+import useAIGeneration from '../hooks/useAIGeneration'
+import KernelDriverInfo from '../components/KernelDriverInfo'
+import TestCaseModal from '../components/TestCaseModal'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -41,7 +48,66 @@ const TestCases: React.FC = () => {
   })
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([])
   const [aiGenModalVisible, setAiGenModalVisible] = useState(false)
+  const [aiGenType, setAiGenType] = useState<'diff' | 'function' | 'kernel'>('diff')
   const [aiGenForm] = Form.useForm()
+
+  // Test Case Modal state
+  const [selectedTestCase, setSelectedTestCase] = useState<EnhancedTestCase | null>(null)
+  const [modalVisible, setModalVisible] = useState(false)
+  const [modalMode, setModalMode] = useState<'view' | 'edit'>('view')
+
+  // AI Generation hook
+  const { generateFromDiff, generateFromFunction, generateKernelDriver, isGenerating } = useAIGeneration({
+    onSuccess: (response, type) => {
+      setAiGenModalVisible(false)
+      aiGenForm.resetFields()
+      // Force immediate refresh of the test list
+      setTimeout(() => {
+        refetch()
+      }, 1000)
+    },
+    preserveFilters: true,
+    enableOptimisticUpdates: true,
+  })
+
+  // Test Case Modal handlers
+  const handleViewTest = async (testId: string) => {
+    try {
+      // Fetch the test details from the API
+      const test = await apiService.getTestById(testId)
+      setSelectedTestCase(test)
+      setModalMode('view')
+      setModalVisible(true)
+    } catch (error: any) {
+      console.error('Error loading test case:', error)
+      if (error.response?.status === 404) {
+        message.error('Test case not found')
+      } else {
+        message.error('Failed to load test case details')
+      }
+    }
+  }
+
+  const handleCloseModal = () => {
+    setModalVisible(false)
+    setSelectedTestCase(null)
+  }
+
+  const handleSaveTest = async (updatedTestCase: EnhancedTestCase) => {
+    try {
+      // In a real implementation, call the API to update the test
+      // await apiService.updateTest(updatedTestCase.id, updatedTestCase)
+      
+      // For now, just show success message
+      message.success('Test case updated successfully')
+      
+      // Refresh the test list
+      refetch()
+    } catch (error) {
+      console.error('Error updating test case:', error)
+      message.error('Failed to update test case')
+    }
+  }
 
   // Fetch test cases
   const { data: testCasesData, isLoading, error, refetch } = useQuery(
@@ -246,7 +312,7 @@ const TestCases: React.FC = () => {
           <Button
             size="small"
             icon={<EyeOutlined />}
-            onClick={() => message.info(`Viewing test: ${record.name}`)}
+            onClick={() => handleViewTest(record.id)}
           >
             View
           </Button>
@@ -271,25 +337,9 @@ const TestCases: React.FC = () => {
     },
   ]
 
-  const handleAIGenerate = async (values: any) => {
-    try {
-      message.loading('Generating tests with AI...', 2)
-      
-      // Simulate AI generation
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      message.success('AI test generation completed! New tests have been added.')
-      setAiGenModalVisible(false)
-      aiGenForm.resetFields()
-      refetch()
-    } catch (error) {
-      message.error('AI test generation failed')
-    }
-  }
-
   const rowSelection = {
     selectedRowKeys,
-    onChange: setSelectedRowKeys,
+    onChange: (selectedRowKeys: React.Key[]) => setSelectedRowKeys(selectedRowKeys as string[]),
     getCheckboxProps: (record: any) => ({
       disabled: record.metadata?.execution_status === 'running',
     }),
@@ -468,82 +518,313 @@ const TestCases: React.FC = () => {
         />
       </Card>
 
-      {/* AI Generation Modal */}
+      {/* AI Test Generation Modal */}
       <Modal
         title="AI Test Generation"
         open={aiGenModalVisible}
         onCancel={() => setAiGenModalVisible(false)}
         footer={null}
-        width={600}
+        width={700}
       >
-        <Form
-          form={aiGenForm}
-          layout="vertical"
-          onFinish={handleAIGenerate}
-        >
-          <Form.Item
-            name="type"
-            label="Generation Type"
-            initialValue="diff"
+        <div style={{ marginBottom: 16 }}>
+          <Space>
+            <Button
+              type={aiGenType === 'diff' ? 'primary' : 'default'}
+              icon={<CodeOutlined />}
+              onClick={() => setAiGenType('diff')}
+            >
+              From Code Diff
+            </Button>
+            <Button
+              type={aiGenType === 'function' ? 'primary' : 'default'}
+              icon={<FunctionOutlined />}
+              onClick={() => setAiGenType('function')}
+            >
+              From Function
+            </Button>
+            <Button
+              type={aiGenType === 'kernel' ? 'primary' : 'default'}
+              icon={<RobotOutlined />}
+              onClick={() => setAiGenType('kernel')}
+            >
+              Kernel Test Driver
+            </Button>
+          </Space>
+        </div>
+
+        <KernelDriverInfo visible={aiGenType === 'kernel'} />
+
+        {aiGenType === 'diff' ? (
+          <Form
+            form={aiGenForm}
+            layout="vertical"
+            onFinish={(values) => {
+              generateFromDiff({
+                diff: values.diff,
+                maxTests: values.maxTests || 20,
+                testTypes: values.testTypes || ['unit']
+              })
+            }}
           >
-            <Select>
-              <Select.Option value="diff">From Code Diff</Select.Option>
-              <Select.Option value="function">From Function</Select.Option>
-              <Select.Option value="kernel">Kernel Test Driver</Select.Option>
-            </Select>
-          </Form.Item>
+            <Form.Item
+              name="diff"
+              label="Code Diff"
+              rules={[{ required: true, message: 'Please paste your git diff' }]}
+            >
+              <TextArea
+                rows={8}
+                placeholder="Paste your git diff here..."
+                style={{ fontFamily: 'monospace', fontSize: '12px' }}
+              />
+            </Form.Item>
 
-          <Form.Item
-            name="input"
-            label="Input"
-            rules={[{ required: true, message: 'Please provide input for AI generation' }]}
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  name="maxTests"
+                  label="Max Tests to Generate"
+                  initialValue={20}
+                >
+                  <Input type="number" min={1} max={100} />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="testTypes"
+                  label="Test Types"
+                  initialValue={['unit']}
+                >
+                  <Select
+                    mode="multiple"
+                    placeholder="Select test types"
+                    options={testTypes}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+              <Space>
+                <Button onClick={() => setAiGenModalVisible(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={isGenerating}
+                  icon={<RobotOutlined />}
+                >
+                  Generate Tests
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        ) : aiGenType === 'function' ? (
+          <Form
+            form={aiGenForm}
+            layout="vertical"
+            onFinish={(values) => {
+              generateFromFunction({
+                functionName: values.functionName,
+                filePath: values.filePath,
+                subsystem: values.subsystem || 'unknown',
+                maxTests: values.maxTests || 10
+              })
+            }}
           >
-            <TextArea
-              rows={6}
-              placeholder="Paste your git diff, function name, or kernel function details here..."
-            />
-          </Form.Item>
+            <Form.Item
+              name="functionName"
+              label="Function Name"
+              rules={[{ required: true, message: 'Please enter function name' }]}
+            >
+              <Input placeholder="e.g., schedule_task" />
+            </Form.Item>
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="maxTests"
-                label="Max Tests"
-                initialValue={10}
-              >
-                <Input type="number" min={1} max={50} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="testTypes"
-                label="Test Types"
-                initialValue={['unit']}
-              >
-                <Select
-                  mode="multiple"
-                  options={testTypes}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+            <Form.Item
+              name="filePath"
+              label="File Path"
+              rules={[{ required: true, message: 'Please enter file path' }]}
+            >
+              <Input placeholder="e.g., kernel/sched/core.c" />
+            </Form.Item>
 
-          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-            <Space>
-              <Button onClick={() => setAiGenModalVisible(false)}>
-                Cancel
-              </Button>
-              <Button
-                type="primary"
-                htmlType="submit"
-                icon={<RobotOutlined />}
-              >
-                Generate Tests
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  name="subsystem"
+                  label="Subsystem"
+                  initialValue="unknown"
+                >
+                  <Select
+                    placeholder="Select subsystem"
+                    options={[
+                      { label: 'Kernel Core', value: 'kernel/core' },
+                      { label: 'Memory Management', value: 'kernel/mm' },
+                      { label: 'File System', value: 'kernel/fs' },
+                      { label: 'Networking', value: 'kernel/net' },
+                      { label: 'Block Drivers', value: 'drivers/block' },
+                      { label: 'Character Drivers', value: 'drivers/char' },
+                      { label: 'Network Drivers', value: 'drivers/net' },
+                      { label: 'x86 Architecture', value: 'arch/x86' },
+                      { label: 'ARM64 Architecture', value: 'arch/arm64' },
+                    ]}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="maxTests"
+                  label="Max Tests to Generate"
+                  initialValue={10}
+                >
+                  <Input type="number" min={1} max={50} />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+              <Space>
+                <Button onClick={() => setAiGenModalVisible(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={isGenerating}
+                  icon={<RobotOutlined />}
+                >
+                  Generate Tests
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        ) : (
+          <Form
+            form={aiGenForm}
+            layout="vertical"
+            onFinish={(values) => {
+              generateKernelDriver({
+                functionName: values.functionName,
+                filePath: values.filePath,
+                subsystem: values.subsystem || 'unknown',
+                testTypes: values.testTypes || ['unit', 'integration']
+              })
+            }}
+          >
+            <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#fff7e6', border: '1px solid #ffd591', borderRadius: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                <ExclamationCircleOutlined style={{ color: '#fa8c16', marginRight: 8 }} />
+                <strong>Kernel Test Driver Generation</strong>
+              </div>
+              <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                This generates a complete kernel module (.ko) that tests kernel functions directly in kernel space.
+                Requires root privileges and kernel headers for compilation and execution.
+              </div>
+            </div>
+
+            <Form.Item
+              name="functionName"
+              label="Kernel Function Name"
+              rules={[{ required: true, message: 'Please enter kernel function name' }]}
+            >
+              <Input placeholder="e.g., kmalloc, schedule, netif_rx" />
+            </Form.Item>
+
+            <Form.Item
+              name="filePath"
+              label="Source File Path"
+              rules={[{ required: true, message: 'Please enter source file path' }]}
+            >
+              <Input placeholder="e.g., mm/slab.c, kernel/sched/core.c, net/core/dev.c" />
+            </Form.Item>
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  name="subsystem"
+                  label="Kernel Subsystem"
+                  initialValue="unknown"
+                >
+                  <Select
+                    placeholder="Select kernel subsystem"
+                    options={[
+                      { label: 'Kernel Core', value: 'kernel/core' },
+                      { label: 'Memory Management', value: 'kernel/mm' },
+                      { label: 'File System', value: 'kernel/fs' },
+                      { label: 'Networking', value: 'kernel/net' },
+                      { label: 'Block Drivers', value: 'drivers/block' },
+                      { label: 'Character Drivers', value: 'drivers/char' },
+                      { label: 'Network Drivers', value: 'drivers/net' },
+                      { label: 'x86 Architecture', value: 'arch/x86' },
+                      { label: 'ARM64 Architecture', value: 'arch/arm64' },
+                    ]}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="testTypes"
+                  label="Test Types"
+                  initialValue={['unit', 'integration']}
+                >
+                  <Select
+                    mode="multiple"
+                    placeholder="Select test types"
+                    options={[
+                      { label: 'Unit Tests', value: 'unit' },
+                      { label: 'Integration Tests', value: 'integration' },
+                      { label: 'Performance Tests', value: 'performance' },
+                      { label: 'Stress Tests', value: 'stress' },
+                      { label: 'Error Injection', value: 'error_injection' },
+                      { label: 'Concurrency Tests', value: 'concurrency' }
+                    ]}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 4 }}>
+              <div style={{ fontSize: '12px', color: '#52c41a', fontWeight: 500, marginBottom: 4 }}>
+                Generated Kernel Driver Will Include:
+              </div>
+              <ul style={{ fontSize: '12px', color: '#8c8c8c', margin: 0, paddingLeft: 16 }}>
+                <li>Complete kernel module source code (.c file)</li>
+                <li>Makefile for compilation</li>
+                <li>Installation and test execution scripts</li>
+                <li>Comprehensive test functions for the target kernel function</li>
+                <li>/proc interface for result collection</li>
+                <li>Proper cleanup and error handling</li>
+              </ul>
+            </div>
+
+            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+              <Space>
+                <Button onClick={() => setAiGenModalVisible(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={isGenerating}
+                  icon={<RobotOutlined />}
+                >
+                  Generate Kernel Driver
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        )}
       </Modal>
+
+      {/* Test Case Detail Modal */}
+      <TestCaseModal
+        testCase={selectedTestCase}
+        visible={modalVisible}
+        mode={modalMode}
+        onClose={handleCloseModal}
+        onSave={handleSaveTest}
+        onModeChange={setModalMode}
+      />
     </div>
   )
 }

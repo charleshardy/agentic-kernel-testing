@@ -148,6 +148,26 @@ async def get_tests(
         }
     }
 
+@app.get("/api/v1/tests/{test_id}")
+async def get_test_by_id(
+    test_id: str,
+    current_user: Dict[str, Any] = Depends(get_demo_user)
+):
+    """Get a specific test by ID."""
+    logger.info(f"Getting test by ID: {test_id}")
+    
+    # Check if test exists in mock storage
+    if test_id in mock_tests:
+        test = mock_tests[test_id]
+        return {
+            "success": True,
+            "message": "Test retrieved successfully",
+            "data": test
+        }
+    
+    # If not found, return 404
+    raise HTTPException(status_code=404, detail=f"Test with ID {test_id} not found")
+
 @app.post("/api/v1/tests/generate-from-function")
 async def generate_tests_from_function(
     function_name: str,
@@ -230,6 +250,188 @@ async def generate_tests_from_function(
             "test_ids": [t["id"] for t in generated_tests],
             "execution_plan_id": plan_id,
             "tests": generated_tests
+        }
+    }
+
+@app.post("/api/v1/tests/generate-from-diff")
+async def generate_tests_from_diff(
+    diff_content: str,
+    max_tests: int = 20,
+    test_types: List[str] = ["unit"],
+    current_user: Dict[str, Any] = Depends(get_demo_user)
+):
+    """Generate tests from code diff."""
+    logger.info(f"Generating tests from diff, max_tests: {max_tests}")
+    
+    # Create mock test cases based on diff analysis
+    generated_tests = []
+    for i in range(max_tests):
+        test_id = str(uuid.uuid4())
+        test = {
+            "id": test_id,
+            "name": f"Generated Test from Diff - case {i+1}",
+            "description": f"Test case {i+1} generated from code diff analysis",
+            "test_type": test_types[i % len(test_types)] if test_types else "unit",
+            "target_subsystem": "kernel/core",  # Inferred from diff
+            "code_paths": [f"/path/to/modified/file_{i}.c"],
+            "execution_time_estimate": 30 + (i * 5),
+            "test_script": f"# Test script generated from diff\n# Tests changes in modified code\npass",
+            "metadata": {
+                "generated_from": "diff",
+                "generation_timestamp": datetime.utcnow().isoformat(),
+                "diff_analysis": "Analyzed code changes and generated targeted tests",
+                "ai_model": "gpt-4",
+                "generation_params": {
+                    "max_tests": max_tests,
+                    "test_types": test_types
+                }
+            },
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat(),
+            "execution_status": "never_run"
+        }
+        generated_tests.append(test)
+        mock_tests[test_id] = test
+    
+    # Create execution plan
+    plan_id = str(uuid.uuid4())
+    execution_plan = {
+        "plan_id": plan_id,
+        "submission_id": str(uuid.uuid4()),
+        "test_case_ids": [t["id"] for t in generated_tests],
+        "environments": ["env-1"],
+        "priority": 5,
+        "status": "queued",
+        "created_at": datetime.utcnow().isoformat(),
+        "created_by": current_user["username"],
+        "overall_status": "queued",
+        "total_tests": len(generated_tests),
+        "progress": 0.0,
+        "completed_tests": 0,
+        "failed_tests": 0,
+        "test_cases": [
+            {
+                "test_id": t["id"],
+                "name": t["name"],
+                "test_type": t["test_type"],
+                "target_subsystem": t["target_subsystem"],
+                "execution_status": "queued",
+                "execution_time_estimate": t["execution_time_estimate"]
+            }
+            for t in generated_tests
+        ]
+    }
+    mock_executions[plan_id] = execution_plan
+    
+    return {
+        "success": True,
+        "message": f"Generated {len(generated_tests)} test cases from diff successfully",
+        "data": {
+            "generated_count": len(generated_tests),
+            "test_ids": [t["id"] for t in generated_tests],
+            "execution_plan_id": plan_id,
+            "tests": generated_tests
+        }
+    }
+
+@app.post("/api/v1/tests/generate-kernel-driver")
+async def generate_kernel_test_driver(
+    function_name: str,
+    file_path: str,
+    subsystem: str = "unknown",
+    test_types: List[str] = ["unit", "integration"],
+    current_user: Dict[str, Any] = Depends(get_demo_user)
+):
+    """Generate kernel test driver."""
+    logger.info(f"Generating kernel test driver for function: {function_name}")
+    
+    # Create mock kernel driver test
+    test_id = str(uuid.uuid4())
+    driver_test = {
+        "id": test_id,
+        "name": f"Kernel Driver Test for {function_name}",
+        "description": f"Complete kernel module test driver for {function_name} function",
+        "test_type": "kernel_driver",
+        "target_subsystem": subsystem,
+        "code_paths": [file_path],
+        "execution_time_estimate": 120,  # Kernel drivers take longer
+        "test_script": f"# Kernel test driver for {function_name}\n# Generated kernel module (.ko file)\npass",
+        "metadata": {
+            "generated_from": "kernel_driver",
+            "generation_timestamp": datetime.utcnow().isoformat(),
+            "source_function": function_name,
+            "source_file": file_path,
+            "kernel_module": True,
+            "requires_root": True,
+            "ai_model": "gpt-4",
+            "generation_params": {
+                "function_name": function_name,
+                "file_path": file_path,
+                "subsystem": subsystem,
+                "test_types": test_types
+            },
+            "driver_files": {
+                f"{function_name}_test.c": f"/* Kernel module test for {function_name} */\n#include <linux/module.h>\n// Generated kernel test driver code",
+                "Makefile": f"obj-m += {function_name}_test.o\nall:\n\tmake -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules",
+                "install.sh": f"#!/bin/bash\n# Installation script for {function_name} test driver\nsudo insmod {function_name}_test.ko",
+                "test.sh": f"#!/bin/bash\n# Test execution script\necho 'Running kernel driver test for {function_name}'"
+            }
+        },
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat(),
+        "execution_status": "never_run",
+        "requires_root": True,
+        "kernel_module": True,
+        "driver_files": {
+            f"{function_name}_test.c": f"/* Kernel module test for {function_name} */",
+            "Makefile": f"obj-m += {function_name}_test.o",
+            "install.sh": f"#!/bin/bash\nsudo insmod {function_name}_test.ko",
+            "test.sh": "#!/bin/bash\necho 'Test execution'"
+        }
+    }
+    
+    mock_tests[test_id] = driver_test
+    
+    # Create execution plan
+    plan_id = str(uuid.uuid4())
+    execution_plan = {
+        "plan_id": plan_id,
+        "submission_id": str(uuid.uuid4()),
+        "test_case_ids": [test_id],
+        "environments": ["env-1"],
+        "priority": 5,
+        "status": "queued",
+        "created_at": datetime.utcnow().isoformat(),
+        "created_by": current_user["username"],
+        "overall_status": "queued",
+        "total_tests": 1,
+        "progress": 0.0,
+        "completed_tests": 0,
+        "failed_tests": 0,
+        "test_cases": [
+            {
+                "test_id": test_id,
+                "name": driver_test["name"],
+                "test_type": driver_test["test_type"],
+                "target_subsystem": driver_test["target_subsystem"],
+                "execution_status": "queued",
+                "execution_time_estimate": driver_test["execution_time_estimate"]
+            }
+        ]
+    }
+    mock_executions[plan_id] = execution_plan
+    
+    return {
+        "success": True,
+        "message": f"Generated kernel test driver for {function_name} successfully",
+        "data": {
+            "generated_count": 1,
+            "test_ids": [test_id],
+            "execution_plan_id": plan_id,
+            "tests": [driver_test],
+            "driver_files": driver_test["driver_files"],
+            "kernel_module": True,
+            "requires_root": True
         }
     }
 
@@ -427,7 +629,10 @@ if __name__ == "__main__":
     print("  GET  /api/v1/health/metrics         - System metrics")
     print("  POST /api/v1/auth/login             - Authentication")
     print("  GET  /api/v1/tests                  - Get tests")
-    print("  POST /api/v1/tests/generate-from-function - Generate tests")
+    print("  GET  /api/v1/tests/{id}             - Get test by ID")
+    print("  POST /api/v1/tests/generate-from-function - Generate tests from function")
+    print("  POST /api/v1/tests/generate-from-diff - Generate tests from code diff")
+    print("  POST /api/v1/tests/generate-kernel-driver - Generate kernel test driver")
     print("  GET  /api/v1/execution/active       - Get active executions")
     print("  POST /api/v1/execution/{id}/start   - Start execution plan")
     print("  GET  /api/v1/execution/{id}/status  - Get execution status")
