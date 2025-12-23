@@ -844,7 +844,7 @@ echo "Test completed successfully"`}
                   {/* Quick Access Links */}
                   <Card size="small" title="Quick Access - View Source Code" style={{ marginBottom: 16, backgroundColor: '#f8f9fa' }}>
                     <Space wrap>
-                      {Object.entries(getKernelDriverFiles()!).map(([filename, content]) => (
+                      {Object.entries(getKernelDriverFiles() || {}).map(([filename, content]) => (
                         <Button
                           key={filename}
                           type="link"
@@ -866,7 +866,7 @@ echo "Test completed successfully"`}
                   </Card>
                   
                   <Collapse>
-                    {Object.entries(getKernelDriverFiles()!).map(([filename, content]) => (
+                    {Object.entries(getKernelDriverFiles() || {}).map(([filename, content]) => (
                       <Panel
                         header={
                           <Space>

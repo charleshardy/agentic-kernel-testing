@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import {
   Card,
   Typography,
@@ -15,7 +15,6 @@ import {
   Alert,
   Modal,
   Form,
-  Checkbox,
 } from 'antd'
 import {
   ReloadOutlined,
@@ -24,7 +23,6 @@ import {
   RobotOutlined,
   PlayCircleOutlined,
   EditOutlined,
-  DeleteOutlined,
   EyeOutlined,
   CodeOutlined,
   FunctionOutlined,
@@ -58,7 +56,7 @@ const TestCases: React.FC = () => {
 
   // AI Generation hook
   const { generateFromDiff, generateFromFunction, generateKernelDriver, isGenerating } = useAIGeneration({
-    onSuccess: (response, type) => {
+    onSuccess: () => {
       setAiGenModalVisible(false)
       aiGenForm.resetFields()
       // Force immediate refresh of the test list
@@ -99,7 +97,7 @@ const TestCases: React.FC = () => {
       // await apiService.updateTest(updatedTestCase.id, updatedTestCase)
       
       // For now, just show success message
-      message.success('Test case updated successfully')
+      message.success(`Test case ${updatedTestCase.name} updated successfully`)
       
       // Refresh the test list
       refetch()
@@ -354,7 +352,7 @@ const TestCases: React.FC = () => {
         alignItems: 'center', 
         marginBottom: 24 
       }}>
-        <Title level={2} style={{ margin: 0 }}>Test Cases</Title>
+        <Typography.Title level={2 as const} style={{ margin: 0 }}>Test Cases</Typography.Title>
         <Space>
           <Button
             type="primary"
