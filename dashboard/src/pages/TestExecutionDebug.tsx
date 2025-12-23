@@ -28,6 +28,8 @@ import {
   CodeOutlined,
   FunctionOutlined,
 } from '@ant-design/icons'
+import { useQuery, useQueryClient } from 'react-query'
+import apiService from '../services/api'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -41,27 +43,37 @@ const TestExecutionDebug: React.FC = () => {
   const [autoGenType, setAutoGenType] = useState<'diff' | 'function'>('diff')
   const [form] = Form.useForm()
   const [autoGenForm] = Form.useForm()
+  const queryClient = useQueryClient()
 
   console.log('TestExecutionDebug: State initialized')
 
-  // Mock data for testing
-  const executionsData = [
+  // Use real API data instead of mock data
+  const { data: executionsData = [], isLoading, error } = useQuery(
+    'activeExecutions',
+    async () => {
+      console.log('TestExecutionDebug: Fetching real execution data...')
+      const result = await apiService.getActiveExecutions()
+      console.log('TestExecutionDebug: Got execution data:', result)
+      return result
+    },
     {
-      plan_id: 'test-123',
-      overall_status: 'running',
-      progress: 0.6,
-      completed_tests: 6,
-      total_tests: 10,
-      started_at: new Date().toISOString(),
-      estimated_completion: new Date(Date.now() + 300000).toISOString()
+      refetchInterval: 5000,
+      cacheTime: 0, // Don't cache the data
+      staleTime: 0, // Always consider data stale
+      onError: (error) => {
+        console.error('TestExecutionDebug: Error fetching executions:', error)
+      },
+      onSuccess: (data) => {
+        console.log('TestExecutionDebug: Successfully fetched executions:', data)
+      }
     }
-  ]
+  )
 
   const environments = [
     { id: 'env-1', config: { architecture: 'x86_64', cpu_model: 'Intel Core i7' } }
   ]
 
-  console.log('TestExecutionDebug: Mock data created')
+  console.log('TestExecutionDebug: Using real API data, executions count:', executionsData.length)
 
   const columns = [
     {
@@ -165,7 +177,10 @@ const TestExecutionDebug: React.FC = () => {
           </Button>
           <Button
             icon={<ReloadOutlined />}
-            onClick={() => console.log('Refresh clicked')}
+            onClick={() => {
+              console.log('Refresh clicked - invalidating queries')
+              queryClient.invalidateQueries('activeExecutions')
+            }}
           >
             Refresh
           </Button>
@@ -178,7 +193,7 @@ const TestExecutionDebug: React.FC = () => {
           <Card>
             <Statistic
               title="Total Executions"
-              value={1}
+              value={executionsData.length}
               valueStyle={{ color: '#1890ff' }}
             />
           </Card>
@@ -187,7 +202,7 @@ const TestExecutionDebug: React.FC = () => {
           <Card>
             <Statistic
               title="Running"
-              value={1}
+              value={executionsData.filter(e => e.overall_status === 'running').length}
               valueStyle={{ color: '#52c41a' }}
             />
           </Card>
@@ -196,7 +211,7 @@ const TestExecutionDebug: React.FC = () => {
           <Card>
             <Statistic
               title="Completed"
-              value={0}
+              value={executionsData.filter(e => e.overall_status === 'completed').length}
               valueStyle={{ color: '#1890ff' }}
             />
           </Card>
@@ -205,7 +220,7 @@ const TestExecutionDebug: React.FC = () => {
           <Card>
             <Statistic
               title="Failed"
-              value={0}
+              value={executionsData.filter(e => e.overall_status === 'failed').length}
               valueStyle={{ color: '#ff4d4f' }}
             />
           </Card>
@@ -213,11 +228,11 @@ const TestExecutionDebug: React.FC = () => {
       </Row>
 
       {/* Executions Table */}
-      <Card title="Active Test Executions (Debug Mode)">
+      <Card title="Active Test Executions (Real-time Data)">
         <Table
           columns={columns}
           dataSource={executionsData}
-          loading={false}
+          loading={isLoading}
           rowKey="plan_id"
           rowSelection={{
             selectedRowKeys,
@@ -229,6 +244,9 @@ const TestExecutionDebug: React.FC = () => {
             showQuickJumper: true,
             showTotal: (total, range) =>
               `${range[0]}-${range[1]} of ${total} executions`,
+          }}
+          locale={{
+            emptyText: error ? `Error loading data: ${(error as any)?.message}` : 'No active executions'
           }}
         />
       </Card>
@@ -264,9 +282,22 @@ const TestExecutionDebug: React.FC = () => {
           <Form
             form={autoGenForm}
             layout="vertical"
-            onFinish={(values) => {
+            onFinish={async (values) => {
               console.log('AI Generation form values:', values)
-              message.success('Test generation started (debug mode)')
+              try {
+                const result = await apiService.generateTestsFromFunction(
+                  values.functionName,
+                  values.filePath,
+                  values.subsystem,
+                  values.maxTests
+                )
+                message.success(`Generated ${result.data?.generated_count || 0} tests successfully!`)
+                // Refresh the executions list
+                queryClient.invalidateQueries('activeExecutions')
+              } catch (error: any) {
+                console.error('AI Generation error:', error)
+                message.error(`Test generation failed: ${error.message}`)
+              }
               setIsAutoGenModalVisible(false)
               autoGenForm.resetFields()
             }}
