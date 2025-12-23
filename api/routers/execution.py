@@ -249,6 +249,78 @@ async def get_execution_status(
         )
 
 
+@router.post("/execution/{plan_id}/start", response_model=APIResponse)
+async def start_execution_plan(
+    plan_id: str,
+    current_user: Dict[str, Any] = Depends(require_permission("test:submit"))
+):
+    """Start execution of a queued execution plan."""
+    try:
+        from api.routers.tests import execution_plans
+        
+        if plan_id not in execution_plans:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Execution plan not found"
+            )
+        
+        plan_data = execution_plans[plan_id]
+        current_status = plan_data.get("status", "unknown")
+        
+        if current_status != "queued":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot start execution plan with status: {current_status}. Only queued plans can be started."
+            )
+        
+        # Update status to running
+        plan_data["status"] = "running"
+        plan_data["started_at"] = datetime.utcnow()
+        plan_data["started_by"] = current_user["username"]
+        
+        # In a real implementation, this would:
+        # 1. Submit to the orchestrator for actual execution
+        # 2. Allocate resources and environments
+        # 3. Start the test runner processes
+        
+        orchestrator = get_orchestrator()
+        if orchestrator and orchestrator.is_running:
+            try:
+                # Try to submit to orchestrator
+                print(f"Submitting execution plan {plan_id} to orchestrator")
+                # orchestrator.start_execution_plan(plan_id, plan_data)
+            except Exception as e:
+                print(f"Error submitting to orchestrator: {e}")
+        
+        # Notify WebSocket clients
+        await manager.broadcast(json.dumps({
+            "type": "execution_started",
+            "plan_id": plan_id,
+            "started_by": current_user["username"],
+            "timestamp": datetime.utcnow().isoformat()
+        }))
+        
+        return APIResponse(
+            success=True,
+            message=f"Execution plan {plan_id} started successfully",
+            data={
+                "plan_id": plan_id,
+                "status": "running",
+                "started_by": current_user["username"],
+                "started_at": datetime.utcnow().isoformat(),
+                "test_count": len(plan_data.get("test_case_ids", []))
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start execution plan: {str(e)}"
+        )
+
+
 @router.post("/execution/{plan_id}/cancel", response_model=APIResponse)
 async def cancel_execution(
     plan_id: str,

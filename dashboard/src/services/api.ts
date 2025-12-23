@@ -379,6 +379,11 @@ class APIService {
     return response.data.data!
   }
 
+  async startExecution(planId: string): Promise<{ success: boolean, message: string }> {
+    const response: AxiosResponse<APIResponse> = await this.client.post(`/execution/${planId}/start`)
+    return response.data.data!
+  }
+
   async getExecutionMetrics(): Promise<any> {
     const response: AxiosResponse<APIResponse> = await this.client.get('/execution/metrics')
     return response.data.data!

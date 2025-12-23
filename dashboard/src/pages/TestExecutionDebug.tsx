@@ -45,6 +45,7 @@ const TestExecutionDebug: React.FC = () => {
   const [autoGenType, setAutoGenType] = useState<'diff' | 'function'>('diff')
   const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([])
   const [executionDetails, setExecutionDetails] = useState<Record<string, any>>({})
+  const [loadingActions, setLoadingActions] = useState<Record<string, string>>({}) // Track loading states
   const [form] = Form.useForm()
   const [autoGenForm] = Form.useForm()
   const queryClient = useQueryClient()
@@ -78,6 +79,71 @@ const TestExecutionDebug: React.FC = () => {
       }
     } else {
       setExpandedRowKeys(prev => prev.filter(key => key !== planId))
+    }
+  }
+
+  // Execution control handlers
+  const handleStartExecution = async (planId: string) => {
+    try {
+      console.log(`Starting execution for plan: ${planId}`)
+      setLoadingActions(prev => ({ ...prev, [planId]: 'starting' }))
+      
+      const response = await apiService.startExecution(planId)
+      
+      message.success('Execution started successfully!')
+      // Refresh the executions list
+      queryClient.invalidateQueries('activeExecutions')
+    } catch (error: any) {
+      console.error('Error starting execution:', error)
+      message.error(`Failed to start execution: ${error.message}`)
+    } finally {
+      setLoadingActions(prev => {
+        const newState = { ...prev }
+        delete newState[planId]
+        return newState
+      })
+    }
+  }
+
+  const handlePauseExecution = async (planId: string) => {
+    try {
+      console.log(`Pausing execution for plan: ${planId}`)
+      setLoadingActions(prev => ({ ...prev, [planId]: 'pausing' }))
+      
+      // Simulate pausing - in real implementation, call orchestrator
+      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API call
+      message.info('Pause functionality coming soon!')
+    } catch (error: any) {
+      console.error('Error pausing execution:', error)
+      message.error(`Failed to pause execution: ${error.message}`)
+    } finally {
+      setLoadingActions(prev => {
+        const newState = { ...prev }
+        delete newState[planId]
+        return newState
+      })
+    }
+  }
+
+  const handleCancelExecution = async (planId: string) => {
+    try {
+      console.log(`Cancelling execution for plan: ${planId}`)
+      setLoadingActions(prev => ({ ...prev, [planId]: 'cancelling' }))
+      
+      const response = await apiService.cancelExecution(planId)
+      
+      message.success('Execution cancelled successfully!')
+      // Refresh the executions list
+      queryClient.invalidateQueries('activeExecutions')
+    } catch (error: any) {
+      console.error('Error cancelling execution:', error)
+      message.error(`Failed to cancel execution: ${error.message}`)
+    } finally {
+      setLoadingActions(prev => {
+        const newState = { ...prev }
+        delete newState[planId]
+        return newState
+      })
     }
   }
 
@@ -169,6 +235,7 @@ const TestExecutionDebug: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
+      width: 200,
       render: (_, record: any) => (
         <Space>
           <Button
@@ -181,6 +248,42 @@ const TestExecutionDebug: React.FC = () => {
           >
             {expandedRowKeys.includes(record.plan_id) ? 'Hide' : 'View'} Details
           </Button>
+          
+          {/* Execution Control Actions */}
+          {record.overall_status === 'queued' && (
+            <Button
+              size="small"
+              type="primary"
+              icon={<PlayCircleOutlined />}
+              onClick={() => handleStartExecution(record.plan_id)}
+              loading={loadingActions[record.plan_id] === 'starting'}
+            >
+              Start
+            </Button>
+          )}
+          
+          {record.overall_status === 'running' && (
+            <Button
+              size="small"
+              icon={<PauseCircleOutlined />}
+              onClick={() => handlePauseExecution(record.plan_id)}
+              loading={loadingActions[record.plan_id] === 'pausing'}
+            >
+              Pause
+            </Button>
+          )}
+          
+          {(record.overall_status === 'queued' || record.overall_status === 'running') && (
+            <Button
+              size="small"
+              danger
+              icon={<StopOutlined />}
+              onClick={() => handleCancelExecution(record.plan_id)}
+              loading={loadingActions[record.plan_id] === 'cancelling'}
+            >
+              Cancel
+            </Button>
+          )}
         </Space>
       ),
     },
