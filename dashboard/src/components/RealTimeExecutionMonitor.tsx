@@ -50,11 +50,24 @@ const RealTimeExecutionMonitor: React.FC<RealTimeExecutionMonitorProps> = ({
   const queryClient = useQueryClient()
 
   // Fetch active executions
-  const { data: executions, isLoading } = useQuery(
+  const { data: executions, isLoading, error } = useQuery(
     'activeExecutions',
-    () => apiService.getActiveExecutions(),
+    async () => {
+      console.log('🔍 Fetching active executions...')
+      const result = await apiService.getActiveExecutions()
+      console.log('📊 Active executions result:', result)
+      return result
+    },
     {
       refetchInterval: 5000, // Fallback polling every 5 seconds
+      cacheTime: 0, // Don't cache the data
+      staleTime: 0, // Always consider data stale
+      onError: (error) => {
+        console.error('❌ Error fetching active executions:', error)
+      },
+      onSuccess: (data) => {
+        console.log('✅ Successfully fetched active executions:', data)
+      }
     }
   )
 

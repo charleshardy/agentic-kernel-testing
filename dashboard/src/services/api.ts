@@ -339,8 +339,27 @@ class APIService {
   }
 
   async getActiveExecutions(): Promise<ExecutionPlanStatus[]> {
-    const response: AxiosResponse<APIResponse<{executions: ExecutionPlanStatus[]}>> = await this.client.get('/execution/active')
-    return response.data.data?.executions || []
+    try {
+      console.log('🔍 Fetching active executions...')
+      // Add cache-busting parameter to prevent stale data
+      const cacheBuster = Date.now()
+      const response: AxiosResponse<APIResponse<{executions: ExecutionPlanStatus[]}>> = await this.client.get(`/execution/active?_t=${cacheBuster}`)
+      console.log('✅ Active executions response:', response.data)
+      const executions = response.data.data?.executions || []
+      console.log(`📊 Found ${executions.length} active executions:`, executions)
+      return executions
+    } catch (error: any) {
+      console.error('❌ Error fetching active executions:', error)
+      if (error.response?.status === 401) {
+        console.log('🔑 Authentication error, trying to get new token...')
+        await this.ensureDemoToken()
+        const cacheBuster = Date.now()
+        const response: AxiosResponse<APIResponse<{executions: ExecutionPlanStatus[]}>> = await this.client.get(`/execution/active?_t=${cacheBuster}`)
+        console.log('✅ Retry successful:', response.data)
+        return response.data.data?.executions || []
+      }
+      throw error
+    }
   }
 
   async startTestExecution(testIds: string[], options?: {

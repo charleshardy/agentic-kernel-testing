@@ -24,6 +24,7 @@ import apiService from '../services/api'
 import useAIGeneration from '../hooks/useAIGeneration'
 import DiagnosticWrapper from '../components/DiagnosticWrapper'
 import RealTimeExecutionMonitor from '../components/RealTimeExecutionMonitor'
+import DirectAPITest from '../components/DirectAPITest'
 
 const { Title } = Typography
 const { TextArea } = Input
@@ -132,6 +133,9 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
             </Button>
           </Space>
         </div>
+
+        {/* Direct API Test Component for Debugging */}
+        <DirectAPITest />
 
         {/* Real-time Execution Monitor */}
         <RealTimeExecutionMonitor onViewExecution={handleViewExecution} />

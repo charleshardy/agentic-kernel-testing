@@ -7,6 +7,7 @@ import TestCases from './pages/TestCases'
 import TestExecution from './pages/TestExecution'
 import TestExecutionSimple from './pages/TestExecutionSimple'
 import TestExecutionDebug from './pages/TestExecutionDebug'
+import ExecutionDebug from './pages/ExecutionDebug'
 import TestResults from './pages/TestResults'
 import Coverage from './pages/Coverage'
 import Performance from './pages/Performance'
@@ -44,8 +45,9 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/test-cases" element={<TestCases />} />
-
+            <Route path="/test-execution" element={<TestExecution />} />
             <Route path="/tests" element={<TestExecutionDebug />} />
+            <Route path="/execution-debug" element={<ExecutionDebug />} />
             <Route path="/results" element={<TestResults />} />
             <Route path="/coverage" element={<Coverage />} />
             <Route path="/performance" element={<Performance />} />
