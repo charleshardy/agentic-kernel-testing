@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend API Test</title>
+</head>
+<body>
+    <h1>Frontend API Test</h1>
+    <div id="status">Testing...</div>
+    <div id="results"></div>
+
+    <script>
+        async function testAPI() {
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                statusDiv.innerHTML = 'Testing API connection...';
+                
+                // Test health endpoint
+                const healthResponse = await fetch('http://localhost:8000/api/v1/health');
+                const healthData = await healthResponse.json();
+                
+                resultsDiv.innerHTML += '<h3>Health Check:</h3><pre>' + JSON.stringify(healthData, null, 2) + '</pre>';
+                
+                // Test active executions
+                const execResponse = await fetch('http://localhost:8000/api/v1/execution/active');
+                const execData = await execResponse.json();
+                
+                resultsDiv.innerHTML += '<h3>Active Executions:</h3><pre>' + JSON.stringify(execData, null, 2) + '</pre>';
+                
+                statusDiv.innerHTML = '✅ API tests completed successfully!';
+                
+            } catch (error) {
+                statusDiv.innerHTML = '❌ API test failed: ' + error.message;
+                resultsDiv.innerHTML = '<pre>Error: ' + error.toString() + '</pre>';
+            }
+        }
+        
+        // Run test when page loads
+        window.onload = testAPI;
+    </script>
+</body>
+</html>

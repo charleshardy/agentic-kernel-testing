@@ -1,6 +1,5 @@
-"""Test runners package for different execution environments."""
+"""Test runners package."""
 
-from .docker_runner import DockerTestRunner
-from .qemu_runner import QEMUTestRunner
+from .mock_runner import MockTestRunner
 
-__all__ = ['DockerTestRunner', 'QEMUTestRunner']
+__all__ = ['MockTestRunner']

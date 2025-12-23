@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>React Frontend Debug Test</h1>
+    
+    <div id="test-results">
+        <div class="status info">Testing React frontend accessibility...</div>
+    </div>
+
+    <script>
+        async function testReactFrontend() {
+            const resultsDiv = document.getElementById('test-results');
+            
+            try {
+                // Test 1: Check if Vite dev server is running
+                resultsDiv.innerHTML += '<div class="status info">Testing Vite dev server at http://localhost:3001...</div>';
+                
+                const viteResponse = await fetch('http://localhost:3001/');
+                if (viteResponse.ok) {
+                    const html = await viteResponse.text();
+                    resultsDiv.innerHTML += '<div class="status success">✓ Vite dev server is running and serving HTML</div>';
+                    
+                    // Check if HTML contains React root element
+                    if (html.includes('id="root"')) {
+                        resultsDiv.innerHTML += '<div class="status success">✓ HTML contains React root element</div>';
+                    } else {
+                        resultsDiv.innerHTML += '<div class="status error">✗ HTML missing React root element</div>';
+                    }
+                    
+                    // Check if main.tsx is referenced
+                    if (html.includes('main.tsx')) {
+                        resultsDiv.innerHTML += '<div class="status success">✓ HTML references main.tsx</div>';
+                    } else {
+                        resultsDiv.innerHTML += '<div class="status error">✗ HTML missing main.tsx reference</div>';
+                    }
+                } else {
+                    resultsDiv.innerHTML += '<div class="status error">✗ Vite dev server not responding</div>';
+                }
+                
+                // Test 2: Check if backend API is running
+                resultsDiv.innerHTML += '<div class="status info">Testing backend API at http://localhost:8000...</div>';
+                
+                const apiResponse = await fetch('http://localhost:8000/api/v1/health');
+                if (apiResponse.ok) {
+                    const apiData = await apiResponse.json();
+                    resultsDiv.innerHTML += '<div class="status success">✓ Backend API is running</div>';
+                    resultsDiv.innerHTML += '<pre>API Health: ' + JSON.stringify(apiData, null, 2) + '</pre>';
+                } else {
+                    resultsDiv.innerHTML += '<div class="status error">✗ Backend API not responding</div>';
+                }
+                
+                // Test 3: Check browser console for errors
+                resultsDiv.innerHTML += '<div class="status info">Check browser console for JavaScript errors when loading http://localhost:3001/</div>';
+                resultsDiv.innerHTML += '<div class="status info">Open browser dev tools (F12) and look for red error messages</div>';
+                
+                // Test 4: Provide debugging steps
+                resultsDiv.innerHTML += '<h3>Debugging Steps:</h3>';
+                resultsDiv.innerHTML += '<ol>';
+                resultsDiv.innerHTML += '<li>Open <a href="http://localhost:3001/" target="_blank">http://localhost:3001/</a> in a new tab</li>';
+                resultsDiv.innerHTML += '<li>Press F12 to open browser dev tools</li>';
+                resultsDiv.innerHTML += '<li>Look at the Console tab for any red error messages</li>';
+                resultsDiv.innerHTML += '<li>Look at the Network tab to see if any resources failed to load</li>';
+                resultsDiv.innerHTML += '<li>Check if the page shows "Loading..." or is completely blank</li>';
+                resultsDiv.innerHTML += '</ol>';
+                
+            } catch (error) {
+                resultsDiv.innerHTML += '<div class="status error">✗ Test failed: ' + error.message + '</div>';
+            }
+        }
+        
+        // Run tests when page loads
+        testReactFrontend();
+    </script>
+</body>
+</html>

@@ -11,6 +11,7 @@ from ..models import APIResponse, ExecutionPlanStatus, TestExecutionStatus
 from ..auth import get_current_user, require_permission
 from ..orchestrator_integration import get_orchestrator
 from ai_generator.models import TestStatus
+from execution.execution_service import get_execution_service
 
 def get_demo_user():
     """Return demo user for testing."""
@@ -176,24 +177,18 @@ async def get_execution_status(
 ):
     """Get detailed execution status for a specific plan."""
     try:
-        orchestrator = get_orchestrator()
+        # First try to get status from the execution service
+        execution_service = get_execution_service()
+        status_data = execution_service.get_execution_status(plan_id)
         
-        if orchestrator and orchestrator.is_running:
-            # Try to get real status from orchestrator
-            try:
-                status_tracker = orchestrator.status_tracker
-                if hasattr(status_tracker, 'get_plan_status'):
-                    plan_status = status_tracker.get_plan_status(plan_id)
-                    if plan_status:
-                        return APIResponse(
-                            success=True,
-                            message="Execution status retrieved from orchestrator",
-                            data=plan_status
-                        )
-            except Exception as e:
-                print(f"Error getting status from orchestrator: {e}")
+        if status_data:
+            return APIResponse(
+                success=True,
+                message="Execution status retrieved from execution service",
+                data=status_data
+            )
         
-        # Fallback to mock data
+        # Fallback to execution_plans data
         from api.routers.tests import execution_plans
         if plan_id not in execution_plans:
             raise HTTPException(
@@ -238,7 +233,7 @@ async def get_execution_status(
         
         return APIResponse(
             success=True,
-            message="Execution status retrieved (mock data)",
+            message="Execution status retrieved (fallback data)",
             data=mock_status
         )
         
@@ -278,19 +273,39 @@ async def start_execution_plan(
         plan_data["started_at"] = datetime.utcnow()
         plan_data["started_by"] = current_user["username"]
         
-        # In a real implementation, this would:
-        # 1. Submit to the orchestrator for actual execution
-        # 2. Allocate resources and environments
-        # 3. Start the test runner processes
+        # Get test cases for this execution plan
+        from api.routers.tests import submitted_tests
+        test_cases = []
         
-        orchestrator = get_orchestrator()
-        if orchestrator and orchestrator.is_running:
-            try:
-                # Try to submit to orchestrator
-                print(f"Submitting execution plan {plan_id} to orchestrator")
-                # orchestrator.start_execution_plan(plan_id, plan_data)
-            except Exception as e:
-                print(f"Error submitting to orchestrator: {e}")
+        for test_id in plan_data["test_case_ids"]:
+            if test_id in submitted_tests:
+                test_data = submitted_tests[test_id]
+                test_case = test_data["test_case"]
+                test_cases.append(test_case)
+        
+        if not test_cases:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No valid test cases found for execution plan"
+            )
+        
+        # Start actual test execution using the execution service
+        execution_service = get_execution_service()
+        
+        success = execution_service.start_execution(
+            plan_id=plan_id,
+            test_cases=test_cases,
+            created_by=current_user["username"],
+            priority=plan_data.get("priority", 5),
+            timeout=plan_data.get("timeout", 300)
+        )
+        
+        if not success:
+            plan_data["status"] = "failed"
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to start test execution"
+            )
         
         # Notify WebSocket clients
         await manager.broadcast(json.dumps({
@@ -328,49 +343,39 @@ async def cancel_execution(
 ):
     """Cancel a running execution plan."""
     try:
-        orchestrator = get_orchestrator()
+        # Try to cancel through execution service first
+        execution_service = get_execution_service()
+        service_cancelled = execution_service.cancel_execution(plan_id)
         
-        if orchestrator and orchestrator.is_running:
-            # Try to cancel through orchestrator
-            try:
-                # This would call orchestrator's cancel method
-                success = True  # Placeholder - would call orchestrator.cancel_execution(plan_id)
-                
-                if success:
-                    # Notify WebSocket clients
-                    await manager.broadcast(json.dumps({
-                        "type": "execution_cancelled",
-                        "plan_id": plan_id,
-                        "cancelled_by": current_user["username"],
-                        "timestamp": datetime.utcnow().isoformat()
-                    }))
-                    
-                    return APIResponse(
-                        success=True,
-                        message="Execution cancelled successfully",
-                        data={
-                            "plan_id": plan_id,
-                            "cancelled_by": current_user["username"],
-                            "cancelled_at": datetime.utcnow().isoformat()
-                        }
-                    )
-            except Exception as e:
-                print(f"Error cancelling through orchestrator: {e}")
-        
-        # Fallback to updating local state
+        # Also update the execution_plans state
         from api.routers.tests import execution_plans
         if plan_id in execution_plans:
             execution_plans[plan_id]["status"] = "cancelled"
             execution_plans[plan_id]["cancelled_at"] = datetime.utcnow()
             execution_plans[plan_id]["cancelled_by"] = current_user["username"]
         
+        # Notify WebSocket clients
+        await manager.broadcast(json.dumps({
+            "type": "execution_cancelled",
+            "plan_id": plan_id,
+            "cancelled_by": current_user["username"],
+            "timestamp": datetime.utcnow().isoformat()
+        }))
+        
+        message = "Execution cancelled successfully"
+        if service_cancelled:
+            message += " (active execution stopped)"
+        else:
+            message += " (execution plan updated)"
+        
         return APIResponse(
             success=True,
-            message="Execution cancelled (local state updated)",
+            message=message,
             data={
                 "plan_id": plan_id,
                 "cancelled_by": current_user["username"],
-                "cancelled_at": datetime.utcnow().isoformat()
+                "cancelled_at": datetime.utcnow().isoformat(),
+                "service_cancelled": service_cancelled
             }
         )
         
@@ -387,10 +392,14 @@ async def get_active_executions(
 ):
     """Get all currently active executions with real-time data."""
     try:
-        # Always use the execution_plans data directly for Web GUI
+        # Get active executions from the execution service
+        execution_service = get_execution_service()
+        active_executions = execution_service.get_active_executions()
+        
+        # Also check the execution_plans for any that might not be in the service yet
         from api.routers.tests import execution_plans
         
-        active_executions = []
+        # Add any queued plans that haven't been started yet
         for plan_id, plan_data in execution_plans.items():
             status = plan_data.get("status")
             created_by = plan_data.get("created_by", "")
@@ -407,8 +416,10 @@ async def get_active_executions(
             if is_debug_test or status in ["completed", "failed", "cancelled"]:
                 continue
             
-            # Include plans that are queued, running, or any status that's not final
-            if status not in ["completed", "failed", "cancelled"]:
+            # Check if this plan is already in the execution service
+            plan_in_service = any(exec_data["plan_id"] == plan_id for exec_data in active_executions)
+            
+            if not plan_in_service and status == "queued":
                 # Handle datetime serialization
                 started_at = plan_data.get("created_at")
                 if started_at and hasattr(started_at, 'isoformat'):
@@ -427,7 +438,7 @@ async def get_active_executions(
                 active_executions.append({
                     "plan_id": plan_id,
                     "submission_id": plan_data.get("submission_id", f"sub-{plan_id[:8]}"),
-                    "overall_status": plan_data.get("status", "queued"),
+                    "overall_status": "queued",
                     "total_tests": len(plan_data.get("test_case_ids", [])),
                     "completed_tests": 0,
                     "failed_tests": 0,

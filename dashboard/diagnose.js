@@ -1,109 +1,79 @@
-#!/usr/bin/env node
-
-// Diagnostic script for Vite/React dashboard issues
-
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 
-console.log('🔍 Diagnosing Vite/React Dashboard Issues...\n');
+console.log('🔍 Diagnosing React Frontend Issues...\n');
 
-// Check 1: Verify essential files exist
-const essentialFiles = [
-    'package.json',
-    'vite.config.ts', 
-    'index.html',
-    'src/main.tsx',
-    'src/App.tsx'
+// Check if key files exist
+const keyFiles = [
+  'src/main.tsx',
+  'src/App.tsx', 
+  'src/index.css',
+  'src/components/Layout/DashboardLayout.tsx',
+  'src/pages/Dashboard.tsx',
+  'src/store/index.ts',
+  'src/services/api.ts',
+  'src/services/websocket.ts',
+  'index.html',
+  'package.json',
+  'vite.config.ts'
 ];
 
-console.log('📁 Checking essential files:');
-essentialFiles.forEach(file => {
-    const exists = fs.existsSync(file);
-    console.log(`${exists ? '✅' : '❌'} ${file}`);
+console.log('📁 Checking key files:');
+keyFiles.forEach(file => {
+  const exists = fs.existsSync(path.join(__dirname, file));
+  console.log(`  ${exists ? '✅' : '❌'} ${file}`);
 });
 
-// Check 2: Verify node_modules
-console.log('\n📦 Checking dependencies:');
-const nodeModulesExists = fs.existsSync('node_modules');
-console.log(`${nodeModulesExists ? '✅' : '❌'} node_modules directory`);
+// Check package.json dependencies
+console.log('\n📦 Checking package.json:');
+try {
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+  console.log(`  Name: ${pkg.name}`);
+  console.log(`  Version: ${pkg.version}`);
+  console.log(`  React version: ${pkg.dependencies?.react || 'not found'}`);
+  console.log(`  React-DOM version: ${pkg.dependencies?.['react-dom'] || 'not found'}`);
+  console.log(`  Vite version: ${pkg.devDependencies?.vite || 'not found'}`);
+  console.log(`  TypeScript version: ${pkg.devDependencies?.typescript || 'not found'}`);
+} catch (error) {
+  console.log(`  ❌ Error reading package.json: ${error.message}`);
+}
+
+// Check Vite config
+console.log('\n⚙️ Checking Vite config:');
+try {
+  const viteConfig = fs.readFileSync(path.join(__dirname, 'vite.config.ts'), 'utf8');
+  const portMatch = viteConfig.match(/port:\s*(\d+)/);
+  const port = portMatch ? portMatch[1] : 'default (3000)';
+  console.log(`  Configured port: ${port}`);
+  
+  if (viteConfig.includes('proxy')) {
+    console.log('  ✅ API proxy configured');
+  } else {
+    console.log('  ❌ No API proxy found');
+  }
+} catch (error) {
+  console.log(`  ❌ Error reading vite.config.ts: ${error.message}`);
+}
+
+// Check if node_modules exists
+console.log('\n📚 Checking dependencies:');
+const nodeModulesExists = fs.existsSync(path.join(__dirname, 'node_modules'));
+console.log(`  node_modules: ${nodeModulesExists ? '✅ exists' : '❌ missing - run npm install'}`);
 
 if (nodeModulesExists) {
-    const viteExists = fs.existsSync('node_modules/vite');
-    const reactExists = fs.existsSync('node_modules/react');
-    console.log(`${viteExists ? '✅' : '❌'} Vite installed`);
-    console.log(`${reactExists ? '✅' : '❌'} React installed`);
+  const reactExists = fs.existsSync(path.join(__dirname, 'node_modules', 'react'));
+  const viteExists = fs.existsSync(path.join(__dirname, 'node_modules', 'vite'));
+  console.log(`  react: ${reactExists ? '✅' : '❌'}`);
+  console.log(`  vite: ${viteExists ? '✅' : '❌'}`);
 }
 
-// Check 3: Try to parse package.json
-console.log('\n📋 Checking package.json:');
-try {
-    const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-    console.log('✅ package.json is valid JSON');
-    console.log(`   Name: ${packageJson.name}`);
-    console.log(`   Version: ${packageJson.version}`);
-    
-    // Check scripts
-    if (packageJson.scripts && packageJson.scripts.dev) {
-        console.log('✅ dev script found');
-    } else {
-        console.log('❌ dev script missing');
-    }
-} catch (error) {
-    console.log('❌ package.json parse error:', error.message);
-}
-
-// Check 4: TypeScript compilation
-console.log('\n🔧 Checking TypeScript compilation:');
-try {
-    execSync('npx tsc --noEmit', { stdio: 'pipe' });
-    console.log('✅ TypeScript compilation successful');
-} catch (error) {
-    console.log('❌ TypeScript compilation errors:');
-    console.log(error.stdout?.toString() || error.message);
-}
-
-// Check 5: Port availability
-console.log('\n🌐 Checking port availability:');
-const net = require('net');
-
-function checkPort(port) {
-    return new Promise((resolve) => {
-        const server = net.createServer();
-        server.listen(port, () => {
-            server.once('close', () => resolve(true));
-            server.close();
-        });
-        server.on('error', () => resolve(false));
-    });
-}
-
-checkPort(3000).then(available => {
-    console.log(`${available ? '✅' : '❌'} Port 3000 ${available ? 'available' : 'in use'}`);
-    
-    if (!available) {
-        console.log('   💡 Port 3000 is in use. Try:');
-        console.log('      - Kill existing process: pkill -f "vite"');
-        console.log('      - Use different port: npm run dev -- --port 3001');
-    }
-});
-
-// Check 6: Environment variables
-console.log('\n🌍 Environment check:');
-console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
-console.log(`   XDG_RUNTIME_DIR: ${process.env.XDG_RUNTIME_DIR || 'not set'}`);
-console.log(`   QT_QPA_PLATFORM: ${process.env.QT_QPA_PLATFORM || 'not set'}`);
-
-console.log('\n💡 Common solutions:');
-console.log('1. Install dependencies: npm install');
-console.log('2. Clear cache: rm -rf node_modules package-lock.json && npm install');
-console.log('3. Check browser console for JavaScript errors');
-console.log('4. Verify Vite is running: npm run dev');
-console.log('5. Try different port: npm run dev -- --port 3001');
-console.log('6. Check network tab in browser dev tools');
-
-console.log('\n🚀 To start debugging:');
-console.log('1. Run: npm run dev');
-console.log('2. Open browser to: http://localhost:3000');
-console.log('3. Open browser dev tools (F12)');
-console.log('4. Check Console and Network tabs for errors');
+console.log('\n🔧 Recommended debugging steps:');
+console.log('1. Check if Vite dev server is actually running:');
+console.log('   curl http://localhost:3001/ || curl http://localhost:3000/');
+console.log('2. Check browser console for JavaScript errors');
+console.log('3. Try restarting the dev server:');
+console.log('   npm run dev:clean');
+console.log('4. Check if all dependencies are installed:');
+console.log('   npm install');
+console.log('5. Try building the project to check for TypeScript errors:');
+console.log('   npm run build');
