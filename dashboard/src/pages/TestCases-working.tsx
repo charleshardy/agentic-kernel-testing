@@ -109,7 +109,7 @@ const TestCases: React.FC = () => {
 
   // Fetch test cases
   const { data: testCasesData, isLoading, error, refetch } = useQuery(
-    ['testCases', searchText, filters],
+    ['testCases', searchText, filters, Date.now()], // Add cache busting
     () => apiService.getTests({
       page: 1,
       page_size: 50,
@@ -119,11 +119,20 @@ const TestCases: React.FC = () => {
     {
       refetchInterval: 10000,
       retry: false,
+      cacheTime: 0, // Disable caching
+      staleTime: 0, // Always consider data stale
       onError: (error) => {
-        console.log('Failed to fetch test cases (using mock data):', error)
+        console.error('Failed to fetch test cases:', error)
       },
     }
   )
+
+  console.log('TestCases Debug:', {
+    hasData: !!testCasesData,
+    dataTests: testCasesData?.tests?.length || 0,
+    error: !!error,
+    isLoading
+  })
 
   // Mock data when API is not available
   const mockTestCases = [
@@ -185,6 +194,12 @@ const TestCases: React.FC = () => {
   ]
 
   const tests = testCasesData?.tests || mockTestCases
+  
+  console.log('Using tests:', {
+    source: testCasesData?.tests ? 'API' : 'Mock',
+    count: tests.length,
+    testIds: tests.map(t => t.id).slice(0, 3)
+  })
 
   // Filter tests based on search and filters
   const filteredTests = tests.filter(test => {
@@ -366,6 +381,31 @@ const TestCases: React.FC = () => {
             onClick={() => message.info('Create test functionality coming soon')}
           >
             Create Test
+          </Button>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={async () => {
+              try {
+                console.log('Testing direct API call...')
+                const result = await apiService.getTests({ page: 1, page_size: 50 })
+                console.log('Direct API result:', result)
+                message.success(`Direct API call successful: ${result.tests.length} tests`)
+              } catch (error) {
+                console.error('Direct API call failed:', error)
+                message.error('Direct API call failed')
+              }
+            }}
+          >
+            Test API
+          </Button>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => {
+              // Force refresh by invalidating cache
+              window.location.reload()
+            }}
+          >
+            Force Refresh
           </Button>
           <Button
             icon={<ReloadOutlined />}

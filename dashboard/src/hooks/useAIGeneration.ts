@@ -152,7 +152,37 @@ export const useAIGeneration = (options: UseAIGenerationOptions = {}) => {
       },
       onError: (error: any, variables, context: any) => {
         message.destroy() // Clear loading message
-        message.error(`Failed to generate tests from diff: ${error.message}`)
+        
+        // Better error message handling
+        let errorMessage = 'Failed to generate tests from diff'
+        
+        // Check for various error message sources
+        if (error?.response?.data?.message) {
+          errorMessage += `: ${error.response.data.message}`
+        } else if (error?.response?.data?.error) {
+          errorMessage += `: ${error.response.data.error}`
+        } else if (error?.message && error.message !== 'undefined') {
+          errorMessage += `: ${error.message}`
+        } else if (error?.response?.status) {
+          errorMessage += `: HTTP ${error.response.status}`
+        } else if (error?.code) {
+          errorMessage += `: ${error.code}`
+        } else if (typeof error === 'string') {
+          errorMessage += `: ${error}`
+        } else {
+          errorMessage += ': Network or server error occurred'
+        }
+        
+        console.error('Diff generation error:', {
+          error,
+          variables,
+          response: error?.response,
+          message: error?.message,
+          status: error?.response?.status,
+          data: error?.response?.data
+        })
+        
+        message.error(errorMessage)
         
         if (enableOptimisticUpdates && context?.previousTestCases) {
           // Rollback optimistic updates on error
@@ -218,7 +248,37 @@ export const useAIGeneration = (options: UseAIGenerationOptions = {}) => {
       },
       onError: (error: any, variables, context: any) => {
         message.destroy() // Clear loading message
-        message.error(`Failed to generate tests from function: ${error.message}`)
+        
+        // Better error message handling
+        let errorMessage = 'Failed to generate tests from function'
+        
+        // Check for various error message sources
+        if (error?.response?.data?.message) {
+          errorMessage += `: ${error.response.data.message}`
+        } else if (error?.response?.data?.error) {
+          errorMessage += `: ${error.response.data.error}`
+        } else if (error?.message && error.message !== 'undefined') {
+          errorMessage += `: ${error.message}`
+        } else if (error?.response?.status) {
+          errorMessage += `: HTTP ${error.response.status}`
+        } else if (error?.code) {
+          errorMessage += `: ${error.code}`
+        } else if (typeof error === 'string') {
+          errorMessage += `: ${error}`
+        } else {
+          errorMessage += ': Network or server error occurred'
+        }
+        
+        console.error('Function generation error:', {
+          error,
+          variables,
+          response: error?.response,
+          message: error?.message,
+          status: error?.response?.status,
+          data: error?.response?.data
+        })
+        
+        message.error(errorMessage)
         
         if (enableOptimisticUpdates && context?.previousTestCases) {
           // Rollback optimistic updates on error
@@ -284,7 +344,37 @@ export const useAIGeneration = (options: UseAIGenerationOptions = {}) => {
       },
       onError: (error: any, variables, context: any) => {
         message.destroy() // Clear loading message
-        message.error(`Failed to generate kernel test driver: ${error.message}`)
+        
+        // Better error message handling
+        let errorMessage = 'Failed to generate kernel test driver'
+        
+        // Check for various error message sources
+        if (error?.response?.data?.message) {
+          errorMessage += `: ${error.response.data.message}`
+        } else if (error?.response?.data?.error) {
+          errorMessage += `: ${error.response.data.error}`
+        } else if (error?.message && error.message !== 'undefined') {
+          errorMessage += `: ${error.message}`
+        } else if (error?.response?.status) {
+          errorMessage += `: HTTP ${error.response.status}`
+        } else if (error?.code) {
+          errorMessage += `: ${error.code}`
+        } else if (typeof error === 'string') {
+          errorMessage += `: ${error}`
+        } else {
+          errorMessage += ': Network or server error occurred'
+        }
+        
+        console.error('Kernel driver generation error:', {
+          error,
+          variables,
+          response: error?.response,
+          message: error?.message,
+          status: error?.response?.status,
+          data: error?.response?.data
+        })
+        
+        message.error(errorMessage)
         
         if (enableOptimisticUpdates && context?.previousTestCases) {
           // Rollback optimistic updates on error

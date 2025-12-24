@@ -38,7 +38,7 @@ import {
   SafetyOutlined,
 } from '@ant-design/icons'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { tomorrow, prism as prismTheme } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { TestCase, EnhancedTestCase } from '../services/api'
 
 const { TextArea } = Input
@@ -232,10 +232,12 @@ const TestCaseModal: React.FC<TestCaseModalProps> = ({
            testCase?.generation_info?.method === 'ai_kernel_driver' ||
            testCase?.test_metadata?.kernel_module === true ||
            testCase?.metadata?.kernel_module === true ||
-           testCase?.test_metadata?.requires_root === true ||
-           testCase?.metadata?.requires_root === true ||
+           testCase?.requires_root === true ||
+           testCase?.kernel_module === true ||
            (testCase?.test_metadata?.driver_files && Object.keys(testCase.test_metadata.driver_files).length > 0) ||
-           (testCase?.metadata?.driver_files && Object.keys(testCase.metadata.driver_files).length > 0)
+           (testCase?.metadata?.driver_files && Object.keys(testCase.metadata.driver_files).length > 0) ||
+           (testCase?.generation_info?.driver_files && Object.keys(testCase.generation_info.driver_files).length > 0) ||
+           (testCase?.driver_files && Object.keys(testCase.driver_files).length > 0)
   }
 
   // Get kernel driver files
@@ -249,6 +251,9 @@ const TestCaseModal: React.FC<TestCaseModalProps> = ({
     }
     if (testCase?.generation_info?.driver_files) {
       return testCase.generation_info.driver_files
+    }
+    if (testCase?.driver_files) {
+      return testCase.driver_files
     }
     
     return null
@@ -736,90 +741,80 @@ echo "Test completed successfully"`}
                     </Tag>
                   </Descriptions.Item>
                   
-                  {(testCase.metadata?.source_data?.function_name || testCase.generation_info?.source_data?.function_name) && (
+                  {(testCase.generation_info?.source_data?.function_name) && (
                     <Descriptions.Item label="Target Function">
                       <Text code style={{ fontSize: '14px' }}>
-                        {testCase.metadata?.source_data?.function_name || testCase.generation_info?.source_data?.function_name}
+                        {testCase.generation_info?.source_data?.function_name}
                       </Text>
                     </Descriptions.Item>
                   )}
                   
-                  {(testCase.metadata?.source_data?.file_path || testCase.generation_info?.source_data?.file_path) && (
+                  {(testCase.generation_info?.source_data?.file_path) && (
                     <Descriptions.Item label="Source File">
-                      <Text code>{testCase.metadata?.source_data?.file_path || testCase.generation_info?.source_data?.file_path}</Text>
+                      <Text code>{testCase.generation_info?.source_data?.file_path}</Text>
                     </Descriptions.Item>
                   )}
                   
-                  {(testCase.metadata?.source_data?.subsystem || testCase.generation_info?.source_data?.subsystem) && (
+                  {(testCase.generation_info?.source_data?.subsystem) && (
                     <Descriptions.Item label="Kernel Subsystem">
-                      <Tag color="blue">{testCase.metadata?.source_data?.subsystem || testCase.generation_info?.source_data?.subsystem}</Tag>
+                      <Tag color="blue">{testCase.generation_info?.source_data?.subsystem}</Tag>
                     </Descriptions.Item>
                   )}
                   
-                  {testCase.metadata?.kernel_module && (
+                  {(testCase.metadata?.kernel_module) && (
                     <Descriptions.Item label="Kernel Module">
-                      <Text code>{testCase.metadata.kernel_module}</Text>
+                      <Text code>{testCase.metadata?.kernel_module}</Text>
                     </Descriptions.Item>
                   )}
                   
-                  {testCase.metadata?.requires_root && (
+                  {(testCase.requires_root) && (
                     <Descriptions.Item label="Requires Root">
                       <Tag color="orange">Yes</Tag>
                     </Descriptions.Item>
                   )}
                   
-                  {testCase.metadata?.requires_kernel_headers && (
+                  {(testCase.metadata?.requires_kernel_headers) && (
                     <Descriptions.Item label="Kernel Headers">
                       <Tag color="blue">Required</Tag>
                     </Descriptions.Item>
                   )}
                   
-                  {testCase.metadata?.ai_model && (
+                  {(testCase.generation_info?.ai_model) && (
                     <Descriptions.Item label="AI Model">
-                      <Text code>{testCase.metadata.ai_model}</Text>
+                      <Text code>{testCase.generation_info?.ai_model}</Text>
                     </Descriptions.Item>
                   )}
                   
-                  {testCase.metadata?.generated_at && (
+                  {(testCase.generation_info?.generated_at) && (
                     <Descriptions.Item label="Generated At">
-                      <Text>{formatDate(testCase.metadata.generated_at)}</Text>
+                      <Text>{formatDate(testCase.generation_info?.generated_at)}</Text>
                     </Descriptions.Item>
                   )}
                   
-                  {testCase.metadata?.test_types && (
+                  {(testCase.generation_info?.source_data?.test_types) && (
                     <Descriptions.Item label="Test Types" span={2}>
                       <Space wrap>
-                        {testCase.metadata.test_types.map((type: string) => (
+                        {(testCase.generation_info?.source_data?.test_types || []).map((type: string) => (
                           <Tag key={type} color="purple">{type}</Tag>
                         ))}
                       </Space>
                     </Descriptions.Item>
                   )}
                   
-                  {(testCase.metadata?.source_data?.test_types || testCase.generation_info?.source_data?.test_types) && (
-                    <Descriptions.Item label="Generated Test Types" span={2}>
-                      <Space wrap>
-                        {(testCase.metadata?.source_data?.test_types || testCase.generation_info?.source_data?.test_types || []).map((type: string) => (
-                          <Tag key={type} color="purple">{type}</Tag>
-                        ))}
-                      </Space>
-                    </Descriptions.Item>
-                  )}
-                  
-                  {(testCase.metadata?.source_data?.driver_files || testCase.generation_info?.source_data?.driver_files) && (
+                  {(testCase.generation_info?.source_data?.driver_files) && (
                     <Descriptions.Item label="Generated Files" span={2}>
                       <Space wrap>
-                        {(testCase.metadata?.source_data?.driver_files || testCase.generation_info?.source_data?.driver_files || []).map((file: string) => (
+                        {(testCase.generation_info?.source_data?.driver_files || []).map((file: string) => (
                           <Tag key={file} icon={getFileIcon(file)}>{file}</Tag>
                         ))}
                       </Space>
                     </Descriptions.Item>
                   )}
                   
-                  {testCase.metadata?.generation_params && (
+                  {(testCase.generation_info?.generation_params) && (
                     <Descriptions.Item label="Generation Parameters" span={2}>
                       <div>
-                        {Object.entries(testCase.metadata.generation_params).map(([key, value]) => (
+                        {Object.entries(testCase.generation_info?.generation_params || {}).map(([key, value]) => (
                           <Tag key={key} style={{ marginBottom: 4 }}>
                             {key}: {String(value)}
                           </Tag>
@@ -917,7 +912,7 @@ echo "Test completed successfully"`}
                         <div style={{ marginTop: 8 }}>
                           <SyntaxHighlighter
                             language={getFileLanguage(filename)}
-                            style={vscDarkPlus}
+                            style={tomorrow}
                             customStyle={{
                               margin: 0,
                               borderRadius: '6px',
@@ -926,6 +921,11 @@ echo "Test completed successfully"`}
                             }}
                             showLineNumbers={true}
                             wrapLines={true}
+                            codeTagProps={{
+                              style: {
+                                fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+                              }
+                            }}
                           >
                             {content as string}
                           </SyntaxHighlighter>
@@ -982,7 +982,7 @@ echo "Test completed successfully"`}
                     </div>
                     <SyntaxHighlighter
                       language="bash"
-                      style={vscDarkPlus}
+                      style={tomorrow}
                       customStyle={{
                         margin: 0,
                         borderRadius: '6px',
@@ -1001,7 +1001,7 @@ sudo insmod ${testCase.metadata?.kernel_module || 'test_module.ko'}`}
                   <Panel header="Test Execution" key="execution">
                     <SyntaxHighlighter
                       language="bash"
-                      style={vscDarkPlus}
+                      style={tomorrow}
                       customStyle={{
                         margin: 0,
                         borderRadius: '6px',
@@ -1009,13 +1009,13 @@ sudo insmod ${testCase.metadata?.kernel_module || 'test_module.ko'}`}
                       }}
                     >
 {`# View test results
-cat /proc/${testCase.metadata?.kernel_module?.replace('.ko', '_results') || 'test_results'}
+cat /proc/${(testCase.metadata?.kernel_module || 'test_module.ko').replace('.ko', '_results')}
 
 # Check kernel messages
 dmesg | tail -20
 
 # Unload the module
-sudo rmmod ${testCase.metadata?.kernel_module?.replace('.ko', '') || 'test_module'}`}
+sudo rmmod ${(testCase.metadata?.kernel_module || 'test_module.ko').replace('.ko', '')}`}
                     </SyntaxHighlighter>
                   </Panel>
 
@@ -1094,7 +1094,7 @@ sudo rmmod ${testCase.metadata?.kernel_module?.replace('.ko', '') || 'test_modul
         <div style={{ maxHeight: '70vh', overflow: 'auto' }}>
           <SyntaxHighlighter
             language={sourceViewModal.language}
-            style={vscDarkPlus}
+            style={tomorrow}
             customStyle={{
               margin: 0,
               borderRadius: '8px',
@@ -1103,6 +1103,11 @@ sudo rmmod ${testCase.metadata?.kernel_module?.replace('.ko', '') || 'test_modul
             }}
             showLineNumbers={true}
             wrapLines={true}
+            codeTagProps={{
+              style: {
+                fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+              }
+            }}
           >
             {sourceViewModal.content}
           </SyntaxHighlighter>

@@ -154,8 +154,25 @@ class APIService {
   private client: AxiosInstance
 
   constructor() {
-    // Always use direct backend URL for better reliability
-    const baseURL = 'http://localhost:8000/api/v1'
+    // Determine the correct base URL based on environment
+    let baseURL: string
+    
+    // Check if we're running in development (typical indicators)
+    const isDevelopment = 
+      process.env.NODE_ENV === 'development' ||
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.port === '3000'
+    
+    if (isDevelopment) {
+      // Use Vite proxy in development (now working correctly)
+      baseURL = '/api/v1'  // Proxy URL
+      console.log('🔧 API Service: Using Vite proxy for development:', baseURL)
+    } else {
+      // In production, use direct URL
+      baseURL = 'http://localhost:8000/api/v1'
+      console.log('🔧 API Service: Using direct URL for production:', baseURL)
+    }
       
     this.client = axios.create({
       baseURL,
@@ -165,36 +182,79 @@ class APIService {
       },
     })
 
-    // Initialize demo authentication
-    this.initializeDemoAuth()
+    // Add a request interceptor to log API calls in development
+    if (isDevelopment) {
+      this.client.interceptors.request.use(
+        (config) => {
+          console.log('🌐 API Request:', config.method?.toUpperCase(), config.url, config.params)
+          return config
+        },
+        (error) => {
+          console.error('🚨 API Request Error:', error)
+          return Promise.reject(error)
+        }
+      )
+      
+      this.client.interceptors.response.use(
+        (response) => {
+          console.log('✅ API Response:', response.status, response.config.url)
+          return response
+        },
+        (error) => {
+          console.error('❌ API Response Error:', error.response?.status, error.config?.url, error.message)
+          return Promise.reject(error)
+        }
+      )
+    }
 
-    // Add request interceptor for authentication
+    // Add authentication interceptor
     this.client.interceptors.request.use(
       (config) => {
         const token = localStorage.getItem('auth_token')
         if (token) {
           config.headers.Authorization = `Bearer ${token}`
         }
+        
+        if (isDevelopment) {
+          console.log('🌐 API Request:', config.method?.toUpperCase(), config.url, config.params)
+        }
         return config
       },
       (error) => {
+        console.error('🚨 API Request Error:', error)
         return Promise.reject(error)
       }
     )
 
     // Add response interceptor for error handling
     this.client.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        if (isDevelopment) {
+          console.log('✅ API Response:', response.status, response.config.url)
+        }
+        return response
+      },
       (error) => {
-        // Log authentication errors but don't auto-redirect in demo mode
+        console.error('❌ API Response Error:', {
+          status: error.response?.status,
+          url: error.config?.url,
+          message: error.message,
+          data: error.response?.data
+        })
+        
+        // Handle authentication errors
         if (error.response?.status === 401) {
-          console.log('Authentication required for:', error.config?.url)
+          console.log('🔑 Authentication required for:', error.config?.url)
           localStorage.removeItem('auth_token')
           // Let individual methods handle retry logic
         }
+        
         return Promise.reject(error)
       }
     )
+
+    // Initialize demo authentication
+    this.initializeDemoAuth()
   }
 
   // Health and system status
@@ -464,6 +524,8 @@ class APIService {
       })
       return response.data
     } catch (error: any) {
+      console.error('API generateTestsFromDiff error:', error)
+      
       if (error.response?.status === 401) {
         // Try to get demo token and retry
         await this.ensureDemoToken()
@@ -476,7 +538,21 @@ class APIService {
         })
         return response.data
       }
-      throw error
+      
+      // Enhance error with more context
+      if (error.response?.data?.message) {
+        const errorMsg = error.response.data.message
+        if (errorMsg === 'Not implemented') {
+          throw new Error('This AI generation method is not yet implemented on the backend. Please try a different generation method or contact support.')
+        }
+        throw new Error(errorMsg)
+      } else if (error.response?.status) {
+        throw new Error(`Server error: HTTP ${error.response.status}`)
+      } else if (error.message) {
+        throw new Error(error.message)
+      } else {
+        throw new Error('Network error: Unable to connect to server')
+      }
     }
   }
 
@@ -486,6 +562,8 @@ class APIService {
     subsystem: string = 'unknown',
     maxTests: number = 10
   ): Promise<APIResponse> {
+    console.log('🔧 generateTestsFromFunction called with:', { functionName, filePath, subsystem, maxTests })
+    
     try {
       const response: AxiosResponse<APIResponse> = await this.client.post('/tests/generate-from-function', null, {
         params: {
@@ -495,10 +573,15 @@ class APIService {
           max_tests: maxTests
         }
       })
+      
+      console.log('✅ generateTestsFromFunction success:', response.data)
       return response.data
     } catch (error: any) {
+      console.error('❌ generateTestsFromFunction error:', error)
+      
       if (error.response?.status === 401) {
         // Try to get demo token and retry
+        console.log('🔑 Retrying with fresh token...')
         await this.ensureDemoToken()
         const response: AxiosResponse<APIResponse> = await this.client.post('/tests/generate-from-function', null, {
           params: {
@@ -508,9 +591,24 @@ class APIService {
             max_tests: maxTests
           }
         })
+        console.log('✅ generateTestsFromFunction retry success:', response.data)
         return response.data
       }
-      throw error
+      
+      // Enhanced error with more context
+      if (error.response?.data?.message) {
+        const errorMsg = error.response.data.message
+        if (errorMsg === 'Not implemented') {
+          throw new Error('Function-based AI generation is not yet implemented on the backend. Please try "From Code Diff" or "Kernel Test Driver" instead.')
+        }
+        throw new Error(errorMsg)
+      } else if (error.response?.status) {
+        throw new Error(`Server error: HTTP ${error.response.status}`)
+      } else if (error.message) {
+        throw new Error(error.message)
+      } else {
+        throw new Error('Network error: Unable to connect to server')
+      }
     }
   }
 
@@ -527,6 +625,8 @@ class APIService {
     subsystem: string = 'unknown',
     testTypes: string[] = ['unit', 'integration']
   ): Promise<APIResponse> {
+    console.log('🔧 generateKernelTestDriver called with:', { functionName, filePath, subsystem, testTypes })
+    
     try {
       const response: AxiosResponse<APIResponse> = await this.client.post('/tests/generate-kernel-driver', null, {
         params: {
@@ -536,10 +636,15 @@ class APIService {
           test_types: testTypes
         }
       })
+      
+      console.log('✅ generateKernelTestDriver success:', response.data)
       return response.data
     } catch (error: any) {
+      console.error('❌ generateKernelTestDriver error:', error)
+      
       if (error.response?.status === 401) {
         // Try to get demo token and retry
+        console.log('🔑 Retrying with fresh token...')
         await this.ensureDemoToken()
         const response: AxiosResponse<APIResponse> = await this.client.post('/tests/generate-kernel-driver', null, {
           params: {
@@ -549,9 +654,24 @@ class APIService {
             test_types: testTypes
           }
         })
+        console.log('✅ generateKernelTestDriver retry success:', response.data)
         return response.data
       }
-      throw error
+      
+      // Enhanced error with more context
+      if (error.response?.data?.message) {
+        const errorMsg = error.response.data.message
+        if (errorMsg === 'Not implemented') {
+          throw new Error('Kernel test driver generation is not yet implemented on the backend. Please try "From Code Diff" instead.')
+        }
+        throw new Error(errorMsg)
+      } else if (error.response?.status) {
+        throw new Error(`Server error: HTTP ${error.response.status}`)
+      } else if (error.message) {
+        throw new Error(error.message)
+      } else {
+        throw new Error('Network error: Unable to connect to server')
+      }
     }
   }
 
