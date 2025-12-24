@@ -32,7 +32,7 @@ import { useQuery } from 'react-query'
 import apiService, { EnhancedTestCase } from '../services/api'
 import useAIGeneration from '../hooks/useAIGeneration'
 import KernelDriverInfo from '../components/KernelDriverInfo'
-import TestCaseModal from '../components/TestCaseModal'
+import TestCaseModal from '../components/TestCaseModal-safe'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
