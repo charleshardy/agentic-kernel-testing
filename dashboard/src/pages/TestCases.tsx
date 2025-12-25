@@ -501,9 +501,39 @@ const TestCases: React.FC<TestCasesProps> = () => {
     }
   }
 
-  const handleDeleteTest = (testId: string) => {
-    console.log('Delete test:', testId)
-    // TODO: Implement delete functionality
+  const handleDeleteTest = async (testId: string) => {
+    try {
+      console.log('Deleting test:', testId)
+      
+      // Find the test to get its name for the message
+      const test = filteredTests.find(t => t.id === testId)
+      const testName = test?.name || testId
+      
+      // Call the API to delete the test
+      await apiService.deleteTest(testId)
+      
+      // Show success message
+      message.success(`Successfully deleted test case: ${testName}`)
+      
+      // Clear selection if this test was selected
+      if (selectedRowKeys.includes(testId)) {
+        setSelectedRowKeys(prev => prev.filter(id => id !== testId))
+      }
+      
+      // Refresh the test list
+      refetch()
+    } catch (error: any) {
+      console.error('Failed to delete test:', error)
+      
+      // Show appropriate error message
+      if (error.response?.status === 404) {
+        message.error('Test case not found')
+      } else if (error.response?.status === 403) {
+        message.error('Permission denied - cannot delete this test case')
+      } else {
+        message.error(`Failed to delete test case: ${error.message || 'Unknown error'}`)
+      }
+    }
   }
 
   const handleExecuteTests = (testIds: string[]) => {
@@ -910,6 +940,10 @@ const TestCases: React.FC<TestCasesProps> = () => {
                 <Button size="small" onClick={() => handleSelectByType('integration')}>
                   Integration Tests
                 </Button>
+                <Divider type="vertical" />
+                <span style={{ color: '#1890ff', fontSize: '12px' }}>
+                  💡 Select test cases to see bulk actions (Execute, Export, Tag, Delete)
+                </span>
               </Space>
             )}
           </Col>
@@ -951,6 +985,29 @@ const TestCases: React.FC<TestCasesProps> = () => {
 
       {/* Test Cases Table */}
       <Card title={`Test Cases (${totalTests} ${totalTests === 1 ? 'test' : 'tests'})`}>
+        {/* Bulk Actions Help */}
+        {totalTests > 0 && selectedRowKeys.length === 0 && (
+          <div style={{ 
+            marginBottom: 16, 
+            padding: 12, 
+            backgroundColor: '#f6ffed', 
+            border: '1px solid #b7eb8f', 
+            borderRadius: 6,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }}>
+            <span style={{ fontSize: '16px' }}>💡</span>
+            <div>
+              <Text strong style={{ color: '#52c41a' }}>Bulk Actions Available:</Text>
+              <Text style={{ marginLeft: 8, color: '#8c8c8c' }}>
+                Select test cases using checkboxes to access bulk operations including 
+                <Text strong style={{ color: '#ff4d4f' }}> Delete</Text>, Execute, Export, and Tag
+              </Text>
+            </div>
+          </div>
+        )}
+        
         <TestCaseTable
           tests={filteredTests || []}
           loading={isLoading}

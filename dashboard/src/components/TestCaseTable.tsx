@@ -7,6 +7,7 @@ import {
   Tooltip,
   Typography,
   Badge,
+  Popconfirm,
 } from 'antd'
 import {
   EyeOutlined,
@@ -17,6 +18,7 @@ import {
   UserOutlined,
   CodeOutlined,
   FunctionOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons'
 import { TestCase } from '../services/api'
 
@@ -245,13 +247,29 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
             />
           </Tooltip>
           <Tooltip title="Delete Test">
-            <Button
-              type="text"
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={() => onDelete(record.id)}
-              danger
-            />
+            <Popconfirm
+              title="Delete Test Case"
+              description={
+                <div>
+                  <p>Are you sure you want to delete "{record.name}"?</p>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#8c8c8c' }}>
+                    This action cannot be undone.
+                  </p>
+                </div>
+              }
+              onConfirm={() => onDelete(record.id)}
+              okText="Yes, Delete"
+              cancelText="Cancel"
+              okType="danger"
+              icon={<ExclamationCircleOutlined style={{ color: 'red' }} />}
+            >
+              <Button
+                type="text"
+                size="small"
+                icon={<DeleteOutlined />}
+                danger
+              />
+            </Popconfirm>
           </Tooltip>
         </Space>
       ),

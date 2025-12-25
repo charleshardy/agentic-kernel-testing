@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { Alert } from 'antd'
 import DashboardLayout from './components/Layout/DashboardLayout-simple'
 import Dashboard from './pages/Dashboard-fixed'
-import TestCases from './pages/TestCases-working'
+import TestCases from './pages/TestCases-complete'
 import TestExecutionDebugWorking from './pages/TestExecutionDebug-working'
 import ExecutionDebug from './pages/ExecutionDebug'
 // Import other pages as needed - we'll add them back gradually

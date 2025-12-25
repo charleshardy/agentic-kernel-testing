@@ -12,6 +12,7 @@ import TestResults from './pages/TestResults'
 import Coverage from './pages/Coverage'
 import Performance from './pages/Performance'
 import Settings from './pages/Settings'
+import SyntaxHighlightTest from './components/SyntaxHighlightTest'
 
 
 const { Content } = Layout
@@ -52,6 +53,7 @@ function App() {
             <Route path="/coverage" element={<Coverage />} />
             <Route path="/performance" element={<Performance />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/syntax-test" element={<SyntaxHighlightTest />} />
             {/* Catch-all route */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
