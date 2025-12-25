@@ -462,6 +462,52 @@ const TestCaseModal: React.FC<TestCaseModalProps> = ({
                   </div>
                 </>
               )}
+
+              {/* Test Script Section - Merged from Test Script Tab */}
+              <Divider orientation="left">
+                <Space>
+                  <CodeOutlined />
+                  Test Script
+                </Space>
+              </Divider>
+              <Alert
+                message="Test Script"
+                description="This is the executable test script that will be run during test execution."
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+              />
+              <Card size="small" title="Script Content">
+                <SyntaxHighlighter
+                  language="bash"
+                  style={tomorrow}
+                  customStyle={{
+                    margin: 0,
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    lineHeight: '1.45',
+                    maxHeight: '400px',
+                    overflow: 'auto',
+                  }}
+                  showLineNumbers={true}
+                  wrapLines={true}
+                  codeTagProps={{
+                    style: {
+                      fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+                    }
+                  }}
+                >
+                  {testCase.test_script || '# No test script available'}
+                </SyntaxHighlighter>
+              </Card>
+              {testCase.test_script && (
+                <div style={{ marginTop: 16 }}>
+                  <Text type="secondary">
+                    Script length: {testCase.test_script.length} characters, 
+                    {testCase.test_script.split('\n').length} lines
+                  </Text>
+                </div>
+              )}
             </div>
           ) : (
             <Form form={form} layout="vertical">
@@ -537,62 +583,14 @@ const TestCaseModal: React.FC<TestCaseModalProps> = ({
                   </Form.Item>
                 </Col>
               </Row>
-            </Form>
-          )}
-        </TabPane>
 
-        <TabPane
-          tab={
-            <span>
-              <CodeOutlined />
-              Test Script
-            </span>
-          }
-          key="script"
-        >
-          {mode === 'view' ? (
-            <div>
-              <Alert
-                message="Test Script"
-                description="This is the executable test script that will be run during test execution."
-                type="info"
-                showIcon
-                style={{ marginBottom: 16 }}
-              />
-              <Card size="small" title="Script Content">
-                <SyntaxHighlighter
-                  language="bash"
-                  style={tomorrow}
-                  customStyle={{
-                    margin: 0,
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    lineHeight: '1.45',
-                    maxHeight: '400px',
-                    overflow: 'auto',
-                  }}
-                  showLineNumbers={true}
-                  wrapLines={true}
-                  codeTagProps={{
-                    style: {
-                      fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
-                    }
-                  }}
-                >
-                  {testCase.test_script || '# No test script available'}
-                </SyntaxHighlighter>
-              </Card>
-              {testCase.test_script && (
-                <div style={{ marginTop: 16 }}>
-                  <Text type="secondary">
-                    Script length: {testCase.test_script.length} characters, 
-                    {testCase.test_script.split('\n').length} lines
-                  </Text>
-                </div>
-              )}
-            </div>
-          ) : (
-            <Form form={form} layout="vertical">
+              {/* Test Script Editor Section - Merged from Test Script Tab */}
+              <Divider orientation="left">
+                <Space>
+                  <CodeOutlined />
+                  Test Script
+                </Space>
+              </Divider>
               <Alert
                 message="Test Script Editor"
                 description="Edit the test script below. The script should be executable code that validates the functionality."
