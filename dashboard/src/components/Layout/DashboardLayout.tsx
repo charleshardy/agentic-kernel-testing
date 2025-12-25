@@ -76,6 +76,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       label: 'Test Execution',
     },
     {
+      key: '/execution-monitor',
+      icon: <BarChartOutlined />,
+      label: 'Execution Monitor',
+    },
+    {
       key: '/results',
       icon: <BarChartOutlined />,
       label: 'Test Results',
