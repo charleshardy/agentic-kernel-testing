@@ -30,7 +30,6 @@ import {
   FunctionOutlined,
   DownOutlined,
   RightOutlined,
-  ConsoleOutlined,
 } from '@ant-design/icons'
 import { useQuery, useQueryClient } from 'react-query'
 import apiService from '../services/api'
@@ -257,7 +256,7 @@ const TestExecutionDebug: React.FC = () => {
           
           <Button
             size="small"
-            icon={<ConsoleOutlined />}
+            icon={<CodeOutlined />}
             onClick={() => {
               setSelectedExecutionForConsole(record.plan_id)
               setActiveTab('console')
@@ -576,7 +575,7 @@ const TestExecutionDebug: React.FC = () => {
         <TabPane 
           tab={
             <Space>
-              <ConsoleOutlined />
+              <CodeOutlined />
               Console
               {selectedExecutionForConsole && (
                 <Tag size="small">{selectedExecutionForConsole.slice(0, 8)}...</Tag>
@@ -594,7 +593,7 @@ const TestExecutionDebug: React.FC = () => {
           {!selectedExecutionForConsole && (
             <Card style={{ marginTop: 16 }}>
               <div style={{ textAlign: 'center', padding: '20px' }}>
-                <ConsoleOutlined style={{ fontSize: '48px', color: '#ccc', marginBottom: '16px' }} />
+                <CodeOutlined style={{ fontSize: '48px', color: '#ccc', marginBottom: '16px' }} />
                 <Title level={4} type="secondary">No Execution Selected</Title>
                 <Text type="secondary">
                   Click the "Console" button next to an execution to view its real-time logs

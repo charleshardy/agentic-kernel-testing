@@ -13,9 +13,17 @@ export default defineConfig({
         secure: false,
       },
     },
+    // Add middleware to log requests
+    middlewareMode: false,
   },
   build: {
     outDir: 'dist',
     sourcemap: true,
   },
+  // Add resolve alias for debugging
+  resolve: {
+    alias: {
+      '@': '/src'
+    }
+  }
 })
