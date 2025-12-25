@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Kernel Driver Form Fix</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Test Kernel Driver Form Fix</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Direct API Call (Kernel Driver)</h2>
+        <button onclick="testKernelDriverAPI()">Test Kernel Driver API</button>
+        <div id="kernel-api-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Form Validation Simulation</h2>
+        <button onclick="testFormValidation()">Test Form Validation</button>
+        <div id="form-validation-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Frontend Integration Test</h2>
+        <p>Open browser console and navigate to Test Cases page, then:</p>
+        <ol>
+            <li>Click "AI Generate Tests"</li>
+            <li>Switch to "Kernel Driver" tab</li>
+            <li>Fill in the form:
+                <ul>
+                    <li>Function Name: test_func</li>
+                    <li>File Path: test.c</li>
+                    <li>Subsystem: kernel/core</li>
+                    <li>Test Types: unit, integration</li>
+                </ul>
+            </li>
+            <li>Click Submit</li>
+            <li>Check console for validation and API call logs</li>
+        </ol>
+    </div>
+
+    <script>
+        async function testKernelDriverAPI() {
+            const resultDiv = document.getElementById('kernel-api-result');
+            resultDiv.innerHTML = '<div class="info">Testing kernel driver API...</div>';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/tests/generate-kernel-driver?function_name=test_func&file_path=test.c&subsystem=kernel/core&test_types=unit,integration', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Status:', response.status);
+                const data = await response.json();
+                console.log('Response:', data);
+                
+                if (response.ok && data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ API call successful!</div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ API call failed</div>
+                        <pre>Status: ${response.status}\n${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = `
+                    <div class="error">❌ Network error: ${error.message}</div>
+                `;
+            }
+        }
+
+        function testFormValidation() {
+            const resultDiv = document.getElementById('form-validation-result');
+            
+            // Simulate form validation logic
+            const mockFormValues = {
+                kernelFunctionName: 'test_func',
+                kernelFilePath: 'test.c',
+                kernelSubsystem: 'kernel/core',
+                kernelTestTypes: ['unit', 'integration']
+            };
+            
+            const fieldsToValidate = ['kernelFunctionName', 'kernelFilePath', 'kernelSubsystem', 'kernelTestTypes'];
+            
+            let validationResult = true;
+            let missingFields = [];
+            
+            fieldsToValidate.forEach(field => {
+                if (!mockFormValues[field] || (Array.isArray(mockFormValues[field]) && mockFormValues[field].length === 0)) {
+                    validationResult = false;
+                    missingFields.push(field);
+                }
+            });
+            
+            if (validationResult) {
+                resultDiv.innerHTML = `
+                    <div class="success">✅ Form validation passed!</div>
+                    <pre>Fields validated: ${fieldsToValidate.join(', ')}\nValues: ${JSON.stringify(mockFormValues, null, 2)}</pre>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="error">❌ Form validation failed</div>
+                    <pre>Missing fields: ${missingFields.join(', ')}</pre>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

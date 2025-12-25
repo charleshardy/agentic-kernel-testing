@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { Row, Col, Card, Statistic, Progress, List, Tag, Space, Typography, Alert, Badge } from 'antd'
+import { Row, Col, Card, Statistic, Progress, List, Tag, Space, Typography, Alert, Badge, Button } from 'antd'
 import {
   ExperimentOutlined,
   CheckCircleOutlined,
@@ -7,16 +7,20 @@ import {
   ClockCircleOutlined,
   LoadingOutlined,
   WarningOutlined,
+  RobotOutlined,
 } from '@ant-design/icons'
 import { useQuery } from 'react-query'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { useDashboardStore } from '../store'
 import apiService, { ExecutionPlanStatus, TestResult } from '../services/api'
 import webSocketService from '../services/websocket'
+import { useNavigate } from 'react-router-dom'
 
 const { Title, Text } = Typography
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate()
+  
   // Add error boundary to catch any rendering issues
   try {
   const {
@@ -199,7 +203,22 @@ const Dashboard: React.FC = () => {
 
   return (
     <div>
-      <Title level={2}>Dashboard</Title>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <Title level={2} style={{ margin: 0 }}>Dashboard</Title>
+        <Button 
+          type="primary" 
+          size="large"
+          icon={<RobotOutlined />}
+          onClick={() => navigate('/workflow')}
+          style={{ 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            border: 'none',
+            boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
+          }}
+        >
+          View Complete Workflow Diagram
+        </Button>
+      </div>
       
       {/* Connection and Demo Data Notice */}
       {healthError ? (
@@ -238,6 +257,63 @@ const Dashboard: React.FC = () => {
           </Col>
         </Row>
       )}
+
+      {/* Workflow Diagram Quick Access */}
+      <Row style={{ marginBottom: 24 }}>
+        <Col span={24}>
+          <Card 
+            style={{ 
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              border: 'none',
+              color: 'white'
+            }}
+            bodyStyle={{ padding: '24px' }}
+          >
+            <Row align="middle">
+              <Col xs={24} md={18}>
+                <Space direction="vertical" size="small">
+                  <Title level={3} style={{ color: 'white', margin: 0 }}>
+                    <RobotOutlined style={{ marginRight: '8px' }} />
+                    Complete Workflow Diagram
+                  </Title>
+                  <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: '16px' }}>
+                    Interactive visualization of the autonomous AI-powered testing workflow with 8 phases and 25+ steps
+                  </Text>
+                  <Space wrap>
+                    <Tag color="rgba(255,255,255,0.2)" style={{ color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}>
+                      🤖 AI-Powered Analysis
+                    </Tag>
+                    <Tag color="rgba(255,255,255,0.2)" style={{ color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}>
+                      🖥️ Multi-Environment Testing
+                    </Tag>
+                    <Tag color="rgba(255,255,255,0.2)" style={{ color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}>
+                      📊 Real-Time Monitoring
+                    </Tag>
+                  </Space>
+                </Space>
+              </Col>
+              <Col xs={24} md={6} style={{ textAlign: 'center' }}>
+                <Button 
+                  type="default"
+                  size="large"
+                  icon={<RobotOutlined />}
+                  onClick={() => navigate('/workflow')}
+                  style={{ 
+                    background: 'white',
+                    color: '#667eea',
+                    border: 'none',
+                    fontWeight: 'bold',
+                    height: '48px',
+                    minWidth: '200px'
+                  }}
+                >
+                  Open Workflow Diagram
+                </Button>
+              </Col>
+            </Row>
+          </Card>
+        </Col>
+      </Row>
 
       {/* System Metrics Cards */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>

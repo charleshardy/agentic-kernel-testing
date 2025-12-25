@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Route Test Page</h1>
+    <p>This is a static HTML file to test if routing works at all.</p>
+    <p><strong>Current URL:</strong> <span id="url"></span></p>
+    <p><strong>Current Path:</strong> <span id="path"></span></p>
+    
+    <div>
+        <h3>Test Links</h3>
+        <a href="/workflow-basic">Go to /workflow-basic</a><br>
+        <a href="/workflow-full">Go to /workflow-full</a><br>
+        <a href="/">Go to Dashboard</a><br>
+    </div>
+
+    <script>
+        document.getElementById('url').textContent = window.location.href;
+        document.getElementById('path').textContent = window.location.pathname;
+        
+        console.log('Static test page loaded');
+        console.log('URL:', window.location.href);
+        console.log('Path:', window.location.pathname);
+    </script>
+</body>
+</html>

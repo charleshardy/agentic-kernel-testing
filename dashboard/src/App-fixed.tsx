@@ -13,6 +13,12 @@ import TestResults from './pages/TestResults'
 import Coverage from './pages/Coverage'
 import Performance from './pages/Performance'
 import Settings from './pages/Settings'
+import WorkflowDiagram from './pages/WorkflowDiagram'
+import WorkflowTest from './pages/WorkflowTest'
+import WorkflowMinimal from './pages/WorkflowMinimal'
+import SimpleTest from './pages/SimpleTest'
+import WorkflowDiagnostic from './components/WorkflowDiagnostic'
+import MenuDebugger from './components/MenuDebugger'
 
 // Simple placeholder components for now
 const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
@@ -61,6 +67,12 @@ function App() {
             <Route path="/results" element={<TestResults />} />
             <Route path="/coverage" element={<Coverage />} />
             <Route path="/performance" element={<Performance />} />
+            <Route path="/workflow" element={<WorkflowDiagram />} />
+            <Route path="/workflow-minimal" element={<WorkflowMinimal />} />
+            <Route path="/workflow-test" element={<WorkflowTest />} />
+            <Route path="/workflow-simple" element={<SimpleTest />} />
+            <Route path="/workflow-diagnostic" element={<WorkflowDiagnostic />} />
+            <Route path="/menu-debug" element={<MenuDebugger />} />
             <Route path="/settings" element={<Settings />} />
             {/* Catch-all route */}
             <Route path="*" element={<Navigate to="/" replace />} />

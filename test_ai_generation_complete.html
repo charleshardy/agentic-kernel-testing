@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Complete AI Generation Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; font-size: 12px; }
+        .status { font-weight: bold; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Complete AI Generation Test</h1>
+    <p>This tests all aspects of the AI generation functionality to identify the "undefined" error.</p>
+    
+    <div class="test-section info">
+        <h3>Test Status</h3>
+        <div id="status">Ready to test...</div>
+    </div>
+    
+    <div class="test-section">
+        <h3>1. Backend API Test</h3>
+        <button onclick="testBackendAPI()">Test Backend API</button>
+        <div id="backend-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. Frontend API Service Test</h3>
+        <button onclick="testFrontendAPI()">Test Frontend API Service</button>
+        <div id="frontend-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. Error Simulation Test</h3>
+        <button onclick="testErrorHandling()">Test Error Handling</button>
+        <div id="error-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>4. Network Issues Test</h3>
+        <button onclick="testNetworkIssues()">Test Network Issues</button>
+        <div id="network-result"></div>
+    </div>
+
+    <!-- Include axios to match the frontend -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    
+    <script>
+        function updateStatus(message) {
+            document.getElementById('status').innerHTML = `<div class="status">${message}</div>`;
+        }
+        
+        function addResult(containerId, title, content, type = 'info') {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-section ${type}`;
+            div.innerHTML = `<h4>${title}</h4><pre>${content}</pre>`;
+            container.appendChild(div);
+        }
+        
+        async function testBackendAPI() {
+            updateStatus('Testing backend API...');
+            const container = document.getElementById('backend-result');
+            container.innerHTML = '';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/tests/generate-kernel-driver', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        function_name: 'test_function',
+                        file_path: 'test.c',
+                        subsystem: 'test',
+                        test_types: ['unit']
+                    })
+                });
+                
+                // Actually, the API expects query parameters, not body
+                const url = new URL('http://localhost:8000/api/v1/tests/generate-kernel-driver');
+                url.searchParams.append('function_name', 'test_function');
+                url.searchParams.append('file_path', 'test.c');
+                url.searchParams.append('subsystem', 'test');
+                url.searchParams.append('test_types', 'unit');
+                
+                const response2 = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response2.ok) {
+                    const data = await response2.json();
+                    if (data.success) {
+                        addResult('backend-result', '✅ Backend API Success', JSON.stringify(data, null, 2), 'success');
+                        updateStatus('Backend API working correctly');
+                    } else {
+                        addResult('backend-result', '❌ Backend API Error', JSON.stringify(data, null, 2), 'error');
+                        updateStatus('Backend API returned error');
+                    }
+                } else {
+                    addResult('backend-result', '❌ HTTP Error', `Status: ${response2.status}\\nText: ${await response2.text()}`, 'error');
+                    updateStatus('Backend API HTTP error');
+                }
+                
+            } catch (error) {
+                addResult('backend-result', '❌ Network Error', `Error: ${error.message}\\nStack: ${error.stack}`, 'error');
+                updateStatus('Backend API network error');
+            }
+        }
+        
+        async function testFrontendAPI() {
+            updateStatus('Testing frontend API service...');
+            const container = document.getElementById('frontend-result');
+            container.innerHTML = '';
+            
+            try {
+                // Create axios instance like the frontend does
+                const axiosInstance = axios.create({
+                    baseURL: 'http://localhost:8000/api/v1',
+                    timeout: 30000,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                console.log('Making axios request like frontend...');
+                
+                const response = await axiosInstance.post('/tests/generate-kernel-driver', null, {
+                    params: {
+                        function_name: 'test_function',
+                        file_path: 'test.c',
+                        subsystem: 'test',
+                        test_types: ['unit', 'integration']
+                    }
+                });
+                
+                console.log('Frontend-style axios response:', response);
+                
+                if (response.data.success) {
+                    addResult('frontend-result', '✅ Frontend API Success', JSON.stringify(response.data, null, 2), 'success');
+                    updateStatus('Frontend API service working correctly');
+                } else {
+                    addResult('frontend-result', '❌ Frontend API Error', JSON.stringify(response.data, null, 2), 'error');
+                    updateStatus('Frontend API service returned error');
+                }
+                
+            } catch (error) {
+                console.error('Frontend API error:', error);
+                
+                // Test the improved error handling
+                let errorMessage = 'Unknown error';
+                let errorDetails = '';
+                
+                if (error?.response?.data?.message) {
+                    errorMessage = error.response.data.message;
+                } else if (error?.message) {
+                    errorMessage = error.message;
+                } else if (error?.response?.status) {
+                    errorMessage = `HTTP ${error.response.status}`;
+                } else {
+                    errorMessage = 'Undefined error (this is the bug!)';
+                }
+                
+                errorDetails = JSON.stringify({
+                    message: error.message,
+                    response: error.response ? {
+                        status: error.response.status,
+                        statusText: error.response.statusText,
+                        data: error.response.data,
+                        headers: error.response.headers
+                    } : null,
+                    request: error.request ? 'Request made but no response received' : null,
+                    config: error.config ? {
+                        url: error.config.url,
+                        method: error.config.method,
+                        params: error.config.params,
+                        baseURL: error.config.baseURL
+                    } : null,
+                    code: error.code,
+                    name: error.name,
+                    stack: error.stack
+                }, null, 2);
+                
+                addResult('frontend-result', `❌ Frontend API Error: ${errorMessage}`, errorDetails, 'error');
+                updateStatus('Frontend API service error - this might be the "undefined" issue');
+            }
+        }
+        
+        async function testErrorHandling() {
+            updateStatus('Testing error handling...');
+            const container = document.getElementById('error-result');
+            container.innerHTML = '';
+            
+            try {
+                // Test with invalid endpoint to trigger error
+                const axiosInstance = axios.create({
+                    baseURL: 'http://localhost:8000/api/v1',
+                    timeout: 30000,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                // This should fail with 404
+                const response = await axiosInstance.post('/tests/invalid-endpoint', null, {
+                    params: {
+                        function_name: 'test_function',
+                        file_path: 'test.c'
+                    }
+                });
+                
+                addResult('error-result', '⚠️ Unexpected Success', 'Expected this to fail but it succeeded', 'info');
+                
+            } catch (error) {
+                console.log('Expected error for testing:', error);
+                
+                // This is the exact same error handling logic from the fixed useAIGeneration hook
+                let errorMessage = 'Failed to generate kernel test driver';
+                
+                if (error?.response?.data?.message) {
+                    errorMessage += `: ${error.response.data.message}`;
+                } else if (error?.message) {
+                    errorMessage += `: ${error.message}`;
+                } else if (error?.response?.status) {
+                    errorMessage += `: HTTP ${error.response.status}`;
+                } else {
+                    errorMessage += ': Unknown error occurred';
+                }
+                
+                const errorAnalysis = {
+                    'Final Error Message': errorMessage,
+                    'error.response?.data?.message': error?.response?.data?.message || 'undefined',
+                    'error.message': error?.message || 'undefined', 
+                    'error.response?.status': error?.response?.status || 'undefined',
+                    'Original Error Object': {
+                        name: error.name,
+                        message: error.message,
+                        code: error.code,
+                        response: error.response ? {
+                            status: error.response.status,
+                            statusText: error.response.statusText,
+                            data: error.response.data
+                        } : null
+                    }
+                };
+                
+                addResult('error-result', '✅ Error Handling Test', JSON.stringify(errorAnalysis, null, 2), 'success');
+                updateStatus('Error handling test completed - shows how errors are processed');
+            }
+        }
+        
+        async function testNetworkIssues() {
+            updateStatus('Testing network issues...');
+            const container = document.getElementById('network-result');
+            container.innerHTML = '';
+            
+            try {
+                // Test with wrong port to simulate network error
+                const axiosInstance = axios.create({
+                    baseURL: 'http://localhost:9999/api/v1', // Wrong port
+                    timeout: 5000,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                const response = await axiosInstance.post('/tests/generate-kernel-driver', null, {
+                    params: {
+                        function_name: 'test_function',
+                        file_path: 'test.c'
+                    }
+                });
+                
+                addResult('network-result', '⚠️ Unexpected Success', 'Expected network error but succeeded', 'info');
+                
+            } catch (error) {
+                console.log('Expected network error:', error);
+                
+                // Test network error handling
+                let errorMessage = 'Failed to generate kernel test driver';
+                
+                if (error?.response?.data?.message) {
+                    errorMessage += `: ${error.response.data.message}`;
+                } else if (error?.message) {
+                    errorMessage += `: ${error.message}`;
+                } else if (error?.response?.status) {
+                    errorMessage += `: HTTP ${error.response.status}`;
+                } else {
+                    errorMessage += ': Unknown error occurred';
+                }
+                
+                const networkErrorAnalysis = {
+                    'Final Error Message': errorMessage,
+                    'Error Type': error.code || 'Unknown',
+                    'Network Error': error.message || 'No message',
+                    'Is Network Error': !error.response,
+                    'Error Details': {
+                        name: error.name,
+                        message: error.message,
+                        code: error.code,
+                        errno: error.errno,
+                        syscall: error.syscall,
+                        address: error.address,
+                        port: error.port
+                    }
+                };
+                
+                addResult('network-result', '✅ Network Error Test', JSON.stringify(networkErrorAnalysis, null, 2), 'success');
+                updateStatus('Network error test completed - shows how network errors are handled');
+            }
+        }
+        
+        // Auto-run tests on page load
+        window.addEventListener('load', async () => {
+            updateStatus('Running automated tests...');
+            
+            await testBackendAPI();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            await testFrontendAPI();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            await testErrorHandling();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            await testNetworkIssues();
+            
+            updateStatus('All tests completed! Check results above.');
+        });
+    </script>
+</body>
+</html>

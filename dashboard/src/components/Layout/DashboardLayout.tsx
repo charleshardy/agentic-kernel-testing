@@ -70,7 +70,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       icon: <ExperimentOutlined />,
       label: 'Test Cases',
     },
-
     {
       key: '/tests',
       icon: <ExperimentOutlined />,
@@ -113,6 +112,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   ]
 
   const handleMenuClick = ({ key }: { key: string }) => {
+    console.log('Menu clicked:', key)
     navigate(key)
   }
 
@@ -206,6 +206,35 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
         <Content className="dashboard-content">
           {children}
+          
+          {/* Floating Workflow Button - Always Visible */}
+          <div style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 1000
+          }}>
+            <Button
+              type="primary"
+              size="large"
+              shape="round"
+              icon={<RobotOutlined />}
+              onClick={() => {
+                console.log('🤖 Floating button clicked - navigating to workflow!')
+                navigate('/workflow')
+              }}
+              style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                border: 'none',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.4)',
+                height: '56px',
+                fontSize: '16px',
+                fontWeight: 'bold'
+              }}
+            >
+              Workflow Diagram
+            </Button>
+          </div>
         </Content>
       </Layout>
     </Layout>

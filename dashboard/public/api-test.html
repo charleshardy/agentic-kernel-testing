@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; }
+        button { padding: 10px 20px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>API Test for Function Generation</h1>
+    
+    <button onclick="testDirectAPI()">Test Direct API Call</button>
+    <button onclick="testWithoutAuth()">Test Without Auth</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <div id="results"></div>
+    
+    <script>
+        function addResult(title, content, isError = false) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${isError ? 'error' : 'success'}`;
+            div.innerHTML = `<h3>${title}</h3><pre>${content}</pre>`;
+            results.appendChild(div);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function testDirectAPI() {
+            addResult('Testing', 'Starting direct API test...');
+            
+            try {
+                const token = localStorage.getItem('auth_token');
+                console.log('Using token:', token ? token.substring(0, 20) + '...' : 'No token');
+                
+                const response = await fetch('/api/v1/tests/generate-from-function?function_name=test_func&file_path=test.c&subsystem=test&max_tests=1', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    }
+                });
+                
+                const responseText = await response.text();
+                
+                addResult(
+                    `Response Status: ${response.status}`,
+                    `Headers: ${JSON.stringify([...response.headers.entries()], null, 2)}\n\nBody: ${responseText}`,
+                    response.status >= 400
+                );
+                
+                if (response.ok) {
+                    const data = JSON.parse(responseText);
+                    addResult('Success!', `Generated ${data.data?.generated_count || 0} test cases`);
+                }
+                
+            } catch (error) {
+                addResult('Error', `${error.name}: ${error.message}\n\nStack: ${error.stack}`, true);
+            }
+        }
+        
+        async function testWithoutAuth() {
+            addResult('Testing', 'Starting test without auth...');
+            
+            try {
+                const response = await fetch('/api/v1/tests/generate-from-function?function_name=test_func&file_path=test.c&subsystem=test&max_tests=1', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const responseText = await response.text();
+                
+                addResult(
+                    `No-Auth Response Status: ${response.status}`,
+                    `Headers: ${JSON.stringify([...response.headers.entries()], null, 2)}\n\nBody: ${responseText}`,
+                    response.status >= 400
+                );
+                
+            } catch (error) {
+                addResult('No-Auth Error', `${error.name}: ${error.message}`, true);
+            }
+        }
+        
+        // Auto-run test on page load
+        window.onload = function() {
+            addResult('Info', `Current URL: ${window.location.href}\nAuth token: ${localStorage.getItem('auth_token') ? 'Present' : 'Missing'}`);
+        };
+    </script>
+</body>
+</html>

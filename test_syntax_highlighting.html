@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Syntax Highlighting</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Test Syntax Highlighting</h1>
+    <p>This tests if the syntax highlighting library works in the browser.</p>
+    
+    <div class="test-section">
+        <h3>Test 1: Load react-syntax-highlighter from CDN</h3>
+        <div id="test1-result">Loading...</div>
+        <pre id="test1-code" style="background: #f8f9fa; padding: 10px; border-radius: 4px;">
+#include &lt;linux/module.h&gt;
+#include &lt;linux/kernel.h&gt;
+
+static int __init test_init(void) {
+    printk(KERN_INFO "Test module loaded\n");
+    return 0;
+}
+
+static void __exit test_exit(void) {
+    printk(KERN_INFO "Test module unloaded\n");
+}
+
+module_init(test_init);
+module_exit(test_exit);
+MODULE_LICENSE("GPL");
+        </pre>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test 2: Check if Frontend is Loading Syntax Highlighting</h3>
+        <div id="test2-result">
+            <p>Open browser developer tools (F12) and check:</p>
+            <ol>
+                <li>Go to <a href="http://localhost:3001" target="_blank">http://localhost:3001</a></li>
+                <li>Navigate to Test Cases page</li>
+                <li>Click "View" on a kernel driver test case</li>
+                <li>Click on "Kernel Driver Files" tab</li>
+                <li>Check Console tab for any errors related to syntax highlighting</li>
+                <li>Check Network tab to see if syntax highlighting CSS/JS files are loading</li>
+            </ol>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test 3: Common Issues</h3>
+        <div>
+            <h4>Possible causes for missing syntax highlighting:</h4>
+            <ul>
+                <li><strong>CSS not loading:</strong> Syntax highlighting styles might not be imported</li>
+                <li><strong>JavaScript errors:</strong> React component might be crashing</li>
+                <li><strong>Import path issues:</strong> Wrong import path for syntax highlighter</li>
+                <li><strong>Bundle size:</strong> Syntax highlighter might be excluded from build</li>
+                <li><strong>Theme not applied:</strong> vscDarkPlus theme might not be loading</li>
+            </ul>
+            
+            <h4>Debug steps:</h4>
+            <ol>
+                <li>Check browser console for JavaScript errors</li>
+                <li>Check if SyntaxHighlighter component is rendering (inspect DOM)</li>
+                <li>Check if CSS classes are being applied</li>
+                <li>Try switching to a different theme (like 'vs' instead of 'vscDarkPlus')</li>
+                <li>Check if the language detection is working correctly</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Test if we can load syntax highlighting from CDN
+        function testCDNLoading() {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js';
+            script.onload = function() {
+                const css = document.createElement('link');
+                css.rel = 'stylesheet';
+                css.href = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-dark.min.css';
+                document.head.appendChild(css);
+                
+                document.getElementById('test1-result').innerHTML = '✅ Prism.js loaded successfully from CDN';
+                
+                // Apply syntax highlighting to the code block
+                const codeBlock = document.getElementById('test1-code');
+                codeBlock.className = 'language-c';
+                if (window.Prism) {
+                    window.Prism.highlightElement(codeBlock);
+                }
+            };
+            script.onerror = function() {
+                document.getElementById('test1-result').innerHTML = '❌ Failed to load Prism.js from CDN';
+            };
+            document.head.appendChild(script);
+        }
+        
+        // Run test on page load
+        window.addEventListener('load', testCDNLoading);
+    </script>
+</body>
+</html>

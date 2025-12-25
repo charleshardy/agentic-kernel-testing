@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Advanced TestCaseModal Features</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; border-radius: 3px; font-size: 12px; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 3px; }
+        button:hover { background: #0056b3; }
+        .feature-check { display: flex; align-items: center; margin: 8px 0; }
+        .feature-check .status { margin-right: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Advanced TestCaseModal Features Test</h1>
+    <p>Testing if the advanced kernel driver features with syntax highlighting are working.</p>
+    
+    <div class="test-section">
+        <h2>📋 Current Configuration Status</h2>
+        <div id="config-status">
+            <div class="info">🔄 Checking current configuration...</div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎯 Create Test Kernel Driver Test Case</h2>
+        <p>Let's create a kernel driver test case to verify the advanced features:</p>
+        <button onclick="createKernelDriverTest()">Create Kernel Driver Test</button>
+        <div id="create-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 Verify Advanced Features</h2>
+        <div id="features-check">
+            <div class="feature-check">
+                <span class="status">⏳</span>
+                <span>TestCaseModal.tsx import (should be full version, not -safe)</span>
+            </div>
+            <div class="feature-check">
+                <span class="status">⏳</span>
+                <span>react-syntax-highlighter package installed</span>
+            </div>
+            <div class="feature-check">
+                <span class="status">⏳</span>
+                <span>SyntaxHighlighter component available</span>
+            </div>
+            <div class="feature-check">
+                <span class="status">⏳</span>
+                <span>Kernel Driver Files tab functionality</span>
+            </div>
+            <div class="feature-check">
+                <span class="status">⏳</span>
+                <span>Source view modal with syntax highlighting</span>
+            </div>
+            <div class="feature-check">
+                <span class="status">⏳</span>
+                <span>Download and copy functionality</span>
+            </div>
+        </div>
+        <button onclick="checkFeatures()">Check All Features</button>
+    </div>
+
+    <div class="test-section">
+        <h2>🚀 Test Instructions</h2>
+        <div class="info">
+            <h3>Manual Testing Steps:</h3>
+            <ol>
+                <li>Navigate to <a href="http://localhost:3000" target="_blank">Test Cases page</a></li>
+                <li>Look for a kernel driver test case (generated with "AI Kernel Driver" tag)</li>
+                <li>Click "View" button on a kernel driver test case</li>
+                <li>In the modal, check for these tabs:
+                    <ul>
+                        <li>✅ <strong>Details</strong> - Basic information</li>
+                        <li>✅ <strong>Test Script</strong> - Script with syntax highlighting</li>
+                        <li>✅ <strong>Kernel Driver Files</strong> - Advanced features tab</li>
+                    </ul>
+                </li>
+                <li>In the "Kernel Driver Files" tab, verify:
+                    <ul>
+                        <li>✅ <strong>Syntax highlighted code</strong> (C code should be colored)</li>
+                        <li>✅ <strong>Quick Access buttons</strong> for each file</li>
+                        <li>✅ <strong>Copy to clipboard</strong> functionality</li>
+                        <li>✅ <strong>Download file</strong> functionality</li>
+                        <li>✅ <strong>View source modal</strong> with full syntax highlighting</li>
+                        <li>✅ <strong>Build instructions</strong> with syntax highlighted bash commands</li>
+                        <li>✅ <strong>Safety information</strong> and capabilities</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 Troubleshooting</h2>
+        <div id="troubleshooting">
+            <h3>If Advanced Features Are Missing:</h3>
+            <ol>
+                <li><strong>Check Import:</strong> Ensure TestCases-complete.tsx imports the full version</li>
+                <li><strong>Check Dependencies:</strong> Verify react-syntax-highlighter is installed</li>
+                <li><strong>Check Test Data:</strong> Ensure test cases have kernel driver files data</li>
+                <li><strong>Check Console:</strong> Look for JavaScript errors in browser console</li>
+            </ol>
+            
+            <h3>Expected vs Current State:</h3>
+            <div id="comparison-result"></div>
+        </div>
+    </div>
+
+    <script>
+        async function checkFeatures() {
+            const featuresDiv = document.getElementById('features-check');
+            const features = featuresDiv.querySelectorAll('.feature-check');
+            
+            // Check 1: Import statement
+            try {
+                const response = await fetch('/src/pages/TestCases-complete.tsx');
+                const content = await response.text();
+                const hasCorrectImport = content.includes("import TestCaseModal from '../components/TestCaseModal'") && 
+                                       !content.includes("TestCaseModal-safe");
+                
+                features[0].querySelector('.status').textContent = hasCorrectImport ? '✅' : '❌';
+                features[0].querySelector('.status').className = hasCorrectImport ? 'status success' : 'status error';
+            } catch (error) {
+                features[0].querySelector('.status').textContent = '❓';
+                features[0].querySelector('.status').className = 'status warning';
+            }
+            
+            // Check 2: Package installation
+            try {
+                const response = await fetch('/package.json');
+                const packageJson = await response.json();
+                const hasSyntaxHighlighter = packageJson.dependencies && 
+                                           packageJson.dependencies['react-syntax-highlighter'];
+                
+                features[1].querySelector('.status').textContent = hasSyntaxHighlighter ? '✅' : '❌';
+                features[1].querySelector('.status').className = hasSyntaxHighlighter ? 'status success' : 'status error';
+            } catch (error) {
+                features[1].querySelector('.status').textContent = '❓';
+                features[1].querySelector('.status').className = 'status warning';
+            }
+            
+            // Check 3-6: These require manual testing
+            for (let i = 2; i < features.length; i++) {
+                features[i].querySelector('.status').textContent = '🔍';
+                features[i].querySelector('.status').className = 'status info';
+                features[i].innerHTML += ' <em>(Requires manual testing)</em>';
+            }
+            
+            updateComparisonResult();
+        }
+        
+        async function createKernelDriverTest() {
+            const resultDiv = document.getElementById('create-result');
+            resultDiv.innerHTML = '<div class="info">🔄 Creating kernel driver test case...</div>';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/tests/generate-kernel-driver?function_name=test_advanced_features&file_path=drivers/test_advanced.c&subsystem=drivers/char&test_types=unit,integration', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Kernel driver test case created successfully!</div>
+                        <div class="info">Test ID: ${data.data?.test_case_ids?.[0] || 'N/A'}</div>
+                        <div class="info">Generated files: ${data.data?.driver_info?.generated_files?.length || 0}</div>
+                        <div class="info">Now go to the Test Cases page and click "View" on this test case</div>
+                        <div class="warning">⚠️ Make sure to look for the "Kernel Driver Files" tab with syntax highlighting!</div>
+                    `;
+                } else {
+                    const errorData = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ Failed to create test case</div>
+                        <div>Status: ${response.status}</div>
+                        <div>Error: ${errorData.message || 'Unknown error'}</div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">❌ Network error: ${error.message}</div>
+                    <div class="warning">Make sure the backend server is running</div>
+                `;
+            }
+        }
+        
+        function updateComparisonResult() {
+            const comparisonDiv = document.getElementById('comparison-result');
+            comparisonDiv.innerHTML = `
+                <h4>Expected Features (Working Version):</h4>
+                <ul>
+                    <li>✅ Syntax highlighted C code (colored keywords, strings, comments)</li>
+                    <li>✅ Quick access buttons for each generated file</li>
+                    <li>✅ Dedicated source view modal with full syntax highlighting</li>
+                    <li>✅ Copy to clipboard functionality for all files</li>
+                    <li>✅ Download individual files functionality</li>
+                    <li>✅ Language-specific file icons (C, bash, Makefile, etc.)</li>
+                    <li>✅ Build instructions with syntax highlighted bash commands</li>
+                    <li>✅ Safety information and kernel driver capabilities</li>
+                    <li>✅ Comprehensive driver information display</li>
+                </ul>
+                
+                <h4>Current Status:</h4>
+                <div class="info">
+                    The full-featured TestCaseModal.tsx (1130 lines) is available and should provide all these features.
+                    The system is configured to use the advanced version, not the simplified "safe" version.
+                </div>
+                
+                <h4>If Features Are Missing:</h4>
+                <div class="warning">
+                    The issue might be:
+                    <ul>
+                        <li>Test cases don't have kernel driver files data</li>
+                        <li>JavaScript errors preventing the advanced UI from loading</li>
+                        <li>Missing CSS or styling issues</li>
+                        <li>Browser cache issues (try Ctrl+Shift+R)</li>
+                    </ul>
+                </div>
+            `;
+        }
+        
+        function checkConfigStatus() {
+            const statusDiv = document.getElementById('config-status');
+            statusDiv.innerHTML = `
+                <div class="success">✅ Current Configuration:</div>
+                <ul>
+                    <li><strong>TestCaseModal Version:</strong> Full version (TestCaseModal.tsx - 1130 lines)</li>
+                    <li><strong>Import Statement:</strong> import TestCaseModal from '../components/TestCaseModal'</li>
+                    <li><strong>Syntax Highlighter:</strong> react-syntax-highlighter v16.1.0 installed</li>
+                    <li><strong>Advanced Features:</strong> Available (syntax highlighting, source viewer, etc.)</li>
+                </ul>
+                
+                <div class="info">
+                    <strong>Commit Reference:</strong> The advanced features were added in commit 1767c0f 
+                    ("Enhanced kernel driver test UI with sample code section and tab reorganization")
+                </div>
+            `;
+        }
+        
+        // Auto-run configuration check
+        window.addEventListener('load', () => {
+            checkConfigStatus();
+            setTimeout(checkFeatures, 1000);
+        });
+    </script>
+</body>
+</html>

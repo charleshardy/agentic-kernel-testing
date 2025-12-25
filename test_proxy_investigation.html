@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proxy Investigation</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; border-radius: 3px; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 3px; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Proxy Investigation - Current State</h1>
+    <p>Testing the current state of the Vite proxy configuration and API connectivity.</p>
+    
+    <div class="test-section">
+        <h2>🧪 Test 1: Vite Proxy Health Check</h2>
+        <p>Testing if the Vite proxy can reach the backend health endpoint:</p>
+        <button onclick="testProxyHealth()">Test Proxy Health</button>
+        <div id="proxy-health-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Test 2: Direct Backend Connection</h2>
+        <p>Testing direct connection to backend (bypassing proxy):</p>
+        <button onclick="testDirectBackend()">Test Direct Backend</button>
+        <div id="direct-backend-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Test 3: Kernel Driver API via Proxy</h2>
+        <p>Testing the specific kernel driver endpoint through proxy:</p>
+        <button onclick="testKernelDriverProxy()">Test Kernel Driver (Proxy)</button>
+        <div id="kernel-proxy-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Test 4: Kernel Driver API Direct</h2>
+        <p>Testing the specific kernel driver endpoint directly:</p>
+        <button onclick="testKernelDriverDirect()">Test Kernel Driver (Direct)</button>
+        <div id="kernel-direct-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Investigation Results</h2>
+        <div id="investigation-summary"></div>
+    </div>
+
+    <script>
+        let testResults = {
+            proxyHealth: null,
+            directBackend: null,
+            kernelProxy: null,
+            kernelDirect: null
+        };
+
+        async function testProxyHealth() {
+            const resultDiv = document.getElementById('proxy-health-result');
+            resultDiv.innerHTML = '<div class="info">🔄 Testing proxy health...</div>';
+            
+            try {
+                const response = await fetch('/api/v1/health', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Proxy Health - Status:', response.status);
+                console.log('Proxy Health - URL:', response.url);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Proxy Health - Response:', data);
+                    
+                    testResults.proxyHealth = { success: true, status: response.status, data };
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Proxy health check successful!</div>
+                        <div class="info">Status: ${response.status}</div>
+                        <div class="info">Final URL: ${response.url}</div>
+                        <details>
+                            <summary>Response Data</summary>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </details>
+                    `;
+                } else {
+                    const errorText = await response.text();
+                    testResults.proxyHealth = { success: false, status: response.status, error: errorText };
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ Proxy health check failed</div>
+                        <div>Status: ${response.status}</div>
+                        <div>URL: ${response.url}</div>
+                        <pre>${errorText}</pre>
+                    `;
+                }
+            } catch (error) {
+                console.error('Proxy Health Error:', error);
+                testResults.proxyHealth = { success: false, error: error.message };
+                resultDiv.innerHTML = `
+                    <div class="error">❌ Proxy connection error: ${error.message}</div>
+                    <div class="warning">This indicates the Vite proxy is not working</div>
+                `;
+            }
+            
+            updateSummary();
+        }
+
+        async function testDirectBackend() {
+            const resultDiv = document.getElementById('direct-backend-result');
+            resultDiv.innerHTML = '<div class="info">🔄 Testing direct backend connection...</div>';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/health', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Direct Backend - Status:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Direct Backend - Response:', data);
+                    
+                    testResults.directBackend = { success: true, status: response.status, data };
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Direct backend connection successful!</div>
+                        <div class="info">Status: ${response.status}</div>
+                        <div class="info">Backend is running and accessible</div>
+                        <details>
+                            <summary>Response Data</summary>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </details>
+                    `;
+                } else {
+                    const errorText = await response.text();
+                    testResults.directBackend = { success: false, status: response.status, error: errorText };
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ Direct backend connection failed</div>
+                        <div>Status: ${response.status}</div>
+                        <pre>${errorText}</pre>
+                    `;
+                }
+            } catch (error) {
+                console.error('Direct Backend Error:', error);
+                testResults.directBackend = { success: false, error: error.message };
+                resultDiv.innerHTML = `
+                    <div class="error">❌ Direct backend connection error: ${error.message}</div>
+                    <div class="warning">Backend server may not be running on port 8000</div>
+                `;
+            }
+            
+            updateSummary();
+        }
+
+        async function testKernelDriverProxy() {
+            const resultDiv = document.getElementById('kernel-proxy-result');
+            resultDiv.innerHTML = '<div class="info">🔄 Testing kernel driver API via proxy...</div>';
+            
+            try {
+                const response = await fetch('/api/v1/tests/generate-kernel-driver?function_name=test_func&file_path=test.c&subsystem=kernel/core&test_types=unit,integration', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Kernel Proxy - Status:', response.status);
+                console.log('Kernel Proxy - URL:', response.url);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Kernel Proxy - Response:', data);
+                    
+                    testResults.kernelProxy = { success: true, status: response.status, data };
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Kernel driver API via proxy successful!</div>
+                        <div class="info">Status: ${response.status}</div>
+                        <div class="info">Generated: ${data.data?.generated_count || 'N/A'} test cases</div>
+                        <details>
+                            <summary>Response Data</summary>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </details>
+                    `;
+                } else {
+                    const errorText = await response.text();
+                    testResults.kernelProxy = { success: false, status: response.status, error: errorText };
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ Kernel driver API via proxy failed</div>
+                        <div>Status: ${response.status}</div>
+                        <div>URL: ${response.url}</div>
+                        <pre>${errorText}</pre>
+                    `;
+                }
+            } catch (error) {
+                console.error('Kernel Proxy Error:', error);
+                testResults.kernelProxy = { success: false, error: error.message };
+                resultDiv.innerHTML = `
+                    <div class="error">❌ Kernel driver proxy error: ${error.message}</div>
+                `;
+            }
+            
+            updateSummary();
+        }
+
+        async function testKernelDriverDirect() {
+            const resultDiv = document.getElementById('kernel-direct-result');
+            resultDiv.innerHTML = '<div class="info">🔄 Testing kernel driver API directly...</div>';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/tests/generate-kernel-driver?function_name=test_func&file_path=test.c&subsystem=kernel/core&test_types=unit,integration', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Kernel Direct - Status:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Kernel Direct - Response:', data);
+                    
+                    testResults.kernelDirect = { success: true, status: response.status, data };
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Kernel driver API direct connection successful!</div>
+                        <div class="info">Status: ${response.status}</div>
+                        <div class="info">Generated: ${data.data?.generated_count || 'N/A'} test cases</div>
+                        <details>
+                            <summary>Response Data</summary>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </details>
+                    `;
+                } else {
+                    const errorText = await response.text();
+                    testResults.kernelDirect = { success: false, status: response.status, error: errorText };
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ Kernel driver API direct connection failed</div>
+                        <div>Status: ${response.status}</div>
+                        <pre>${errorText}</pre>
+                    `;
+                }
+            } catch (error) {
+                console.error('Kernel Direct Error:', error);
+                testResults.kernelDirect = { success: false, error: error.message };
+                resultDiv.innerHTML = `
+                    <div class="error">❌ Kernel driver direct connection error: ${error.message}</div>
+                `;
+            }
+            
+            updateSummary();
+        }
+
+        function updateSummary() {
+            const summaryDiv = document.getElementById('investigation-summary');
+            
+            const completedTests = Object.values(testResults).filter(result => result !== null).length;
+            const totalTests = Object.keys(testResults).length;
+            
+            if (completedTests === 0) {
+                summaryDiv.innerHTML = '<div class="info">Run tests to see investigation summary...</div>';
+                return;
+            }
+            
+            let summary = `<h3>Investigation Summary (${completedTests}/${totalTests} tests completed)</h3>`;
+            
+            // Analyze results
+            const proxyWorking = testResults.proxyHealth?.success;
+            const backendWorking = testResults.directBackend?.success;
+            const kernelProxyWorking = testResults.kernelProxy?.success;
+            const kernelDirectWorking = testResults.kernelDirect?.success;
+            
+            if (backendWorking && !proxyWorking) {
+                summary += '<div class="warning">⚠️ Backend is working but Vite proxy is broken</div>';
+                summary += '<div class="info">This explains why the frontend had network errors</div>';
+            } else if (!backendWorking) {
+                summary += '<div class="error">❌ Backend server is not running or accessible</div>';
+            } else if (proxyWorking && backendWorking) {
+                summary += '<div class="success">✅ Both proxy and backend are working correctly</div>';
+            }
+            
+            if (kernelDirectWorking && !kernelProxyWorking) {
+                summary += '<div class="warning">⚠️ Kernel API works directly but not through proxy</div>';
+            } else if (kernelDirectWorking && kernelProxyWorking) {
+                summary += '<div class="success">✅ Kernel API works both directly and through proxy</div>';
+            }
+            
+            // Recommendations
+            summary += '<h4>Recommendations:</h4>';
+            if (backendWorking && !proxyWorking) {
+                summary += '<div class="info">• Continue using direct URLs in API service as workaround</div>';
+                summary += '<div class="info">• Investigate Vite proxy configuration or restart dev server</div>';
+            } else if (proxyWorking && backendWorking) {
+                summary += '<div class="info">• Proxy is working - can revert to using proxy URLs</div>';
+                summary += '<div class="info">• Update API service to use /api/v1 instead of direct URLs</div>';
+            }
+            
+            summaryDiv.innerHTML = summary;
+        }
+
+        // Auto-run basic tests on page load
+        window.addEventListener('load', () => {
+            console.log('🧪 Starting automatic proxy investigation...');
+            setTimeout(() => {
+                testProxyHealth();
+                setTimeout(() => testDirectBackend(), 1000);
+            }, 500);
+        });
+    </script>
+</body>
+</html>

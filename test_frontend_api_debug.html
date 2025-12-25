@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend API Debug Test</title>
+</head>
+<body>
+    <h1>Frontend API Debug Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        async function testFrontendAPICall() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Testing frontend API call...</p>';
+            
+            try {
+                // Test the exact same call the frontend makes
+                const response = await fetch('/api/v1/tests/generate-from-function', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        function_name: 'test_function',
+                        file_path: 'test.c',
+                        subsystem: 'test',
+                        max_tests: 5
+                    })
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                results.innerHTML = `
+                    <h2>✅ Success!</h2>
+                    <p><strong>Status:</strong> ${response.status}</p>
+                    <p><strong>Response:</strong></p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                results.innerHTML = `
+                    <h2>❌ Error</h2>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <p><strong>Type:</strong> ${error.constructor.name}</p>
+                `;
+            }
+        }
+        
+        // Test with query parameters (like the actual frontend does)
+        async function testWithQueryParams() {
+            const results = document.getElementById('results');
+            results.innerHTML += '<p>Testing with query parameters...</p>';
+            
+            try {
+                const params = new URLSearchParams({
+                    function_name: 'test_function',
+                    file_path: 'test.c', 
+                    subsystem: 'test',
+                    max_tests: '5'
+                });
+                
+                const response = await fetch(`/api/v1/tests/generate-from-function?${params}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                console.log('Query params response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('Query params response data:', data);
+                
+                results.innerHTML += `
+                    <h2>✅ Query Params Success!</h2>
+                    <p><strong>Status:</strong> ${response.status}</p>
+                    <p><strong>Response:</strong></p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                console.error('Query params error:', error);
+                results.innerHTML += `
+                    <h2>❌ Query Params Error</h2>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                `;
+            }
+        }
+        
+        // Run tests when page loads
+        window.onload = async function() {
+            await testFrontendAPICall();
+            await testWithQueryParams();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Delete Verification Guide</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+        .step { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        .highlight { background: #fff3cd; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; border-radius: 3px; font-size: 12px; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 3px; }
+        button:hover { background: #0056b3; }
+        .visual-guide { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        .checkbox { display: inline-block; width: 15px; height: 15px; border: 2px solid #007bff; margin-right: 5px; }
+        .delete-btn { background: #dc3545; color: white; padding: 4px 8px; border-radius: 3px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Bulk Delete Functionality Verification Guide</h1>
+    
+    <div class="highlight">
+        <h2>🎯 Updated: Delete Functionality Now More Visible!</h2>
+        <p>I've enhanced the TestCases page to make the bulk delete functionality more prominent:</p>
+        <ul>
+            <li>✅ Added helpful hint about bulk actions when no tests are selected</li>
+            <li>✅ Added visual guide above the table explaining how to access delete</li>
+            <li>✅ Made the delete button more prominent in bulk actions</li>
+        </ul>
+    </div>
+
+    <div class="step">
+        <h2>📋 Step-by-Step Guide to Access Delete Functionality</h2>
+        
+        <h3>🚀 Step 1: Open Test Cases Page</h3>
+        <button onclick="openTestCasesPage()">Open Test Cases Page</button>
+        <p>Navigate to: <a href="http://localhost:3000/test-cases" target="_blank">http://localhost:3000/test-cases</a></p>
+        
+        <h3>📊 Step 2: Ensure You Have Test Cases</h3>
+        <div class="info">
+            <p>If you don't see any test cases in the table:</p>
+            <ol>
+                <li>Click the <strong>"AI Generate Tests"</strong> button</li>
+                <li>Choose any tab (From Diff, From Function, or Kernel Driver)</li>
+                <li>Fill in the form and generate some test cases</li>
+                <li>Wait for the test cases to appear in the table</li>
+            </ol>
+        </div>
+        
+        <h3>☑️ Step 3: Select Test Cases</h3>
+        <div class="visual-guide">
+            <p><strong>Look for checkboxes in the leftmost column:</strong></p>
+            <div style="font-family: monospace; font-size: 14px; margin: 10px 0;">
+                <div><span class="checkbox">☐</span> Test Case 1 &nbsp;&nbsp; UNIT &nbsp;&nbsp; kernel/mm &nbsp;&nbsp; AI &nbsp;&nbsp; Never Run &nbsp;&nbsp; 1h ago &nbsp;&nbsp; 👁️ ✏️ ▶️ 🗑️</div>
+                <div><span class="checkbox">☐</span> Test Case 2 &nbsp;&nbsp; INT &nbsp;&nbsp; kernel/fs &nbsp;&nbsp; Manual &nbsp;&nbsp; Completed &nbsp;&nbsp; 2h ago &nbsp;&nbsp; 👁️ ✏️ ▶️ 🗑️</div>
+            </div>
+            <p><strong>Click the checkboxes to select test cases!</strong></p>
+        </div>
+        
+        <h3>🗑️ Step 4: Access Bulk Delete</h3>
+        <div class="visual-guide">
+            <p><strong>After selecting test cases, you'll see bulk actions appear:</strong></p>
+            <div style="font-family: monospace; font-size: 14px; margin: 10px 0; padding: 10px; background: #e8f5e8; border-radius: 5px;">
+                2 test cases selected | [Execute] [Export] [Tag] [<span class="delete-btn">🗑️ Delete</span>] [Clear Selection]
+            </div>
+            <p><strong>Click the red "Delete" button to bulk delete selected test cases!</strong></p>
+        </div>
+        
+        <h3>🎯 Individual Delete (Alternative)</h3>
+        <div class="visual-guide">
+            <p><strong>You can also delete individual test cases:</strong></p>
+            <ul>
+                <li>Look for the red trash icon (🗑️) in the Actions column of each test case</li>
+                <li>Click the trash icon → Confirmation dialog appears</li>
+                <li>Click "Yes, Delete" to confirm</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="step">
+        <h2>🔍 What You Should See Now</h2>
+        
+        <h3>✅ Enhanced Visual Cues:</h3>
+        <ul>
+            <li><strong>Helpful Hint:</strong> Blue text saying "💡 Select test cases to see bulk actions (Execute, Export, Tag, Delete)"</li>
+            <li><strong>Bulk Actions Guide:</strong> Green info box above the table explaining how to access bulk operations</li>
+            <li><strong>Quick Select Buttons:</strong> "All", "Never Run", "Failed", etc. to quickly select test cases</li>
+        </ul>
+        
+        <h3>🎯 Expected Behavior:</h3>
+        <ol>
+            <li>When no tests are selected: You see quick select buttons and helpful hints</li>
+            <li>When tests are selected: Bulk action buttons appear including red "Delete" button</li>
+            <li>Delete button shows confirmation dialog with count of selected tests</li>
+            <li>Progress indicator shows deletion progress</li>
+            <li>Success message confirms deletion completion</li>
+        </ol>
+    </div>
+
+    <div class="step">
+        <h2>🚨 Troubleshooting</h2>
+        
+        <h3>If you still can't see the delete functionality:</h3>
+        
+        <div class="warning">
+            <h4>1. Hard Refresh Browser</h4>
+            <button onclick="hardRefresh()">Instructions for Hard Refresh</button>
+            <p>Press Ctrl+F5 (Windows/Linux) or Cmd+Shift+R (Mac) to force reload</p>
+        </div>
+        
+        <div class="warning">
+            <h4>2. Check Browser Console</h4>
+            <button onclick="checkConsole()">How to Check Console</button>
+            <p>Press F12 → Console tab → Look for JavaScript errors</p>
+        </div>
+        
+        <div class="warning">
+            <h4>3. Verify Frontend is Running</h4>
+            <button onclick="checkFrontend()">Check Frontend Status</button>
+            <p>Make sure <code>cd dashboard && npm run dev</code> is running</p>
+        </div>
+        
+        <div class="warning">
+            <h4>4. Generate Test Cases First</h4>
+            <p>Delete buttons only appear when test cases exist. Use "AI Generate Tests" to create some.</p>
+        </div>
+    </div>
+
+    <div class="step">
+        <h2>📞 Final Verification</h2>
+        <button onclick="runFullVerification()">Run Complete Verification</button>
+        <div id="verification-results"></div>
+        
+        <div class="success" style="margin-top: 20px;">
+            <h3>✅ Success Criteria:</h3>
+            <ul>
+                <li>You can see checkboxes in the leftmost column of the test table</li>
+                <li>Selecting test cases shows bulk action buttons</li>
+                <li>Red "Delete" button appears when tests are selected</li>
+                <li>Individual red trash icons appear in Actions column</li>
+                <li>Confirmation dialogs work for both individual and bulk delete</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function openTestCasesPage() {
+            window.open('http://localhost:3000/test-cases', '_blank');
+        }
+
+        function hardRefresh() {
+            alert('Hard Refresh Instructions:\n\n1. Press Ctrl+F5 (Windows/Linux) or Cmd+Shift+R (Mac)\n2. This forces the browser to reload all files from the server\n3. Clears any cached JavaScript/CSS that might be outdated\n\nTry this first - it solves most issues!');
+        }
+
+        function checkConsole() {
+            alert('Check Browser Console:\n\n1. Press F12 to open Developer Tools\n2. Click the "Console" tab\n3. Look for any red error messages\n4. Refresh the page and watch for new errors\n5. If you see errors, they might explain why delete buttons aren\'t showing');
+        }
+
+        function checkFrontend() {
+            fetch('http://localhost:3000/test-cases', { method: 'HEAD', mode: 'no-cors' })
+                .then(() => {
+                    alert('✅ Frontend appears to be running!\n\nIf you still can\'t see delete buttons, try:\n1. Hard refresh (Ctrl+F5)\n2. Check browser console for errors\n3. Make sure you have test cases in the table');
+                })
+                .catch(() => {
+                    alert('❌ Frontend not accessible!\n\nPlease start the frontend:\n1. Open terminal\n2. Run: cd dashboard && npm run dev\n3. Wait for "Local: http://localhost:3000"\n4. Then try again');
+                });
+        }
+
+        async function runFullVerification() {
+            const resultDiv = document.getElementById('verification-results');
+            resultDiv.innerHTML = '<div class="info">🔄 Running complete verification...</div>';
+            
+            let results = '<h3>🧪 Verification Results:</h3>';
+            
+            // Check frontend
+            try {
+                await fetch('http://localhost:3000/test-cases', { method: 'HEAD', mode: 'no-cors' });
+                results += '<div class="success">✅ Frontend is accessible</div>';
+            } catch (error) {
+                results += '<div class="error">❌ Frontend not accessible - start with: cd dashboard && npm run dev</div>';
+            }
+            
+            // Check backend
+            try {
+                const authResponse = await fetch('http://localhost:8000/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+                });
+                
+                if (authResponse.ok) {
+                    const authData = await authResponse.json();
+                    const token = authData.data.access_token;
+                    
+                    const testsResponse = await fetch('http://localhost:8000/api/v1/tests?page=1&page_size=5', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (testsResponse.ok) {
+                        const testsData = await testsResponse.json();
+                        const testCount = testsData.data?.tests?.length || 0;
+                        results += `<div class="success">✅ Backend accessible with ${testCount} test cases</div>`;
+                        
+                        if (testCount === 0) {
+                            results += '<div class="warning">⚠️ No test cases found - use "AI Generate Tests" to create some</div>';
+                        }
+                    } else {
+                        results += '<div class="error">❌ Backend API error</div>';
+                    }
+                } else {
+                    results += '<div class="error">❌ Backend authentication failed</div>';
+                }
+            } catch (error) {
+                results += '<div class="error">❌ Backend not accessible - start with: ./start-backend.sh</div>';
+            }
+            
+            results += `
+                <div class="highlight">
+                    <h4>🎯 Next Steps:</h4>
+                    <ol>
+                        <li>Ensure both frontend and backend are running</li>
+                        <li>Hard refresh your browser (Ctrl+F5)</li>
+                        <li>Navigate to <a href="http://localhost:3000/test-cases" target="_blank">Test Cases page</a></li>
+                        <li>Generate test cases if none exist</li>
+                        <li>Look for checkboxes and select test cases</li>
+                        <li>Verify bulk actions appear including red Delete button</li>
+                    </ol>
+                </div>
+            `;
+            
+            resultDiv.innerHTML = results;
+        }
+
+        // Auto-run verification on page load
+        window.addEventListener('load', () => {
+            setTimeout(runFullVerification, 1000);
+        });
+    </script>
+</body>
+</html>

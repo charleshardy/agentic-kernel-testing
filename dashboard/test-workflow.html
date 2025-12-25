@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow Test</title>
+</head>
+<body>
+    <h1>Workflow Diagram Test</h1>
+    <p>Testing if the workflow page is accessible...</p>
+    
+    <script>
+        // Test if we can access the workflow page
+        fetch('http://localhost:3000/workflow')
+            .then(response => {
+                console.log('Workflow page response:', response.status);
+                document.body.innerHTML += `<p>Workflow page status: ${response.status}</p>`;
+                return response.text();
+            })
+            .then(html => {
+                console.log('HTML length:', html.length);
+                document.body.innerHTML += `<p>HTML content length: ${html.length} characters</p>`;
+                
+                // Check if React components are loaded
+                if (html.includes('WorkflowDiagram') || html.includes('workflow')) {
+                    document.body.innerHTML += `<p style="color: green;">✅ Workflow content found!</p>`;
+                } else {
+                    document.body.innerHTML += `<p style="color: orange;">⚠️ Workflow content not found in HTML</p>`;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.body.innerHTML += `<p style="color: red;">❌ Error: ${error.message}</p>`;
+            });
+    </script>
+</body>
+</html>

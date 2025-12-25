@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Proxy Configuration</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #f6ffed;
+            border-color: #b7eb8f;
+        }
+        .error {
+            background-color: #fff2f0;
+            border-color: #ffccc7;
+        }
+        .info {
+            background-color: #e6f7ff;
+            border-color: #91d5ff;
+        }
+        button {
+            background-color: #1890ff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #40a9ff;
+        }
+        .log {
+            background-color: #f6f6f6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+            white-space: pre-wrap;
+        }
+        .status {
+            font-weight: bold;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Proxy Configuration Test</h1>
+        
+        <div class="test-section info">
+            <h3>🎯 Issue Analysis</h3>
+            <p><strong>Problem:</strong> "Generation failed: Not implemented" when using "From Function" tab</p>
+            <p><strong>Hypothesis:</strong> Frontend proxy configuration issue or API endpoint mismatch</p>
+            <p><strong>Expected:</strong> Frontend should use Vite proxy (/api/v1) in development</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Test Proxy vs Direct Calls</h3>
+            <button onclick="testProxyCall()">Test Proxy Call (/api/v1)</button>
+            <button onclick="testDirectCall()">Test Direct Call (localhost:8000)</button>
+            <button onclick="testBothMethods()">Compare Both Methods</button>
+            <div class="status" id="proxyStatus">Ready to test...</div>
+            <div class="log" id="proxyLog"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Debug Environment</h3>
+            <button onclick="debugEnvironment()">Debug Environment Variables</button>
+            <div class="status" id="envStatus">Ready to debug...</div>
+            <div class="log" id="envLog"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🛠️ Fix Suggestions</h3>
+            <div id="fixSuggestions">
+                <p><strong>Potential Fixes:</strong></p>
+                <ul>
+                    <li>Ensure frontend is running in development mode</li>
+                    <li>Check if Vite proxy is working correctly</li>
+                    <li>Verify API service baseURL configuration</li>
+                    <li>Test with both proxy and direct URLs</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function log(elementId, message) {
+            const logElement = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            logElement.textContent += logEntry;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function clearLog(elementId) {
+            document.getElementById(elementId).textContent = '';
+        }
+
+        async function getAuthToken(baseUrl) {
+            const response = await fetch(`${baseUrl}/auth/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: 'admin',
+                    password: 'admin123'
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Auth failed: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return data.data.access_token;
+        }
+
+        async function testAPICall(baseUrl, label) {
+            log('proxyLog', `\\n--- Testing ${label} ---`);
+            log('proxyLog', `Base URL: ${baseUrl}`);
+            
+            try {
+                // Get auth token
+                log('proxyLog', 'Getting auth token...');
+                const token = await getAuthToken(baseUrl);
+                log('proxyLog', '✅ Auth successful');
+                
+                // Test function generation
+                const params = new URLSearchParams({
+                    function_name: 'schedule_task',
+                    file_path: 'kernel/sched/core.c',
+                    subsystem: 'unknown',
+                    max_tests: '5'
+                });
+                
+                const url = `${baseUrl}/tests/generate-from-function?${params.toString()}`;
+                log('proxyLog', `Calling: ${url}`);
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log('proxyLog', `Response: ${response.status} ${response.statusText}`);
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    log('proxyLog', `✅ ${label} SUCCESS: Generated ${data.data.generated_count} tests`);
+                    return { success: true, data };
+                } else {
+                    log('proxyLog', `❌ ${label} FAILED: ${data.message}`);
+                    return { success: false, error: data.message };
+                }
+                
+            } catch (error) {
+                log('proxyLog', `❌ ${label} ERROR: ${error.message}`);
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function testProxyCall() {
+            clearLog('proxyLog');
+            document.getElementById('proxyStatus').textContent = 'Testing proxy call...';
+            
+            const result = await testAPICall('/api/v1', 'Proxy Call');
+            
+            if (result.success) {
+                document.getElementById('proxyStatus').textContent = '✅ Proxy call successful!';
+                document.getElementById('proxyStatus').style.color = 'green';
+            } else {
+                document.getElementById('proxyStatus').textContent = `❌ Proxy call failed: ${result.error}`;
+                document.getElementById('proxyStatus').style.color = 'red';
+            }
+        }
+
+        async function testDirectCall() {
+            clearLog('proxyLog');
+            document.getElementById('proxyStatus').textContent = 'Testing direct call...';
+            
+            const result = await testAPICall('http://localhost:8000/api/v1', 'Direct Call');
+            
+            if (result.success) {
+                document.getElementById('proxyStatus').textContent = '✅ Direct call successful!';
+                document.getElementById('proxyStatus').style.color = 'green';
+            } else {
+                document.getElementById('proxyStatus').textContent = `❌ Direct call failed: ${result.error}`;
+                document.getElementById('proxyStatus').style.color = 'red';
+            }
+        }
+
+        async function testBothMethods() {
+            clearLog('proxyLog');
+            document.getElementById('proxyStatus').textContent = 'Comparing both methods...';
+            
+            log('proxyLog', '🔍 COMPARISON TEST: Proxy vs Direct');
+            log('proxyLog', '=====================================');
+            
+            const proxyResult = await testAPICall('/api/v1', 'Proxy');
+            const directResult = await testAPICall('http://localhost:8000/api/v1', 'Direct');
+            
+            log('proxyLog', '\\n📊 RESULTS SUMMARY:');
+            log('proxyLog', `Proxy Call: ${proxyResult.success ? '✅ SUCCESS' : '❌ FAILED'}`);
+            log('proxyLog', `Direct Call: ${directResult.success ? '✅ SUCCESS' : '❌ FAILED'}`);
+            
+            if (proxyResult.success && directResult.success) {
+                document.getElementById('proxyStatus').textContent = '✅ Both methods work!';
+                document.getElementById('proxyStatus').style.color = 'green';
+                log('proxyLog', '\\n✅ CONCLUSION: Both proxy and direct calls work');
+                log('proxyLog', '   The issue might be in the frontend React app configuration');
+            } else if (directResult.success && !proxyResult.success) {
+                document.getElementById('proxyStatus').textContent = '⚠️ Only direct call works - proxy issue!';
+                document.getElementById('proxyStatus').style.color = 'orange';
+                log('proxyLog', '\\n⚠️ CONCLUSION: Proxy is not working correctly');
+                log('proxyLog', '   Frontend should use direct URL or fix proxy configuration');
+            } else if (proxyResult.success && !directResult.success) {
+                document.getElementById('proxyStatus').textContent = '⚠️ Only proxy works - direct connection issue!';
+                document.getElementById('proxyStatus').style.color = 'orange';
+                log('proxyLog', '\\n⚠️ CONCLUSION: Direct connection failed but proxy works');
+                log('proxyLog', '   Frontend should use proxy configuration');
+            } else {
+                document.getElementById('proxyStatus').textContent = '❌ Both methods failed!';
+                document.getElementById('proxyStatus').style.color = 'red';
+                log('proxyLog', '\\n❌ CONCLUSION: Both methods failed - server issue');
+            }
+        }
+
+        async function debugEnvironment() {
+            clearLog('envLog');
+            document.getElementById('envStatus').textContent = 'Debugging environment...';
+            
+            log('envLog', '🔍 ENVIRONMENT DEBUG');
+            log('envLog', '===================');
+            
+            // Check current page URL
+            log('envLog', `Current URL: ${window.location.href}`);
+            log('envLog', `Protocol: ${window.location.protocol}`);
+            log('envLog', `Host: ${window.location.host}`);
+            log('envLog', `Port: ${window.location.port}`);
+            
+            // Check if we're running on the expected frontend port
+            const expectedPort = '3000';
+            const currentPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+            
+            if (currentPort === expectedPort) {
+                log('envLog', '✅ Running on expected frontend port (3000)');
+            } else {
+                log('envLog', `⚠️ Not running on expected port. Expected: ${expectedPort}, Actual: ${currentPort}`);
+            }
+            
+            // Test if we can reach the proxy
+            log('envLog', '\\nTesting proxy availability...');
+            try {
+                const response = await fetch('/api/v1/health', { method: 'GET' });
+                log('envLog', `Proxy health check: ${response.status} ${response.statusText}`);
+                if (response.ok) {
+                    log('envLog', '✅ Proxy is working');
+                } else {
+                    log('envLog', '❌ Proxy returned error');
+                }
+            } catch (error) {
+                log('envLog', `❌ Proxy not available: ${error.message}`);
+            }
+            
+            // Test direct connection
+            log('envLog', '\\nTesting direct connection...');
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/health', { method: 'GET' });
+                log('envLog', `Direct health check: ${response.status} ${response.statusText}`);
+                if (response.ok) {
+                    log('envLog', '✅ Direct connection is working');
+                } else {
+                    log('envLog', '❌ Direct connection returned error');
+                }
+            } catch (error) {
+                log('envLog', `❌ Direct connection failed: ${error.message}`);
+            }
+            
+            document.getElementById('envStatus').textContent = '✅ Environment debug complete';
+        }
+
+        // Auto-run comparison test on page load
+        window.addEventListener('load', () => {
+            setTimeout(testBothMethods, 1000);
+        });
+    </script>
+</body>
+</html>

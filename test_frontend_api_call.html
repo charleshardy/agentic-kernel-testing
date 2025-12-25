@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Frontend API Call</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #1890ff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #40a9ff;
+        }
+        .log {
+            background-color: #f6f6f6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+            white-space: pre-wrap;
+        }
+        .status {
+            font-weight: bold;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Test Frontend API Call Pattern</h1>
+        
+        <div class="test-section">
+            <h3>🎯 Exact Frontend Simulation</h3>
+            <p>This simulates the exact API call pattern used by the frontend React app.</p>
+            <button onclick="testExactFrontendCall()">Test Exact Frontend Call</button>
+            <div class="status" id="frontendStatus">Ready to test...</div>
+            <div class="log" id="frontendLog"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Test Different Scenarios</h3>
+            <button onclick="testEmptyParams()">Test Empty Parameters</button>
+            <button onclick="testInvalidParams()">Test Invalid Parameters</button>
+            <button onclick="testLongParams()">Test Long Parameters</button>
+            <div class="status" id="scenarioStatus">Ready to test...</div>
+            <div class="log" id="scenarioLog"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Network Analysis</h3>
+            <button onclick="analyzeNetworkCall()">Analyze Network Call</button>
+            <div class="status" id="networkStatus">Ready to analyze...</div>
+            <div class="log" id="networkLog"></div>
+        </div>
+    </div>
+
+    <script>
+        function log(elementId, message) {
+            const logElement = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            logElement.textContent += logEntry;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function clearLog(elementId) {
+            document.getElementById(elementId).textContent = '';
+        }
+
+        // Simulate the exact API service call from the frontend
+        async function simulateAPIService() {
+            // This mimics dashboard/src/services/api.ts generateTestsFromFunction
+            const baseURL = 'http://localhost:8000/api/v1';
+            
+            // Get auth token first
+            const authResponse = await fetch(`${baseURL}/auth/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: 'admin',
+                    password: 'admin123'
+                })
+            });
+            
+            const authData = await authResponse.json();
+            const token = authData.data.access_token;
+            
+            // Now make the function generation call exactly like the frontend
+            const functionName = 'schedule_task';
+            const filePath = 'kernel/sched/core.c';
+            const subsystem = 'unknown';
+            const maxTests = 10;
+            
+            const response = await fetch(`${baseURL}/tests/generate-from-function`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                // Frontend sends null body with query params
+                body: null
+            });
+            
+            // Add query params to URL (this is how the frontend API service does it)
+            const url = new URL(`${baseURL}/tests/generate-from-function`);
+            url.searchParams.append('function_name', functionName);
+            url.searchParams.append('file_path', filePath);
+            url.searchParams.append('subsystem', subsystem);
+            url.searchParams.append('max_tests', maxTests.toString());
+            
+            const finalResponse = await fetch(url.toString(), {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            return finalResponse;
+        }
+
+        async function testExactFrontendCall() {
+            const statusElement = document.getElementById('frontendStatus');
+            clearLog('frontendLog');
+            
+            statusElement.textContent = 'Testing exact frontend call pattern...';
+            
+            try {
+                log('frontendLog', 'Starting exact frontend simulation...');
+                
+                // Step 1: Get auth token (like frontend does)
+                log('frontendLog', 'Step 1: Getting auth token...');
+                const authResponse = await fetch('http://localhost:8000/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: 'admin',
+                        password: 'admin123'
+                    })
+                });
+                
+                if (!authResponse.ok) {
+                    throw new Error(`Auth failed: ${authResponse.status}`);
+                }
+                
+                const authData = await authResponse.json();
+                const token = authData.data.access_token;
+                log('frontendLog', '✅ Got auth token');
+                
+                // Step 2: Make the API call exactly like the frontend API service
+                log('frontendLog', 'Step 2: Making API call like frontend...');
+                
+                const params = {
+                    function_name: 'schedule_task',
+                    file_path: 'kernel/sched/core.c',
+                    subsystem: 'unknown',
+                    max_tests: 10
+                };
+                
+                log('frontendLog', `Parameters: ${JSON.stringify(params)}`);
+                
+                // This is exactly how the frontend API service constructs the call
+                const url = new URL('http://localhost:8000/api/v1/tests/generate-from-function');
+                Object.entries(params).forEach(([key, value]) => {
+                    url.searchParams.append(key, value.toString());
+                });
+                
+                log('frontendLog', `Final URL: ${url.toString()}`);
+                
+                const response = await fetch(url.toString(), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log('frontendLog', `Response status: ${response.status} ${response.statusText}`);
+                
+                const responseText = await response.text();
+                log('frontendLog', `Raw response: ${responseText}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${responseText}`);
+                }
+                
+                const data = JSON.parse(responseText);
+                
+                if (data.success) {
+                    statusElement.textContent = '✅ Frontend call successful!';
+                    statusElement.style.color = 'green';
+                    log('frontendLog', `✅ SUCCESS: Generated ${data.data.generated_count} test cases`);
+                } else {
+                    statusElement.textContent = `❌ API returned failure: ${data.message}`;
+                    statusElement.style.color = 'red';
+                    log('frontendLog', `❌ API FAILURE: ${data.message}`);
+                }
+                
+            } catch (error) {
+                log('frontendLog', `❌ ERROR: ${error.message}`);
+                statusElement.textContent = `❌ Error: ${error.message}`;
+                statusElement.style.color = 'red';
+            }
+        }
+
+        async function testEmptyParams() {
+            clearLog('scenarioLog');
+            document.getElementById('scenarioStatus').textContent = 'Testing empty parameters...';
+            
+            try {
+                const token = await getAuthToken();
+                
+                // Test with empty/missing parameters
+                const response = await fetch('http://localhost:8000/api/v1/tests/generate-from-function', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                log('scenarioLog', `Empty params result: ${JSON.stringify(data, null, 2)}`);
+                
+            } catch (error) {
+                log('scenarioLog', `Empty params error: ${error.message}`);
+            }
+        }
+
+        async function testInvalidParams() {
+            clearLog('scenarioLog');
+            
+            try {
+                const token = await getAuthToken();
+                
+                // Test with invalid parameters
+                const url = new URL('http://localhost:8000/api/v1/tests/generate-from-function');
+                url.searchParams.append('function_name', '');
+                url.searchParams.append('file_path', '');
+                url.searchParams.append('subsystem', '');
+                url.searchParams.append('max_tests', '0');
+                
+                const response = await fetch(url.toString(), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                log('scenarioLog', `Invalid params result: ${JSON.stringify(data, null, 2)}`);
+                
+            } catch (error) {
+                log('scenarioLog', `Invalid params error: ${error.message}`);
+            }
+        }
+
+        async function testLongParams() {
+            clearLog('scenarioLog');
+            
+            try {
+                const token = await getAuthToken();
+                
+                // Test with very long parameters
+                const url = new URL('http://localhost:8000/api/v1/tests/generate-from-function');
+                url.searchParams.append('function_name', 'a'.repeat(1000));
+                url.searchParams.append('file_path', 'b'.repeat(1000));
+                url.searchParams.append('subsystem', 'c'.repeat(1000));
+                url.searchParams.append('max_tests', '999');
+                
+                const response = await fetch(url.toString(), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                log('scenarioLog', `Long params result: ${JSON.stringify(data, null, 2)}`);
+                
+            } catch (error) {
+                log('scenarioLog', `Long params error: ${error.message}`);
+            }
+        }
+
+        async function analyzeNetworkCall() {
+            clearLog('networkLog');
+            document.getElementById('networkStatus').textContent = 'Analyzing network call...';
+            
+            try {
+                log('networkLog', 'Analyzing network request patterns...');
+                
+                // Test CORS headers
+                log('networkLog', '\\n--- Testing CORS ---');
+                const corsResponse = await fetch('http://localhost:8000/api/v1/tests/generate-from-function', {
+                    method: 'OPTIONS'
+                });
+                log('networkLog', `CORS preflight status: ${corsResponse.status}`);
+                log('networkLog', `CORS headers: ${JSON.stringify([...corsResponse.headers.entries()])}`);
+                
+                // Test different content types
+                log('networkLog', '\\n--- Testing Content Types ---');
+                const token = await getAuthToken();
+                
+                const testCalls = [
+                    {
+                        name: 'application/json',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+                    },
+                    {
+                        name: 'no content-type',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    },
+                    {
+                        name: 'application/x-www-form-urlencoded',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': `Bearer ${token}` }
+                    }
+                ];
+                
+                for (const testCall of testCalls) {
+                    try {
+                        const response = await fetch('http://localhost:8000/api/v1/tests/generate-from-function?function_name=test&file_path=test.c&subsystem=test&max_tests=1', {
+                            method: 'POST',
+                            headers: testCall.headers
+                        });
+                        const data = await response.json();
+                        log('networkLog', `${testCall.name}: ${data.success ? 'SUCCESS' : 'FAILED'} - ${data.message}`);
+                    } catch (error) {
+                        log('networkLog', `${testCall.name}: ERROR - ${error.message}`);
+                    }
+                }
+                
+                document.getElementById('networkStatus').textContent = '✅ Network analysis complete';
+                
+            } catch (error) {
+                log('networkLog', `Network analysis error: ${error.message}`);
+                document.getElementById('networkStatus').textContent = `❌ Error: ${error.message}`;
+            }
+        }
+
+        async function getAuthToken() {
+            const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: 'admin',
+                    password: 'admin123'
+                })
+            });
+            
+            const data = await response.json();
+            return data.data.access_token;
+        }
+
+        // Auto-run the test on page load
+        window.addEventListener('load', () => {
+            setTimeout(testExactFrontendCall, 1000);
+        });
+    </script>
+</body>
+</html>

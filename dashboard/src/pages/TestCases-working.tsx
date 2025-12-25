@@ -9,7 +9,6 @@ import {
   Button,
   Input,
   Select,
-  Table,
   Tag,
   message,
   Alert,
@@ -33,8 +32,9 @@ import apiService, { EnhancedTestCase } from '../services/api'
 import useAIGeneration from '../hooks/useAIGeneration'
 import KernelDriverInfo from '../components/KernelDriverInfo'
 import TestCaseModal from '../components/TestCaseModal-safe'
+import TestCaseTable from '../components/TestCaseTable'
 
-const { Title, Text } = Typography
+const { Text, Title } = Typography
 const { TextArea } = Input
 
 const TestCases: React.FC = () => {
@@ -71,15 +71,36 @@ const TestCases: React.FC = () => {
   // Test Case Modal handlers
   const handleViewTest = async (testId: string) => {
     try {
-      // Fetch the test details from the API
-      const test = await apiService.getTestById(testId)
-      setSelectedTestCase(test)
-      setModalMode('view')
-      setModalVisible(true)
+      console.log('🔍 Attempting to view test:', testId)
+      
+      // First try to get from API
+      try {
+        const test = await apiService.getTestById(testId)
+        console.log('✅ Found test in API:', test)
+        setSelectedTestCase(test)
+        setModalMode('view')
+        setModalVisible(true)
+        return
+      } catch (apiError: any) {
+        console.log('⚠️ API fetch failed:', apiError.response?.status, apiError.message)
+        
+        // If API fails, try to find in current test data (mock or API)
+        const currentTest = tests.find(t => t.id === testId)
+        if (currentTest) {
+          console.log('✅ Found test in current data:', currentTest)
+          setSelectedTestCase(currentTest)
+          setModalMode('view')
+          setModalVisible(true)
+          return
+        }
+        
+        // If not found anywhere, throw the original error
+        throw apiError
+      }
     } catch (error: any) {
-      console.error('Error loading test case:', error)
+      console.error('❌ Error loading test case:', error)
       if (error.response?.status === 404) {
-        message.error('Test case not found')
+        message.error(`Test case ${testId} not found`)
       } else {
         message.error('Failed to load test case details')
       }
@@ -89,6 +110,32 @@ const TestCases: React.FC = () => {
   const handleCloseModal = () => {
     setModalVisible(false)
     setSelectedTestCase(null)
+  }
+
+  const handleEditTest = (testId: string) => {
+    const test = filteredTests.find(t => t.id === testId)
+    if (test) {
+      setSelectedTestCase(test)
+      setModalMode('edit')
+      setModalVisible(true)
+    } else {
+      message.error('Test case not found')
+    }
+  }
+
+  const handleDeleteTest = (testId: string) => {
+    message.info(`Delete functionality for test ${testId} - coming soon`)
+    // TODO: Implement delete functionality
+  }
+
+  const handleExecuteTests = (testIds: string[]) => {
+    message.success(`Starting execution of ${testIds.length} test case${testIds.length !== 1 ? 's' : ''}`)
+    // TODO: Implement execute functionality
+  }
+
+  const handleTableChange = (paginationConfig: any, filters: any, sorter: any) => {
+    // Handle table changes like sorting, pagination, etc.
+    console.log('Table changed:', { paginationConfig, filters, sorter })
   }
 
   const handleSaveTest = async (updatedTestCase: EnhancedTestCase) => {
@@ -134,16 +181,19 @@ const TestCases: React.FC = () => {
     isLoading
   })
 
-  // Mock data when API is not available
-  const mockTestCases = [
+  // Mock data when API is not available - Enhanced with better metadata
+  const mockTestCases: EnhancedTestCase[] = [
     {
       id: 'test-001',
       name: 'Kernel Boot Test',
-      description: 'Tests kernel boot sequence and initialization',
+      description: 'Tests kernel boot sequence and initialization with comprehensive validation',
       test_type: 'integration',
       target_subsystem: 'kernel/core',
+      code_paths: ['kernel/init/main.c', 'kernel/init/init_task.c'],
       execution_time_estimate: 45,
+      test_script: '#!/bin/bash\n# Kernel boot test script\necho "Testing kernel boot sequence"\n# Add test logic here',
       created_at: '2024-01-15T10:30:00Z',
+      updated_at: '2024-01-15T10:30:00Z',
       metadata: {
         execution_status: 'completed',
         generation_method: 'manual',
@@ -153,11 +203,14 @@ const TestCases: React.FC = () => {
     {
       id: 'test-002',
       name: 'Memory Allocation Test',
-      description: 'Tests kmalloc and memory management functions',
+      description: 'Tests kmalloc and memory management functions with stress testing',
       test_type: 'unit',
       target_subsystem: 'kernel/mm',
+      code_paths: ['mm/slab.c', 'mm/kmalloc.c'],
       execution_time_estimate: 30,
+      test_script: '#!/bin/bash\n# Memory allocation test script\necho "Testing memory allocation"\n# Add test logic here',
       created_at: '2024-01-15T11:00:00Z',
+      updated_at: '2024-01-15T11:00:00Z',
       metadata: {
         execution_status: 'never_run',
         generation_method: 'ai_function',
@@ -166,11 +219,14 @@ const TestCases: React.FC = () => {
     {
       id: 'test-003',
       name: 'Network Driver Test',
-      description: 'Tests network interface driver functionality',
+      description: 'Tests network interface driver functionality with packet injection',
       test_type: 'integration',
       target_subsystem: 'drivers/net',
+      code_paths: ['drivers/net/ethernet/intel/e1000e/netdev.c'],
       execution_time_estimate: 60,
+      test_script: '#!/bin/bash\n# Network driver test script\necho "Testing network driver"\n# Add test logic here',
       created_at: '2024-01-15T12:00:00Z',
+      updated_at: '2024-01-15T12:00:00Z',
       metadata: {
         execution_status: 'failed',
         generation_method: 'ai_diff',
@@ -180,15 +236,59 @@ const TestCases: React.FC = () => {
     {
       id: 'test-004',
       name: 'File System Stress Test',
-      description: 'Stress tests file system operations',
+      description: 'Comprehensive stress tests for file system operations and performance',
       test_type: 'performance',
       target_subsystem: 'kernel/fs',
+      code_paths: ['fs/ext4/inode.c', 'fs/ext4/super.c'],
       execution_time_estimate: 120,
+      test_script: '#!/bin/bash\n# File system stress test script\necho "Testing file system stress"\n# Add test logic here',
       created_at: '2024-01-15T13:00:00Z',
+      updated_at: '2024-01-15T13:00:00Z',
       metadata: {
         execution_status: 'running',
         generation_method: 'ai_kernel_driver',
         last_execution: '2024-01-15T16:00:00Z',
+      },
+      requires_root: true,
+      kernel_module: true,
+      driver_files: {
+        'fs_stress_test.c': '/* File system stress test kernel module */\n#include <linux/module.h>\n#include <linux/kernel.h>\n#include <linux/fs.h>\n\n// Generated kernel test driver code\nstatic int __init fs_stress_init(void) {\n    printk(KERN_INFO "FS Stress Test Module Loaded\\n");\n    return 0;\n}\n\nstatic void __exit fs_stress_exit(void) {\n    printk(KERN_INFO "FS Stress Test Module Unloaded\\n");\n}\n\nmodule_init(fs_stress_init);\nmodule_exit(fs_stress_exit);\nMODULE_LICENSE("GPL");',
+        'Makefile': 'obj-m += fs_stress_test.o\n\nKERNEL_DIR := /lib/modules/$(shell uname -r)/build\nPWD := $(shell pwd)\n\nall:\n\tmake -C $(KERNEL_DIR) M=$(PWD) modules\n\nclean:\n\tmake -C $(KERNEL_DIR) M=$(PWD) clean',
+        'install.sh': '#!/bin/bash\n# Installation script for fs stress test driver\necho "Installing FS stress test driver..."\nsudo insmod fs_stress_test.ko\necho "Driver installed successfully"',
+        'test.sh': '#!/bin/bash\n# Test execution script\necho "Running file system stress test"\n# Load the module\nsudo ./install.sh\n# Run tests\necho "Executing stress tests..."\n# Unload module\nsudo rmmod fs_stress_test\necho "Test completed"'
+      }
+    },
+    {
+      id: 'test-005',
+      name: 'Scheduler Performance Test',
+      description: 'Tests CPU scheduler performance and fairness algorithms',
+      test_type: 'performance',
+      target_subsystem: 'kernel/sched',
+      code_paths: ['kernel/sched/core.c', 'kernel/sched/fair.c'],
+      execution_time_estimate: 90,
+      test_script: '#!/bin/bash\n# Scheduler performance test\necho "Testing scheduler performance"\n# Performance benchmarks here',
+      created_at: '2024-01-15T14:00:00Z',
+      updated_at: '2024-01-15T14:00:00Z',
+      metadata: {
+        execution_status: 'completed',
+        generation_method: 'ai_function',
+        last_execution: '2024-01-15T17:30:00Z',
+      }
+    },
+    {
+      id: 'test-006',
+      name: 'Security Vulnerability Scan',
+      description: 'Automated security scanning for common kernel vulnerabilities',
+      test_type: 'security',
+      target_subsystem: 'kernel/security',
+      code_paths: ['security/security.c'],
+      execution_time_estimate: 180,
+      test_script: '#!/bin/bash\n# Security vulnerability scan\necho "Running security scans"\n# Security tests here',
+      created_at: '2024-01-15T15:00:00Z',
+      updated_at: '2024-01-15T15:00:00Z',
+      metadata: {
+        execution_status: 'never_run',
+        generation_method: 'manual',
       }
     },
   ]
@@ -215,11 +315,19 @@ const TestCases: React.FC = () => {
     return matchesSearch && matchesType && matchesSubsystem && matchesStatus
   })
 
-  // Calculate statistics
+  // Calculate statistics with enhanced metrics
   const totalTests = filteredTests.length
   const neverRunTests = filteredTests.filter(t => t.metadata?.execution_status === 'never_run').length
   const aiGeneratedTests = filteredTests.filter(t => t.metadata?.generation_method !== 'manual').length
   const manualTests = totalTests - aiGeneratedTests
+  const runningTests = filteredTests.filter(t => t.metadata?.execution_status === 'running').length
+  const failedTests = filteredTests.filter(t => t.metadata?.execution_status === 'failed').length
+  const completedTests = filteredTests.filter(t => t.metadata?.execution_status === 'completed').length
+  const kernelDriverTests = filteredTests.filter(t => 
+    t.metadata?.generation_method === 'ai_kernel_driver' || 
+    t.requires_root === true || 
+    t.kernel_module === true
+  ).length
 
   const testTypes = [
     { label: 'Unit Test', value: 'unit' },
@@ -244,120 +352,6 @@ const TestCases: React.FC = () => {
     { label: 'Failed', value: 'failed' },
   ]
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'green'
-      case 'running': return 'blue'
-      case 'failed': return 'red'
-      case 'never_run': return 'default'
-      default: return 'default'
-    }
-  }
-
-  const getGenerationMethodColor = (method: string) => {
-    switch (method) {
-      case 'manual': return 'default'
-      case 'ai_diff': return 'blue'
-      case 'ai_function': return 'green'
-      case 'ai_kernel_driver': return 'purple'
-      default: return 'default'
-    }
-  }
-
-  const columns = [
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text: string, record: any) => (
-        <div>
-          <Text strong>{text}</Text>
-          <br />
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            {record.description}
-          </Text>
-        </div>
-      ),
-    },
-    {
-      title: 'Type',
-      dataIndex: 'test_type',
-      key: 'test_type',
-      render: (type: string) => (
-        <Tag color="blue">{type}</Tag>
-      ),
-    },
-    {
-      title: 'Subsystem',
-      dataIndex: 'target_subsystem',
-      key: 'target_subsystem',
-      render: (subsystem: string) => (
-        <Tag>{subsystem}</Tag>
-      ),
-    },
-    {
-      title: 'Status',
-      key: 'status',
-      render: (record: any) => {
-        const status = record.metadata?.execution_status || 'never_run'
-        return <Tag color={getStatusColor(status)}>{status.replace('_', ' ')}</Tag>
-      },
-    },
-    {
-      title: 'Generation',
-      key: 'generation',
-      render: (record: any) => {
-        const method = record.metadata?.generation_method || 'manual'
-        return <Tag color={getGenerationMethodColor(method)}>{method.replace('_', ' ')}</Tag>
-      },
-    },
-    {
-      title: 'Est. Time',
-      dataIndex: 'execution_time_estimate',
-      key: 'execution_time_estimate',
-      render: (time: number) => `${time}s`,
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (record: any) => (
-        <Space>
-          <Button
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => handleViewTest(record.id)}
-          >
-            View
-          </Button>
-          <Button
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => message.info(`Editing test: ${record.name}`)}
-          >
-            Edit
-          </Button>
-          <Button
-            size="small"
-            icon={<PlayCircleOutlined />}
-            type="primary"
-            onClick={() => message.success(`Starting execution of: ${record.name}`)}
-            disabled={record.metadata?.execution_status === 'running'}
-          >
-            Run
-          </Button>
-        </Space>
-      ),
-    },
-  ]
-
-  const rowSelection = {
-    selectedRowKeys,
-    onChange: (selectedRowKeys: React.Key[]) => setSelectedRowKeys(selectedRowKeys as string[]),
-    getCheckboxProps: (record: any) => ({
-      disabled: record.metadata?.execution_status === 'running',
-    }),
-  }
-
   return (
     <div style={{ padding: '0 24px' }}>
       {/* Header */}
@@ -367,7 +361,9 @@ const TestCases: React.FC = () => {
         alignItems: 'center', 
         marginBottom: 24 
       }}>
-        <Typography.Title level={2 as const} style={{ margin: 0 }}>Test Cases</Typography.Title>
+        <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>
+          Test Cases
+        </h2>
         <Space>
           <Button
             type="primary"
@@ -431,41 +427,61 @@ const TestCases: React.FC = () => {
         />
       )}
 
-      {/* Statistics Cards */}
+      {/* Enhanced Statistics Cards */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={6}>
+        <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
               title="Total Test Cases"
               value={totalTests}
               valueStyle={{ color: '#1890ff' }}
+              suffix={
+                <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                  {runningTests > 0 && `${runningTests} running`}
+                </div>
+              }
             />
           </Card>
         </Col>
-        <Col xs={24} sm={6}>
+        <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
               title="AI Generated"
               value={aiGeneratedTests}
               valueStyle={{ color: '#52c41a' }}
+              suffix={
+                <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                  {kernelDriverTests > 0 && `${kernelDriverTests} kernel drivers`}
+                </div>
+              }
             />
           </Card>
         </Col>
-        <Col xs={24} sm={6}>
+        <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
-              title="Manual Tests"
-              value={manualTests}
+              title="Completed"
+              value={completedTests}
               valueStyle={{ color: '#722ed1' }}
+              suffix={
+                <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                  {failedTests > 0 && `${failedTests} failed`}
+                </div>
+              }
             />
           </Card>
         </Col>
-        <Col xs={24} sm={6}>
+        <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
               title="Never Run"
               value={neverRunTests}
               valueStyle={{ color: '#fa8c16' }}
+              suffix={
+                <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                  {manualTests > 0 && `${manualTests} manual`}
+                </div>
+              }
             />
           </Card>
         </Col>
@@ -541,18 +557,22 @@ const TestCases: React.FC = () => {
 
       {/* Test Cases Table */}
       <Card title={`Test Cases (${totalTests} ${totalTests === 1 ? 'test' : 'tests'})`}>
-        <Table
-          columns={columns}
-          dataSource={filteredTests}
-          rowKey="id"
+        <TestCaseTable
+          tests={filteredTests}
           loading={isLoading}
-          rowSelection={rowSelection}
+          selectedRowKeys={selectedRowKeys}
           pagination={{
+            current: 1,
             pageSize: 20,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} tests`,
+            total: filteredTests.length,
           }}
+          onRefresh={refetch}
+          onSelect={setSelectedRowKeys}
+          onView={handleViewTest}
+          onEdit={handleEditTest}
+          onDelete={handleDeleteTest}
+          onExecute={handleExecuteTests}
+          onTableChange={handleTableChange}
         />
       </Card>
 
@@ -741,12 +761,17 @@ const TestCases: React.FC = () => {
             form={aiGenForm}
             layout="vertical"
             onFinish={(values) => {
-              generateKernelDriver({
-                functionName: values.functionName,
-                filePath: values.filePath,
-                subsystem: values.subsystem || 'unknown',
-                testTypes: values.testTypes || ['unit', 'integration']
-              })
+              console.log('Kernel driver form submitted with values:', values)
+              try {
+                generateKernelDriver({
+                  functionName: values.functionName,
+                  filePath: values.filePath,
+                  subsystem: values.subsystem || 'unknown',
+                  testTypes: values.testTypes || ['unit', 'integration']
+                })
+              } catch (error) {
+                console.error('Error calling generateKernelDriver:', error)
+              }
             }}
           >
             <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#fff7e6', border: '1px solid #ffd591', borderRadius: 4 }}>

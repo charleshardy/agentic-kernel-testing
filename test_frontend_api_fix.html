@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend API Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 20px; margin: 5px; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Frontend API Fix Test</h1>
+    <p>This tests the exact same API calls that the React frontend makes.</p>
+    
+    <button onclick="testKernelGeneration()">Test Kernel Generation</button>
+    <button onclick="testWithAxios()">Test with Axios (like React)</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <div id="results"></div>
+
+    <!-- Include axios to match the frontend -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    
+    <script>
+        function addResult(title, content, isError = false) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${isError ? 'error' : 'success'}`;
+            div.innerHTML = `<h3>${title}</h3><pre>${content}</pre>`;
+            results.appendChild(div);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function testKernelGeneration() {
+            addResult('Testing', 'Starting kernel generation test with fetch...');
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/tests/generate-kernel-driver', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: null // No body, using query params
+                });
+                
+                // Add query parameters manually since fetch doesn't handle params like axios
+                const url = new URL('http://localhost:8000/api/v1/tests/generate-kernel-driver');
+                url.searchParams.append('function_name', 'test_function');
+                url.searchParams.append('file_path', 'test/test.c');
+                url.searchParams.append('subsystem', 'test');
+                url.searchParams.append('test_types', 'unit');
+                url.searchParams.append('test_types', 'integration');
+                
+                const response2 = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Fetch response:', response2);
+                
+                if (response2.ok) {
+                    const data = await response2.json();
+                    console.log('Fetch data:', data);
+                    
+                    if (data.success) {
+                        addResult('✅ Fetch Success', JSON.stringify(data, null, 2));
+                    } else {
+                        addResult('❌ Fetch API Error', JSON.stringify(data, null, 2), true);
+                    }
+                } else {
+                    addResult('❌ Fetch HTTP Error', `Status: ${response2.status}\\nText: ${await response2.text()}`, true);
+                }
+                
+            } catch (error) {
+                console.error('Fetch error:', error);
+                addResult('❌ Fetch Exception', `Error: ${error.message}\\nStack: ${error.stack}`, true);
+            }
+        }
+        
+        async function testWithAxios() {
+            addResult('Testing', 'Starting kernel generation test with Axios (like React)...');
+            
+            try {
+                // Configure axios like the React app does
+                const axiosInstance = axios.create({
+                    baseURL: 'http://localhost:8000/api/v1',
+                    timeout: 30000,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                console.log('Making axios request...');
+                
+                const response = await axiosInstance.post('/tests/generate-kernel-driver', null, {
+                    params: {
+                        function_name: 'test_function',
+                        file_path: 'test/test.c',
+                        subsystem: 'test',
+                        test_types: ['unit', 'integration']
+                    }
+                });
+                
+                console.log('Axios response:', response);
+                console.log('Axios response data:', response.data);
+                
+                if (response.data.success) {
+                    addResult('✅ Axios Success', JSON.stringify(response.data, null, 2));
+                } else {
+                    addResult('❌ Axios API Error', JSON.stringify(response.data, null, 2), true);
+                }
+                
+            } catch (error) {
+                console.error('Axios error:', error);
+                
+                let errorMessage = 'Unknown error';
+                let errorDetails = '';
+                
+                if (error?.response?.data?.message) {
+                    errorMessage = error.response.data.message;
+                } else if (error?.message) {
+                    errorMessage = error.message;
+                } else if (error?.response?.status) {
+                    errorMessage = `HTTP ${error.response.status}`;
+                }
+                
+                errorDetails = JSON.stringify({
+                    message: error.message,
+                    response: error.response ? {
+                        status: error.response.status,
+                        data: error.response.data,
+                        headers: error.response.headers
+                    } : null,
+                    request: error.request ? 'Request made but no response' : null,
+                    config: error.config ? {
+                        url: error.config.url,
+                        method: error.config.method,
+                        params: error.config.params
+                    } : null
+                }, null, 2);
+                
+                addResult('❌ Axios Error', `Message: ${errorMessage}\\n\\nDetails:\\n${errorDetails}`, true);
+            }
+        }
+        
+        // Test on page load
+        window.addEventListener('load', () => {
+            addResult('Page Loaded', 'Ready to test API calls. Click buttons above to test.');
+        });
+    </script>
+</body>
+</html>

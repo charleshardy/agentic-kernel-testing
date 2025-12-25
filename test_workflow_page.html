@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow Page Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-card {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .button {
+            background: #1890ff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .button:hover {
+            background: #40a9ff;
+        }
+        .success { color: #52c41a; }
+        .error { color: #ff4d4f; }
+        .warning { color: #faad14; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Workflow Diagram Access Test</h1>
+    
+    <div class="test-card">
+        <h2>📍 Current Status</h2>
+        <p><strong>Dashboard URL:</strong> <span id="dashboard-url">http://localhost:3000</span></p>
+        <p><strong>Workflow URL:</strong> <span id="workflow-url">http://localhost:3000/workflow</span></p>
+        <p><strong>Current Time:</strong> <span id="current-time"></span></p>
+    </div>
+
+    <div class="test-card">
+        <h2>🚀 Quick Access Links</h2>
+        <a href="http://localhost:3000" class="button" target="_blank">Open Dashboard</a>
+        <a href="http://localhost:3000/workflow" class="button" target="_blank">Open Workflow Diagram</a>
+        <a href="http://localhost:3000/workflow-diagnostic" class="button" target="_blank">Open Diagnostic Page</a>
+    </div>
+
+    <div class="test-card">
+        <h2>🔍 Connection Test</h2>
+        <button class="button" onclick="testConnections()">Test All Connections</button>
+        <div id="test-results"></div>
+    </div>
+
+    <div class="test-card">
+        <h2>📋 Step-by-Step Instructions</h2>
+        <ol>
+            <li><strong>Click "Open Dashboard"</strong> above to open the main dashboard</li>
+            <li><strong>Look for the sidebar menu</strong> on the left side of the page</li>
+            <li><strong>Find "Workflow Diagram"</strong> with a robot icon (🤖) in the menu</li>
+            <li><strong>Click on "Workflow Diagram"</strong> to navigate to the workflow page</li>
+            <li><strong>You should see:</strong>
+                <ul>
+                    <li>System Status tab (default)</li>
+                    <li>8 workflow phase tabs</li>
+                    <li>Interactive workflow nodes</li>
+                    <li>Real-time execution controls</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+
+    <div class="test-card">
+        <h2>❓ If You Still Don't See It</h2>
+        <ul>
+            <li><strong>Try direct URL:</strong> <a href="http://localhost:3000/workflow" target="_blank">http://localhost:3000/workflow</a></li>
+            <li><strong>Check browser console:</strong> Press F12 and look for errors</li>
+            <li><strong>Try diagnostic page:</strong> <a href="http://localhost:3000/workflow-diagnostic" target="_blank">Diagnostic Page</a></li>
+            <li><strong>Hard refresh:</strong> Press Ctrl+F5 to clear cache</li>
+            <li><strong>Try incognito mode:</strong> To rule out browser cache issues</li>
+        </ul>
+    </div>
+
+    <script>
+        // Update current time
+        document.getElementById('current-time').textContent = new Date().toLocaleString();
+
+        async function testConnections() {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = '<p>Testing connections...</p>';
+            
+            const tests = [
+                { name: 'Dashboard Main Page', url: 'http://localhost:3000' },
+                { name: 'Workflow Page', url: 'http://localhost:3000/workflow' },
+                { name: 'API Health', url: 'http://localhost:3000/api/v1/health' },
+                { name: 'Backend Direct', url: 'http://localhost:8000/api/v1/health' }
+            ];
+            
+            let results = '<h3>Connection Test Results:</h3>';
+            
+            for (const test of tests) {
+                try {
+                    const response = await fetch(test.url);
+                    if (response.ok) {
+                        results += `<p class="success">✅ ${test.name}: OK (${response.status})</p>`;
+                    } else {
+                        results += `<p class="warning">⚠️ ${test.name}: ${response.status} ${response.statusText}</p>`;
+                    }
+                } catch (error) {
+                    results += `<p class="error">❌ ${test.name}: ${error.message}</p>`;
+                }
+            }
+            
+            resultsDiv.innerHTML = results;
+        }
+
+        // Auto-test connections on page load
+        setTimeout(testConnections, 1000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Kernel Driver Tab Detection</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Test Kernel Driver Tab Detection</h1>
+    <p>This tests if the kernel driver detection logic works correctly.</p>
+    
+    <div id="results"></div>
+
+    <script>
+        // Simulate the test case data structure from the API
+        const testCaseWithKernelDriver = {
+            id: "kernel_driver_c8a73572",
+            name: "Kernel Driver Test for kmalloc",
+            test_metadata: {
+                generation_method: "ai_kernel_driver",
+                kernel_module: "test_kmalloc.ko",
+                requires_root: true,
+                requires_kernel_headers: true,
+                driver_files: {
+                    "test_kmalloc.c": "/* C source code */",
+                    "Makefile": "# Makefile content",
+                    "run_test.sh": "#!/bin/bash\\n# Test script",
+                    "install.sh": "#!/bin/bash\\n# Install script",
+                    "README.md": "# README content"
+                }
+            },
+            generation_info: {
+                method: "ai_kernel_driver",
+                source_data: {
+                    function_name: "kmalloc",
+                    file_path: "mm/slab.c",
+                    subsystem: "kernel/mm"
+                }
+            }
+        };
+
+        const regularTestCase = {
+            id: "test-001",
+            name: "Regular Test Case",
+            metadata: {
+                generation_method: "manual"
+            }
+        };
+
+        // Simulate the detection functions from TestCaseModal
+        function isKernelDriverTest(testCase) {
+            return testCase?.test_metadata?.generation_method === 'ai_kernel_driver' ||
+                   testCase?.metadata?.generation_method === 'ai_kernel_driver' ||
+                   testCase?.generation_info?.method === 'ai_kernel_driver' ||
+                   testCase?.test_metadata?.kernel_module === true ||
+                   testCase?.metadata?.kernel_module === true ||
+                   testCase?.test_metadata?.requires_root === true ||
+                   testCase?.metadata?.requires_root === true ||
+                   testCase?.requires_root === true ||
+                   testCase?.kernel_module === true ||
+                   (testCase?.test_metadata?.driver_files && Object.keys(testCase.test_metadata.driver_files).length > 0) ||
+                   (testCase?.metadata?.driver_files && Object.keys(testCase.metadata.driver_files).length > 0) ||
+                   (testCase?.driver_files && Object.keys(testCase.driver_files).length > 0);
+        }
+
+        function getKernelDriverFiles(testCase) {
+            if (testCase?.test_metadata?.driver_files) {
+                return testCase.test_metadata.driver_files;
+            }
+            if (testCase?.metadata?.driver_files) {
+                return testCase.metadata.driver_files;
+            }
+            if (testCase?.generation_info?.driver_files) {
+                return testCase.generation_info.driver_files;
+            }
+            if (testCase?.driver_files) {
+                return testCase.driver_files;
+            }
+            return null;
+        }
+
+        function runTests() {
+            const results = document.getElementById('results');
+            
+            // Test 1: Kernel driver test case
+            const isKernel1 = isKernelDriverTest(testCaseWithKernelDriver);
+            const files1 = getKernelDriverFiles(testCaseWithKernelDriver);
+            
+            const test1Result = document.createElement('div');
+            test1Result.className = `test-case ${isKernel1 ? 'success' : 'error'}`;
+            test1Result.innerHTML = `
+                <h3>Test 1: Kernel Driver Test Case</h3>
+                <p><strong>Is Kernel Driver Test:</strong> ${isKernel1 ? '✅ YES' : '❌ NO'}</p>
+                <p><strong>Driver Files Found:</strong> ${files1 ? Object.keys(files1).length : 0} files</p>
+                ${files1 ? `<p><strong>Files:</strong> ${Object.keys(files1).join(', ')}</p>` : ''}
+                <pre>${JSON.stringify({
+                    isKernelDriverTest: isKernel1,
+                    driverFiles: files1 ? Object.keys(files1) : null,
+                    detectionReasons: {
+                        generation_method: testCaseWithKernelDriver.test_metadata?.generation_method,
+                        kernel_module: testCaseWithKernelDriver.test_metadata?.kernel_module,
+                        requires_root: testCaseWithKernelDriver.test_metadata?.requires_root,
+                        has_driver_files: !!files1
+                    }
+                }, null, 2)}</pre>
+            `;
+            results.appendChild(test1Result);
+            
+            // Test 2: Regular test case
+            const isKernel2 = isKernelDriverTest(regularTestCase);
+            const files2 = getKernelDriverFiles(regularTestCase);
+            
+            const test2Result = document.createElement('div');
+            test2Result.className = `test-case ${!isKernel2 ? 'success' : 'error'}`;
+            test2Result.innerHTML = `
+                <h3>Test 2: Regular Test Case</h3>
+                <p><strong>Is Kernel Driver Test:</strong> ${isKernel2 ? '❌ YES (should be NO)' : '✅ NO'}</p>
+                <p><strong>Driver Files Found:</strong> ${files2 ? Object.keys(files2).length : 0} files</p>
+                <pre>${JSON.stringify({
+                    isKernelDriverTest: isKernel2,
+                    driverFiles: files2 ? Object.keys(files2) : null
+                }, null, 2)}</pre>
+            `;
+            results.appendChild(test2Result);
+            
+            // Summary
+            const summary = document.createElement('div');
+            summary.className = `test-case ${isKernel1 && !isKernel2 ? 'success' : 'error'}`;
+            summary.innerHTML = `
+                <h3>Summary</h3>
+                <p><strong>Detection Logic:</strong> ${isKernel1 && !isKernel2 ? '✅ Working Correctly' : '❌ Needs Fix'}</p>
+                <p>The kernel driver tab should now appear for AI-generated kernel driver test cases.</p>
+            `;
+            results.appendChild(summary);
+        }
+
+        // Run tests on page load
+        window.addEventListener('load', runTests);
+    </script>
+</body>
+</html>

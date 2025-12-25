@@ -30,8 +30,11 @@ import {
   FunctionOutlined,
   DownOutlined,
   RightOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons'
 import { useQuery, useQueryClient } from 'react-query'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import apiService from '../services/api'
 import ExecutionConsole from '../components/ExecutionConsole'
 
@@ -51,11 +54,49 @@ const TestExecutionDebug: React.FC = () => {
   const [loadingActions, setLoadingActions] = useState<Record<string, string>>({}) // Track loading states
   const [activeTab, setActiveTab] = useState('executions')
   const [selectedExecutionForConsole, setSelectedExecutionForConsole] = useState<string | null>(null)
+  const [sourceCodeModalVisible, setSourceCodeModalVisible] = useState(false)
+  const [selectedTestCaseForSource, setSelectedTestCaseForSource] = useState<any>(null)
   const [form] = Form.useForm()
   const [autoGenForm] = Form.useForm()
   const queryClient = useQueryClient()
 
   console.log('TestExecutionDebug: State initialized')
+
+  // Function to handle viewing test case source code
+  const handleViewTestCaseSource = async (testCase: any) => {
+    console.log('🔍 Viewing test case source for:', testCase)
+    console.log('🔍 Test case test_script field:', testCase.test_script)
+    console.log('🔍 Full test case object:', JSON.stringify(testCase, null, 2))
+    
+    // If the test case doesn't have full details (like test_script), fetch them
+    if (!testCase.test_script && testCase.test_id) {
+      try {
+        console.log('🔄 Fetching full test case details for:', testCase.test_id)
+        
+        // Set loading state
+        setLoadingActions(prev => ({ ...prev, [`source_${testCase.test_id}`]: 'loading' }))
+        
+        const fullTestCase = await apiService.getTestById(testCase.test_id)
+        console.log('✅ Got full test case details:', fullTestCase)
+        setSelectedTestCaseForSource(fullTestCase)
+      } catch (error) {
+        console.error('❌ Failed to fetch full test case details:', error)
+        // Fall back to using the partial data we have
+        setSelectedTestCaseForSource(testCase)
+      } finally {
+        // Clear loading state
+        setLoadingActions(prev => {
+          const newState = { ...prev }
+          delete newState[`source_${testCase.test_id}`]
+          return newState
+        })
+      }
+    } else {
+      setSelectedTestCaseForSource(testCase)
+    }
+    
+    setSourceCodeModalVisible(true)
+  }
 
   // Function to fetch execution details including test cases
   const fetchExecutionDetails = async (planId: string) => {
@@ -376,6 +417,25 @@ const TestExecutionDebug: React.FC = () => {
         dataIndex: 'execution_time_estimate',
         key: 'execution_time_estimate',
         render: (time: number) => <Text type="secondary">{time}s</Text>
+      },
+      {
+        title: 'Actions',
+        key: 'actions',
+        width: 120,
+        render: (_, testCase: any) => (
+          <Space size="small">
+            <Tooltip title="View test case source code">
+              <Button
+                size="small"
+                icon={<FileTextOutlined />}
+                onClick={() => handleViewTestCaseSource(testCase)}
+                loading={loadingActions[`source_${testCase.test_id}`]}
+              >
+                Source
+              </Button>
+            </Tooltip>
+          </Space>
+        )
       }
     ]
 
@@ -780,6 +840,275 @@ const TestExecutionDebug: React.FC = () => {
             </Space>
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Test Case Source Code Modal */}
+      <Modal
+        title={
+          <Space>
+            <FileTextOutlined />
+            Test Case Source Code
+            {selectedTestCaseForSource && (
+              <Tag color="blue">{selectedTestCaseForSource.name}</Tag>
+            )}
+          </Space>
+        }
+        open={sourceCodeModalVisible}
+        onCancel={() => {
+          setSourceCodeModalVisible(false)
+          setSelectedTestCaseForSource(null)
+        }}
+        footer={[
+          <Button key="close" onClick={() => {
+            setSourceCodeModalVisible(false)
+            setSelectedTestCaseForSource(null)
+          }}>
+            Close
+          </Button>
+        ]}
+        width={900}
+        style={{ top: 20 }}
+      >
+        {selectedTestCaseForSource && (
+          <div>
+            {/* Test Case Information */}
+            <Card size="small" style={{ marginBottom: 16 }}>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Text strong>Test Case ID:</Text> <Text code>{selectedTestCaseForSource.test_id}</Text><br/>
+                  <Text strong>Name:</Text> <Text>{selectedTestCaseForSource.name}</Text><br/>
+                  <Text strong>Type:</Text> <Tag color="blue">{selectedTestCaseForSource.test_type}</Tag>
+                </Col>
+                <Col span={12}>
+                  <Text strong>Subsystem:</Text> <Tag color="green">{selectedTestCaseForSource.target_subsystem}</Tag><br/>
+                  <Text strong>Status:</Text> <Tag color="orange">{selectedTestCaseForSource.execution_status}</Tag><br/>
+                  <Text strong>Est. Time:</Text> <Text type="secondary">{selectedTestCaseForSource.execution_time_estimate}s</Text>
+                </Col>
+              </Row>
+              {selectedTestCaseForSource.description && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f0f0f0' }}>
+                  <Text strong>Description:</Text><br/>
+                  <Text type="secondary">{selectedTestCaseForSource.description}</Text>
+                </div>
+              )}
+            </Card>
+
+            {/* Source Code */}
+            <Card 
+              title={
+                <Space>
+                  <CodeOutlined />
+                  Test Script Source Code
+                  <Tag color="purple">
+                    {(() => {
+                      // Check multiple possible source code fields
+                      const testScript = selectedTestCaseForSource.test_script
+                      const driverFiles = selectedTestCaseForSource.driver_files
+                      const generationInfo = selectedTestCaseForSource.generation_info
+                      
+                      if (testScript) {
+                        if (testScript.includes('#!/bin/bash')) return 'bash'
+                        if (testScript.includes('#include')) return 'c'
+                        if (testScript.includes('import ')) return 'python'
+                        return 'text'
+                      } else if (driverFiles && Object.keys(driverFiles).length > 0) {
+                        const firstFile = Object.keys(driverFiles)[0]
+                        if (firstFile.endsWith('.c')) return 'c'
+                        if (firstFile.endsWith('.sh')) return 'bash'
+                        if (firstFile.endsWith('.py')) return 'python'
+                        return 'text'
+                      }
+                      return 'text'
+                    })()}
+                  </Tag>
+                </Space>
+              }
+              size="small"
+            >
+              {(() => {
+                const testScript = selectedTestCaseForSource.test_script
+                const driverFiles = selectedTestCaseForSource.driver_files
+                const generationInfo = selectedTestCaseForSource.generation_info
+                
+                // Try to find source code in different fields
+                let sourceCode = null
+                let language = 'text'
+                let sourceType = 'Unknown'
+                
+                if (testScript && testScript.trim()) {
+                  sourceCode = testScript
+                  sourceType = 'Test Script'
+                  if (testScript.includes('#!/bin/bash')) language = 'bash'
+                  else if (testScript.includes('#include')) language = 'c'
+                  else if (testScript.includes('import ')) language = 'python'
+                  else if (testScript.includes('function ')) language = 'javascript'
+                } else if (driverFiles && Object.keys(driverFiles).length > 0) {
+                  // Show the first driver file
+                  const firstFileName = Object.keys(driverFiles)[0]
+                  sourceCode = driverFiles[firstFileName]
+                  sourceType = `Driver File: ${firstFileName}`
+                  if (firstFileName.endsWith('.c')) language = 'c'
+                  else if (firstFileName.endsWith('.sh')) language = 'bash'
+                  else if (firstFileName.endsWith('.py')) language = 'python'
+                  else if (firstFileName.endsWith('.js')) language = 'javascript'
+                } else if (generationInfo?.source_data) {
+                  // Try to extract source from generation info
+                  const sourceData = generationInfo.source_data
+                  if (typeof sourceData === 'string') {
+                    sourceCode = sourceData
+                    sourceType = 'Generation Source Data'
+                  } else if (sourceData.diff_content) {
+                    sourceCode = sourceData.diff_content
+                    sourceType = 'Diff Content'
+                    language = 'diff'
+                  } else if (sourceData.function_code) {
+                    sourceCode = sourceData.function_code
+                    sourceType = 'Function Code'
+                    language = 'c'
+                  }
+                }
+                
+                if (sourceCode && sourceCode.trim()) {
+                  return (
+                    <div>
+                      <div style={{ marginBottom: 8 }}>
+                        <Tag color="blue">{sourceType}</Tag>
+                        {driverFiles && Object.keys(driverFiles).length > 1 && (
+                          <Tag color="orange">+{Object.keys(driverFiles).length - 1} more files</Tag>
+                        )}
+                      </div>
+                      <SyntaxHighlighter
+                        language={language}
+                        style={vscDarkPlus}
+                        customStyle={{
+                          backgroundColor: '#1e1e1e',
+                          color: '#d4d4d4',
+                          fontSize: '13px',
+                          lineHeight: '1.4',
+                          borderRadius: '6px',
+                          maxHeight: '400px',
+                          overflow: 'auto'
+                        }}
+                        showLineNumbers={true}
+                        wrapLines={true}
+                        lineNumberStyle={{
+                          color: '#858585',
+                          fontSize: '12px',
+                          paddingRight: '10px'
+                        }}
+                      >
+                        {sourceCode}
+                      </SyntaxHighlighter>
+                      
+                      {/* Show additional driver files if they exist */}
+                      {driverFiles && Object.keys(driverFiles).length > 1 && (
+                        <div style={{ marginTop: 16 }}>
+                          <Text strong>Additional Driver Files:</Text>
+                          {Object.entries(driverFiles).slice(1).map(([fileName, fileContent]) => (
+                            <Card key={fileName} size="small" style={{ marginTop: 8 }}>
+                              <div style={{ marginBottom: 8 }}>
+                                <Tag color="green">{fileName}</Tag>
+                              </div>
+                              <SyntaxHighlighter
+                                language={
+                                  fileName.endsWith('.c') ? 'c' :
+                                  fileName.endsWith('.sh') ? 'bash' :
+                                  fileName.endsWith('.py') ? 'python' :
+                                  fileName.endsWith('.js') ? 'javascript' :
+                                  'text'
+                                }
+                                style={vscDarkPlus}
+                                customStyle={{
+                                  backgroundColor: '#1e1e1e',
+                                  color: '#d4d4d4',
+                                  fontSize: '12px',
+                                  lineHeight: '1.4',
+                                  borderRadius: '6px',
+                                  maxHeight: '300px',
+                                  overflow: 'auto'
+                                }}
+                                showLineNumbers={true}
+                                wrapLines={true}
+                              >
+                                {fileContent}
+                              </SyntaxHighlighter>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                } else {
+                  return (
+                    <div style={{ 
+                      padding: '20px', 
+                      textAlign: 'center', 
+                      backgroundColor: '#f5f5f5', 
+                      borderRadius: '6px',
+                      border: '1px dashed #d9d9d9'
+                    }}>
+                      <FileTextOutlined style={{ fontSize: '24px', color: '#ccc', marginBottom: '8px' }} />
+                      <div>
+                        <Text type="secondary">No source code available for this test case</Text>
+                      </div>
+                      <div style={{ marginTop: '8px' }}>
+                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                          The test script may be generated dynamically or stored externally
+                        </Text>
+                      </div>
+                      <div style={{ marginTop: '12px', padding: '8px', backgroundColor: '#fff2e8', borderRadius: '4px' }}>
+                        <Text type="secondary" style={{ fontSize: '11px' }}>
+                          <strong>Debug Info for Test Case: {selectedTestCaseForSource.test_id}</strong><br/>
+                          • test_script: {selectedTestCaseForSource.test_script ? 
+                            (selectedTestCaseForSource.test_script.trim() ? `present (${selectedTestCaseForSource.test_script.length} chars)` : 'present but empty') : 
+                            'null/undefined'}<br/>
+                          • driver_files: {selectedTestCaseForSource.driver_files ? 
+                            `${Object.keys(selectedTestCaseForSource.driver_files).length} files: [${Object.keys(selectedTestCaseForSource.driver_files).join(', ')}]` : 
+                            'none'}<br/>
+                          • generation_info: {selectedTestCaseForSource.generation_info ? 
+                            `present (method: ${selectedTestCaseForSource.generation_info.method || 'unknown'})` : 
+                            'none'}<br/>
+                          • All available fields: {Object.keys(selectedTestCaseForSource).join(', ')}
+                        </Text>
+                      </div>
+                    </div>
+                  )
+                }
+              })()}
+            </Card>
+
+            {/* Additional Metadata */}
+            {selectedTestCaseForSource.metadata && (
+              <Card 
+                title={
+                  <Space>
+                    <CodeOutlined />
+                    Test Metadata
+                  </Space>
+                }
+                size="small"
+                style={{ marginTop: 16 }}
+              >
+                <SyntaxHighlighter
+                  language="json"
+                  style={vscDarkPlus}
+                  customStyle={{
+                    backgroundColor: '#1e1e1e',
+                    color: '#d4d4d4',
+                    fontSize: '12px',
+                    lineHeight: '1.4',
+                    borderRadius: '6px',
+                    maxHeight: '200px',
+                    overflow: 'auto'
+                  }}
+                  showLineNumbers={false}
+                >
+                  {JSON.stringify(selectedTestCaseForSource.metadata, null, 2)}
+                </SyntaxHighlighter>
+              </Card>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   )

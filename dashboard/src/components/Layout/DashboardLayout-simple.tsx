@@ -13,6 +13,7 @@ import {
   BellOutlined,
   WifiOutlined,
   DisconnectOutlined,
+  RobotOutlined,
 } from '@ant-design/icons'
 import { useDashboardStore } from '../../store'
 // Remove websocket import that might be causing issues
@@ -64,6 +65,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       key: '/',
       icon: <DashboardOutlined />,
       label: 'Dashboard',
+    },
+    {
+      key: '/workflow',
+      icon: <RobotOutlined style={{ color: '#722ed1' }} />,
+      label: 'Workflow Diagram',
+      style: { 
+        backgroundColor: '#f6ffed',
+        border: '1px solid #b7eb8f',
+        borderRadius: '4px',
+        margin: '4px 0'
+      }
     },
     {
       key: '/test-cases',

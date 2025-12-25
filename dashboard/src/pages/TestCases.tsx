@@ -45,7 +45,7 @@ import KernelDriverInfo from '../components/KernelDriverInfo'
 import apiService, { TestCase, EnhancedTestCase } from '../services/api'
 import useAIGeneration from '../hooks/useAIGeneration'
 
-const { Title } = Typography
+const { Title, Text } = Typography
 const { RangePicker } = DatePicker
 const { TextArea } = Input
 

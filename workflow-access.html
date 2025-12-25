@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow Diagram Access</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            text-align: center;
+            max-width: 600px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+        .button {
+            display: inline-block;
+            padding: 15px 30px;
+            margin: 10px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            color: #667eea;
+        }
+        .button.primary {
+            background: #52c41a;
+            color: white;
+            font-size: 18px;
+            padding: 20px 40px;
+        }
+        .button.primary:hover {
+            background: #73d13d;
+            color: white;
+        }
+        .info {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            text-align: left;
+        }
+        .step {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Workflow Diagram Access</h1>
+        <p class="subtitle">Multiple ways to access the Complete Workflow Diagram</p>
+        
+        <div style="margin: 30px 0;">
+            <a href="http://localhost:3000/workflow" class="button primary" target="_blank">
+                🚀 Open Workflow Diagram
+            </a>
+        </div>
+        
+        <div>
+            <a href="http://localhost:3000/menu-debug" class="button" target="_blank">
+                🔧 Menu Debugger
+            </a>
+            <a href="http://localhost:3000/workflow-diagnostic" class="button" target="_blank">
+                🩺 Diagnostic Tool
+            </a>
+            <a href="http://localhost:3000" class="button" target="_blank">
+                📊 Main Dashboard
+            </a>
+        </div>
+        
+        <div class="info">
+            <h3>📋 What You Should See:</h3>
+            <div class="step">
+                <strong>✅ System Status Tab:</strong> Real-time system health monitoring
+            </div>
+            <div class="step">
+                <strong>🔄 8 Workflow Phases:</strong> Interactive tabs for each phase
+            </div>
+            <div class="step">
+                <strong>🎮 Interactive Features:</strong> Clickable nodes, execution buttons, progress tracking
+            </div>
+            <div class="step">
+                <strong>📊 Real-time Data:</strong> Live system metrics and execution status
+            </div>
+        </div>
+        
+        <div class="info">
+            <h3>🔍 If Still Not Working:</h3>
+            <div class="step">
+                <strong>1. Check URL:</strong> Make sure you're using localhost:3000 (not 5173 or 8000)
+            </div>
+            <div class="step">
+                <strong>2. Clear Cache:</strong> Press Ctrl+F5 to hard refresh
+            </div>
+            <div class="step">
+                <strong>3. Check Console:</strong> Press F12 and look for JavaScript errors
+            </div>
+            <div class="step">
+                <strong>4. Try Incognito:</strong> Open in private/incognito mode
+            </div>
+        </div>
+        
+        <p style="margin-top: 30px; opacity: 0.8;">
+            <strong>Current Time:</strong> <span id="time"></span><br>
+            <strong>Your Browser:</strong> <span id="browser"></span>
+        </p>
+    </div>
+
+    <script>
+        // Update time and browser info
+        document.getElementById('time').textContent = new Date().toLocaleString();
+        document.getElementById('browser').textContent = navigator.userAgent.split(' ').slice(-2).join(' ');
+        
+        // Auto-test the workflow URL
+        setTimeout(() => {
+            fetch('http://localhost:3000/workflow')
+                .then(response => {
+                    if (response.ok) {
+                        console.log('✅ Workflow page is accessible');
+                    } else {
+                        console.log('⚠️ Workflow page returned:', response.status);
+                    }
+                })
+                .catch(error => {
+                    console.log('❌ Cannot reach workflow page:', error);
+                });
+        }, 1000);
+    </script>
+</body>
+</html>

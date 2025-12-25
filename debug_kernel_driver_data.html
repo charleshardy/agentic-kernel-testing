@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Kernel Driver Data Flow</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; border-radius: 3px; font-size: 12px; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 3px; }
+        button:hover { background: #0056b3; }
+        .data-structure { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Kernel Driver Data Flow</h1>
+    <p>Testing the complete data flow from backend generation to frontend display.</p>
+    
+    <div class="test-section">
+        <h2>📋 Step 1: Generate Kernel Driver Test Case</h2>
+        <button onclick="generateKernelDriver()">Generate New Kernel Driver Test</button>
+        <div id="generation-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 Step 2: Retrieve Test Case Data</h2>
+        <button onclick="retrieveTestData()">Retrieve Test Case Data</button>
+        <div id="retrieval-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 Step 3: Analyze Data Structure</h2>
+        <div id="data-analysis"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 Step 4: Frontend Data Access Paths</h2>
+        <div id="frontend-paths">
+            <h3>Frontend TestCaseModal checks these paths for driver_files:</h3>
+            <ul>
+                <li><code>testCase.test_metadata?.driver_files</code></li>
+                <li><code>testCase.metadata?.driver_files</code></li>
+                <li><code>testCase.generation_info?.driver_files</code></li>
+                <li><code>testCase.driver_files</code></li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let currentTestId = null;
+        let testCaseData = null;
+
+        async function generateKernelDriver() {
+            const resultDiv = document.getElementById('generation-result');
+            resultDiv.innerHTML = '<div class="info">🔄 Generating kernel driver test case...</div>';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/tests/generate-kernel-driver?function_name=debug_test_ui&file_path=drivers/debug_ui.c&subsystem=drivers/char&test_types=unit,integration', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    currentTestId = data.data?.test_case_ids?.[0];
+                    
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Kernel driver test case generated!</div>
+                        <div class="info">Test ID: ${currentTestId}</div>
+                        <div class="info">Generated Files: ${data.data?.driver_info?.generated_files?.join(', ') || 'N/A'}</div>
+                        <div class="data-structure">
+                            <strong>Generation Response:</strong>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    const errorData = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ Generation failed</div>
+                        <div>Status: ${response.status}</div>
+                        <pre>${JSON.stringify(errorData, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+            }
+        }
+
+        async function retrieveTestData() {
+            const resultDiv = document.getElementById('retrieval-result');
+            
+            if (!currentTestId) {
+                resultDiv.innerHTML = '<div class="warning">⚠️ Generate a test case first</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="info">🔄 Retrieving test case data...</div>';
+            
+            try {
+                // First get auth token
+                const authResponse = await fetch('http://localhost:8000/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+                });
+                
+                const authData = await authResponse.json();
+                const token = authData.data.access_token;
+                
+                // Then get test case data
+                const response = await fetch(`http://localhost:8000/api/v1/tests/${currentTestId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    testCaseData = data.data;
+                    
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Test case data retrieved!</div>
+                        <div class="data-structure">
+                            <strong>Complete Test Case Data:</strong>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                    
+                    analyzeDataStructure();
+                } else {
+                    const errorData = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ Retrieval failed</div>
+                        <div>Status: ${response.status}</div>
+                        <pre>${JSON.stringify(errorData, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+            }
+        }
+
+        function analyzeDataStructure() {
+            const analysisDiv = document.getElementById('data-analysis');
+            
+            if (!testCaseData) {
+                analysisDiv.innerHTML = '<div class="warning">⚠️ No test case data to analyze</div>';
+                return;
+            }
+            
+            // Check all possible paths for driver_files
+            const paths = [
+                { path: 'test_metadata.driver_files', value: testCaseData.test_metadata?.driver_files },
+                { path: 'metadata.driver_files', value: testCaseData.metadata?.driver_files },
+                { path: 'generation_info.driver_files', value: testCaseData.generation_info?.driver_files },
+                { path: 'driver_files', value: testCaseData.driver_files }
+            ];
+            
+            let analysis = '<h3>🔍 Driver Files Data Analysis:</h3>';
+            let foundDriverFiles = false;
+            
+            paths.forEach(({ path, value }) => {
+                if (value && typeof value === 'object' && Object.keys(value).length > 0) {
+                    foundDriverFiles = true;
+                    analysis += `
+                        <div class="success">✅ Found driver_files at: <code>${path}</code></div>
+                        <div class="data-structure">
+                            <strong>Files found:</strong>
+                            <ul>
+                                ${Object.keys(value).map(filename => `<li><strong>${filename}</strong> (${typeof value[filename] === 'string' ? value[filename].length : 0} chars)</li>`).join('')}
+                            </ul>
+                            <details>
+                                <summary>Raw Data</summary>
+                                <pre>${JSON.stringify(value, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                } else {
+                    analysis += `<div class="info">❌ No data at: <code>${path}</code> (${value === undefined ? 'undefined' : value === null ? 'null' : typeof value})</div>`;
+                }
+            });
+            
+            if (!foundDriverFiles) {
+                analysis += `
+                    <div class="error">❌ No driver_files data found in any expected location!</div>
+                    <div class="warning">This explains why the frontend Kernel Driver Files tab is not showing content.</div>
+                `;
+            } else {
+                analysis += `
+                    <div class="success">✅ Driver files data is available!</div>
+                    <div class="info">The frontend should be able to display the Kernel Driver Files tab with syntax highlighting.</div>
+                `;
+            }
+            
+            // Check generation method
+            const generationMethod = testCaseData.test_metadata?.generation_method || 
+                                   testCaseData.metadata?.generation_method || 
+                                   testCaseData.generation_info?.method;
+            
+            analysis += `
+                <h3>🔍 Generation Method Analysis:</h3>
+                <div class="info">Generation Method: <code>${generationMethod || 'not found'}</code></div>
+                <div class="${generationMethod === 'ai_kernel_driver' ? 'success' : 'warning'}">
+                    ${generationMethod === 'ai_kernel_driver' ? '✅' : '⚠️'} 
+                    Should trigger Kernel Driver Files tab: ${generationMethod === 'ai_kernel_driver' ? 'YES' : 'NO'}
+                </div>
+            `;
+            
+            analysisDiv.innerHTML = analysis;
+        }
+
+        // Auto-generate test case on page load for quick testing
+        window.addEventListener('load', () => {
+            console.log('🧪 Debug page loaded - ready for testing');
+        });
+    </script>
+</body>
+</html>

@@ -556,6 +556,32 @@ class APIService {
     }
   }
 
+  async submitTestGeneration(params: {
+    code_change: string
+    test_types: string[]
+    priority: string
+  }): Promise<{ submission_id: string }> {
+    try {
+      const response: AxiosResponse<APIResponse<{ submission_id: string }>> = await this.client.post('/tests/generate', {
+        code_change: params.code_change,
+        test_types: params.test_types,
+        priority: params.priority,
+      })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<{ submission_id: string }>> = await this.client.post('/tests/generate', {
+          code_change: params.code_change,
+          test_types: params.test_types,
+          priority: params.priority,
+        })
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
   async generateTestsFromFunction(
     functionName: string,
     filePath: string,

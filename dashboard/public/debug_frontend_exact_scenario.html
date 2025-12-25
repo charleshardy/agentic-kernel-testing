@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Frontend Exact Scenario</title>
+</head>
+<body>
+    <h1>Debug Frontend Exact Scenario</h1>
+    <button onclick="testExactFrontendScenario()">Test Exact Frontend Scenario</button>
+    <div id="results"></div>
+    
+    <script>
+        // Simulate the exact frontend API service behavior
+        class APIService {
+            constructor() {
+                // Determine the correct base URL based on environment
+                let baseURL;
+                
+                // Check if we're running in development (typical indicators)
+                const isDevelopment = 
+                    window.location.hostname === 'localhost' ||
+                    window.location.hostname === '127.0.0.1' ||
+                    window.location.port === '3000';
+                
+                if (isDevelopment) {
+                    // In development, try to use proxy first, fallback to direct
+                    baseURL = '/api/v1';  // Use Vite proxy
+                    console.log('🔧 API Service: Using proxy URL for development:', baseURL);
+                } else {
+                    // In production, use direct URL
+                    baseURL = 'http://localhost:8000/api/v1';
+                    console.log('🔧 API Service: Using direct URL for production:', baseURL);
+                }
+                
+                this.baseURL = baseURL;
+            }
+            
+            async generateTestsFromFunction(functionName, filePath, subsystem = 'unknown', maxTests = 10) {
+                console.log('🔧 generateTestsFromFunction called with:', { functionName, filePath, subsystem, maxTests });
+                
+                try {
+                    const url = `${this.baseURL}/tests/generate-from-function`;
+                    const params = new URLSearchParams({
+                        function_name: functionName,
+                        file_path: filePath,
+                        subsystem: subsystem,
+                        max_tests: maxTests.toString()
+                    });
+                    
+                    const fullUrl = `${url}?${params}`;
+                    console.log('🌐 Making request to:', fullUrl);
+                    
+                    const response = await fetch(fullUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+                    
+                    console.log('📡 Response status:', response.status);
+                    console.log('📡 Response headers:', [...response.headers.entries()]);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    console.log('✅ generateTestsFromFunction success:', data);
+                    return data;
+                    
+                } catch (error) {
+                    console.error('❌ generateTestsFromFunction error:', error);
+                    
+                    // Enhanced error with more context
+                    if (error.response?.data?.message) {
+                        const errorMsg = error.response.data.message;
+                        if (errorMsg === 'Not implemented') {
+                            throw new Error('Function-based AI generation is not yet implemented on the backend. Please try "From Code Diff" or "Kernel Test Driver" instead.');
+                        }
+                        throw new Error(errorMsg);
+                    } else if (error.response?.status) {
+                        throw new Error(`Server error: HTTP ${error.response.status}`);
+                    } else if (error.message) {
+                        throw new Error(error.message);
+                    } else {
+                        throw new Error('Network error: Unable to connect to server');
+                    }
+                }
+            }
+        }
+        
+        async function testExactFrontendScenario() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Testing exact frontend scenario...</p>';
+            
+            try {
+                const apiService = new APIService();
+                
+                // Test with the same parameters the frontend would use
+                const response = await apiService.generateTestsFromFunction(
+                    'test_function',
+                    'kernel/test.c',
+                    'kernel/core',
+                    5
+                );
+                
+                results.innerHTML = `
+                    <h2>✅ Success!</h2>
+                    <p><strong>Generated Count:</strong> ${response.data?.generated_count || 'N/A'}</p>
+                    <p><strong>Response:</strong></p>
+                    <pre>${JSON.stringify(response, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                console.error('Test failed:', error);
+                results.innerHTML = `
+                    <h2>❌ Error</h2>
+                    <p><strong>Error Message:</strong> ${error.message}</p>
+                    <p><strong>Error Type:</strong> ${error.constructor.name}</p>
+                    <p><strong>Stack:</strong></p>
+                    <pre>${error.stack}</pre>
+                `;
+            }
+        }
+        
+        // Also test authentication
+        async function testWithAuth() {
+            const results = document.getElementById('results');
+            results.innerHTML += '<hr><p>Testing with authentication...</p>';
+            
+            try {
+                // First get a token
+                const loginResponse = await fetch('/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: 'admin',
+                        password: 'admin123'
+                    })
+                });
+                
+                if (!loginResponse.ok) {
+                    throw new Error(`Login failed: ${loginResponse.status}`);
+                }
+                
+                const loginData = await loginResponse.json();
+                const token = loginData.data?.access_token;
+                
+                if (!token) {
+                    throw new Error('No access token received');
+                }
+                
+                console.log('🔑 Got token:', token.substring(0, 20) + '...');
+                
+                // Now test the API with auth
+                const params = new URLSearchParams({
+                    function_name: 'test_function',
+                    file_path: 'kernel/test.c',
+                    subsystem: 'kernel/core',
+                    max_tests: '5'
+                });
+                
+                const response = await fetch(`/api/v1/tests/generate-from-function?${params}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                results.innerHTML += `
+                    <h2>✅ Auth Success!</h2>
+                    <p><strong>Generated Count:</strong> ${data.data?.generated_count || 'N/A'}</p>
+                    <p><strong>Response:</strong></p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                console.error('Auth test failed:', error);
+                results.innerHTML += `
+                    <h2>❌ Auth Error</h2>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                `;
+            }
+        }
+        
+        // Run auth test automatically
+        window.onload = function() {
+            testWithAuth();
+        };
+    </script>
+</body>
+</html>

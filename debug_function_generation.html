@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Function Generation Issue</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #f6ffed;
+            border-color: #b7eb8f;
+        }
+        .error {
+            background-color: #fff2f0;
+            border-color: #ffccc7;
+        }
+        .info {
+            background-color: #e6f7ff;
+            border-color: #91d5ff;
+        }
+        button {
+            background-color: #1890ff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #40a9ff;
+        }
+        .log {
+            background-color: #f6f6f6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+            white-space: pre-wrap;
+        }
+        .status {
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Function Generation Issue</h1>
+        
+        <div class="test-section info">
+            <h3>🎯 Issue Description</h3>
+            <p><strong>Error:</strong> "Generation failed: Not implemented"</p>
+            <p><strong>Context:</strong> Occurs when using "From Function" tab in AI Generate Tests</p>
+            <p><strong>Expected:</strong> Should generate test cases for the specified function</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Test Function Generation API</h3>
+            <div class="form-group">
+                <label>Function Name:</label>
+                <input type="text" id="functionName" value="kmalloc" placeholder="e.g., kmalloc, printk, etc.">
+            </div>
+            <div class="form-group">
+                <label>File Path:</label>
+                <input type="text" id="filePath" value="mm/slab.c" placeholder="e.g., mm/slab.c, kernel/printk.c">
+            </div>
+            <div class="form-group">
+                <label>Subsystem:</label>
+                <select id="subsystem">
+                    <option value="kernel/mm">Memory Management</option>
+                    <option value="kernel/core">Kernel Core</option>
+                    <option value="kernel/fs">File System</option>
+                    <option value="kernel/net">Networking</option>
+                    <option value="drivers/block">Block Drivers</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Max Tests:</label>
+                <input type="number" id="maxTests" value="3" min="1" max="10">
+            </div>
+            <button onclick="testFunctionGeneration()">Test Function Generation</button>
+            <button onclick="testWithDifferentParams()">Test with Different Params</button>
+            <div class="status" id="testStatus">Ready to test...</div>
+            <div class="log" id="testLog"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Simulate Frontend Call</h3>
+            <p>This simulates exactly what the frontend does when calling the API:</p>
+            <button onclick="simulateFrontendCall()">Simulate Frontend API Call</button>
+            <div class="status" id="frontendStatus">Ready to simulate...</div>
+            <div class="log" id="frontendLog"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Compare All Generation Methods</h3>
+            <button onclick="compareAllMethods()">Test All Generation Methods</button>
+            <div class="status" id="compareStatus">Ready to compare...</div>
+            <div class="log" id="compareLog"></div>
+        </div>
+    </div>
+
+    <script>
+        function log(elementId, message, isError = false) {
+            const logElement = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            logElement.textContent += logEntry;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function clearLog(elementId) {
+            document.getElementById(elementId).textContent = '';
+        }
+
+        async function getAuthToken() {
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: 'admin',
+                        password: 'admin123'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Auth failed: HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                return data.data.access_token;
+            } catch (error) {
+                throw new Error(`Authentication failed: ${error.message}`);
+            }
+        }
+
+        async function testFunctionGeneration() {
+            const statusElement = document.getElementById('testStatus');
+            clearLog('testLog');
+            
+            statusElement.textContent = 'Testing function generation...';
+            
+            try {
+                const functionName = document.getElementById('functionName').value;
+                const filePath = document.getElementById('filePath').value;
+                const subsystem = document.getElementById('subsystem').value;
+                const maxTests = document.getElementById('maxTests').value;
+                
+                log('testLog', `Testing with: ${functionName}, ${filePath}, ${subsystem}, ${maxTests} tests`);
+                
+                // Get auth token
+                log('testLog', 'Getting authentication token...');
+                const token = await getAuthToken();
+                log('testLog', '✅ Authentication successful');
+                
+                // Test function generation
+                log('testLog', 'Calling function generation API...');
+                const url = `http://localhost:8000/api/v1/tests/generate-from-function?function_name=${encodeURIComponent(functionName)}&file_path=${encodeURIComponent(filePath)}&subsystem=${encodeURIComponent(subsystem)}&max_tests=${maxTests}`;
+                log('testLog', `URL: ${url}`);
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log('testLog', `Response status: ${response.status} ${response.statusText}`);
+                
+                const responseText = await response.text();
+                log('testLog', `Raw response: ${responseText}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${responseText}`);
+                }
+                
+                const data = JSON.parse(responseText);
+                log('testLog', `Parsed response: ${JSON.stringify(data, null, 2)}`);
+                
+                if (data.success) {
+                    statusElement.textContent = '✅ Function generation successful!';
+                    statusElement.style.color = 'green';
+                    log('testLog', `✅ Generated ${data.data.generated_count} test cases`);
+                } else {
+                    statusElement.textContent = `❌ Generation failed: ${data.message}`;
+                    statusElement.style.color = 'red';
+                    log('testLog', `❌ API returned success=false: ${data.message}`);
+                }
+                
+            } catch (error) {
+                log('testLog', `❌ Error: ${error.message}`, true);
+                statusElement.textContent = `❌ Error: ${error.message}`;
+                statusElement.style.color = 'red';
+            }
+        }
+
+        async function testWithDifferentParams() {
+            const params = [
+                { functionName: 'printk', filePath: 'kernel/printk/printk.c', subsystem: 'kernel/core' },
+                { functionName: 'mutex_lock', filePath: 'kernel/locking/mutex.c', subsystem: 'kernel/core' },
+                { functionName: 'alloc_pages', filePath: 'mm/page_alloc.c', subsystem: 'kernel/mm' }
+            ];
+            
+            clearLog('testLog');
+            document.getElementById('testStatus').textContent = 'Testing multiple parameters...';
+            
+            for (const param of params) {
+                log('testLog', `\\n--- Testing ${param.functionName} ---`);
+                document.getElementById('functionName').value = param.functionName;
+                document.getElementById('filePath').value = param.filePath;
+                document.getElementById('subsystem').value = param.subsystem;
+                
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+                await testFunctionGeneration();
+            }
+        }
+
+        async function simulateFrontendCall() {
+            const statusElement = document.getElementById('frontendStatus');
+            clearLog('frontendLog');
+            
+            statusElement.textContent = 'Simulating frontend call...';
+            
+            try {
+                log('frontendLog', 'Simulating exact frontend API call...');
+                
+                // This simulates what the frontend useAIGeneration hook does
+                const token = await getAuthToken();
+                log('frontendLog', '✅ Got auth token');
+                
+                const params = {
+                    functionName: 'kmalloc',
+                    filePath: 'mm/slab.c',
+                    subsystem: 'kernel/mm',
+                    maxTests: 5
+                };
+                
+                log('frontendLog', `Calling generateTestsFromFunction with: ${JSON.stringify(params)}`);
+                
+                // Simulate the API service call
+                const response = await fetch('http://localhost:8000/api/v1/tests/generate-from-function', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: null, // Frontend sends null body with query params
+                    // Add query parameters like the frontend does
+                });
+                
+                // Add query params manually since fetch doesn't support body with GET-style params
+                const url = new URL('http://localhost:8000/api/v1/tests/generate-from-function');
+                url.searchParams.append('function_name', params.functionName);
+                url.searchParams.append('file_path', params.filePath);
+                url.searchParams.append('subsystem', params.subsystem);
+                url.searchParams.append('max_tests', params.maxTests.toString());
+                
+                log('frontendLog', `Final URL: ${url.toString()}`);
+                
+                const finalResponse = await fetch(url.toString(), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const responseData = await finalResponse.json();
+                log('frontendLog', `Response: ${JSON.stringify(responseData, null, 2)}`);
+                
+                if (responseData.success) {
+                    statusElement.textContent = '✅ Frontend simulation successful!';
+                    statusElement.style.color = 'green';
+                } else {
+                    statusElement.textContent = `❌ Frontend simulation failed: ${responseData.message}`;
+                    statusElement.style.color = 'red';
+                }
+                
+            } catch (error) {
+                log('frontendLog', `❌ Error: ${error.message}`, true);
+                statusElement.textContent = `❌ Error: ${error.message}`;
+                statusElement.style.color = 'red';
+            }
+        }
+
+        async function compareAllMethods() {
+            const statusElement = document.getElementById('compareStatus');
+            clearLog('compareLog');
+            
+            statusElement.textContent = 'Comparing all generation methods...';
+            
+            try {
+                const token = await getAuthToken();
+                log('compareLog', '✅ Got auth token');
+                
+                // Test 1: From Diff
+                log('compareLog', '\\n--- Testing From Diff ---');
+                try {
+                    const diffResponse = await fetch('http://localhost:8000/api/v1/tests/generate-from-diff?diff_content=test&max_tests=1&test_types=unit', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const diffData = await diffResponse.json();
+                    log('compareLog', `From Diff: ${diffData.success ? '✅ SUCCESS' : '❌ FAILED'} - ${diffData.message}`);
+                } catch (error) {
+                    log('compareLog', `From Diff: ❌ ERROR - ${error.message}`);
+                }
+                
+                // Test 2: From Function
+                log('compareLog', '\\n--- Testing From Function ---');
+                try {
+                    const funcResponse = await fetch('http://localhost:8000/api/v1/tests/generate-from-function?function_name=kmalloc&file_path=mm/slab.c&subsystem=kernel/mm&max_tests=1', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const funcData = await funcResponse.json();
+                    log('compareLog', `From Function: ${funcData.success ? '✅ SUCCESS' : '❌ FAILED'} - ${funcData.message}`);
+                } catch (error) {
+                    log('compareLog', `From Function: ❌ ERROR - ${error.message}`);
+                }
+                
+                // Test 3: Kernel Driver
+                log('compareLog', '\\n--- Testing Kernel Driver ---');
+                try {
+                    const kernelResponse = await fetch('http://localhost:8000/api/v1/tests/generate-kernel-driver?function_name=kmalloc&file_path=mm/slab.c&subsystem=kernel/mm&test_types=unit', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const kernelData = await kernelResponse.json();
+                    log('compareLog', `Kernel Driver: ${kernelData.success ? '✅ SUCCESS' : '❌ FAILED'} - ${kernelData.message}`);
+                } catch (error) {
+                    log('compareLog', `Kernel Driver: ❌ ERROR - ${error.message}`);
+                }
+                
+                statusElement.textContent = '✅ Comparison complete - check logs';
+                statusElement.style.color = 'green';
+                
+            } catch (error) {
+                log('compareLog', `❌ Error: ${error.message}`, true);
+                statusElement.textContent = `❌ Error: ${error.message}`;
+                statusElement.style.color = 'red';
+            }
+        }
+
+        // Auto-run basic test on page load
+        window.addEventListener('load', () => {
+            setTimeout(testFunctionGeneration, 1000);
+        });
+    </script>
+</body>
+</html>

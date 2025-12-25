@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend Debug Test</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>Frontend Debug Test</h1>
+    <div id="status">Testing...</div>
+    <div id="results"></div>
+    
+    <script>
+        async function testAPI() {
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                statusDiv.innerHTML = 'Testing API connection...';
+                
+                // Test 1: Basic API health check
+                console.log('🔄 Testing API health...');
+                const healthResponse = await axios.get('http://localhost:8000/api/v1/health');
+                console.log('✅ Health check:', healthResponse.data);
+                
+                // Test 2: Get auth token
+                console.log('🔑 Getting auth token...');
+                const authResponse = await axios.post('http://localhost:8000/api/v1/auth/login', {
+                    username: 'admin',
+                    password: 'admin123'
+                });
+                console.log('✅ Auth response:', authResponse.data);
+                const token = authResponse.data.data.access_token;
+                
+                // Test 3: Get test cases
+                console.log('📋 Getting test cases...');
+                const testsResponse = await axios.get('http://localhost:8000/api/v1/tests', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    params: {
+                        page: 1,
+                        page_size: 50
+                    }
+                });
+                console.log('✅ Tests response:', testsResponse.data);
+                
+                statusDiv.innerHTML = '✅ All tests passed!';
+                resultsDiv.innerHTML = `
+                    <h3>Results:</h3>
+                    <p><strong>Health:</strong> ${healthResponse.data.data.status}</p>
+                    <p><strong>Auth:</strong> ${authResponse.data.success ? 'Success' : 'Failed'}</p>
+                    <p><strong>Tests:</strong> ${testsResponse.data.data.tests.length} test cases found</p>
+                    <h4>Test Cases:</h4>
+                    <ul>
+                        ${testsResponse.data.data.tests.map(test => `<li>${test.name} (${test.test_type})</li>`).join('')}
+                    </ul>
+                `;
+                
+            } catch (error) {
+                console.error('❌ Test failed:', error);
+                statusDiv.innerHTML = '❌ Test failed!';
+                resultsDiv.innerHTML = `
+                    <h3>Error:</h3>
+                    <p><strong>Message:</strong> ${error.message}</p>
+                    <p><strong>Status:</strong> ${error.response?.status}</p>
+                    <p><strong>Data:</strong> ${JSON.stringify(error.response?.data, null, 2)}</p>
+                `;
+            }
+        }
+        
+        // Run test when page loads
+        testAPI();
+    </script>
+</body>
+</html>

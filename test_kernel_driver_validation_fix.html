@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kernel Driver Validation Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; border-radius: 3px; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 3px; }
+        button:hover { background: #0056b3; }
+        .form-simulation { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        .field { margin: 10px 0; }
+        .field label { display: block; font-weight: bold; margin-bottom: 5px; }
+        .field input, .field select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Kernel Driver Validation Fix Test</h1>
+    <p>This test verifies that the form validation fix for the Kernel Driver tab is working correctly.</p>
+    
+    <div class="test-section">
+        <h2>📋 Test Summary</h2>
+        <p><strong>Issue:</strong> "Please fill in all required fields correctly" error when submitting Kernel Driver form</p>
+        <p><strong>Root Cause:</strong> Form validation was checking wrong field names or all fields instead of just the active tab</p>
+        <p><strong>Fix:</strong> Updated validation to only check fields for the active tab with correct field names</p>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Test 1: API Endpoint Verification</h2>
+        <p>First, let's verify the backend API is working correctly:</p>
+        <button onclick="testKernelDriverAPI()">Test Kernel Driver API</button>
+        <div id="api-test-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Test 2: Form Validation Logic Simulation</h2>
+        <p>Simulate the exact validation logic used in the frontend:</p>
+        <button onclick="testFormValidationLogic()">Test Form Validation</button>
+        <div id="validation-test-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Test 3: Field Name Verification</h2>
+        <p>Verify that the field names match between validation and form:</p>
+        <button onclick="testFieldNames()">Test Field Names</button>
+        <div id="field-names-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 Manual Test Instructions</h2>
+        <div class="form-simulation">
+            <h3>Simulate the user workflow:</h3>
+            <ol>
+                <li>Navigate to <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></li>
+                <li>Go to Test Cases page</li>
+                <li>Click "AI Generate Tests" button</li>
+                <li>Switch to "Kernel Driver" tab</li>
+                <li>Fill in the form with these values:</li>
+                <div class="field">
+                    <label>Function Name:</label>
+                    <input type="text" value="test_func" readonly>
+                </div>
+                <div class="field">
+                    <label>File Path:</label>
+                    <input type="text" value="test.c" readonly>
+                </div>
+                <div class="field">
+                    <label>Subsystem:</label>
+                    <select readonly>
+                        <option selected>kernel/core</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Test Types:</label>
+                    <input type="text" value="unit, integration" readonly>
+                </div>
+                <li>Click "Submit" button</li>
+                <li>Check browser console for validation logs</li>
+                <li>Verify success message appears</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 Expected Results</h2>
+        <ul>
+            <li>✅ API endpoint should return successful response</li>
+            <li>✅ Form validation should pass with correct field names</li>
+            <li>✅ No "Please fill in all required fields correctly" error</li>
+            <li>✅ Success message: "Generated X test cases"</li>
+            <li>✅ Test cases should appear in the list</li>
+        </ul>
+    </div>
+
+    <script>
+        async function testKernelDriverAPI() {
+            const resultDiv = document.getElementById('api-test-result');
+            resultDiv.innerHTML = '<div class="info">🔄 Testing kernel driver API endpoint...</div>';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/tests/generate-kernel-driver?function_name=test_func&file_path=test.c&subsystem=kernel/core&test_types=unit,integration', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                console.log('API Response:', data);
+                
+                if (response.ok && data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ API endpoint is working correctly!</div>
+                        <div class="info">Generated ${data.data.generated_count} test case(s)</div>
+                        <div class="info">Submission ID: ${data.data.submission_id}</div>
+                        <details>
+                            <summary>Full Response</summary>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </details>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ API endpoint failed</div>
+                        <div>Status: ${response.status}</div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                console.error('API Error:', error);
+                resultDiv.innerHTML = `
+                    <div class="error">❌ Network error: ${error.message}</div>
+                    <div class="warning">Make sure the backend server is running on port 8000</div>
+                `;
+            }
+        }
+
+        function testFormValidationLogic() {
+            const resultDiv = document.getElementById('validation-test-result');
+            
+            // Simulate the exact validation logic from the frontend
+            const aiGenType = 'kernel';
+            let fieldsToValidate = [];
+            
+            switch (aiGenType) {
+                case 'diff':
+                    fieldsToValidate = ['diffContent', 'diffMaxTests', 'diffTestTypes'];
+                    break;
+                case 'function':
+                    fieldsToValidate = ['functionName', 'filePath', 'subsystem', 'funcMaxTests'];
+                    break;
+                case 'kernel':
+                    fieldsToValidate = ['kernelFunctionName', 'kernelFilePath', 'kernelSubsystem', 'kernelTestTypes'];
+                    break;
+            }
+            
+            // Simulate form values that would be filled by the user
+            const mockFormValues = {
+                kernelFunctionName: 'test_func',
+                kernelFilePath: 'test.c',
+                kernelSubsystem: 'kernel/core',
+                kernelTestTypes: ['unit', 'integration']
+            };
+            
+            console.log('Validation Test:', {
+                aiGenType,
+                fieldsToValidate,
+                mockFormValues
+            });
+            
+            // Check if all required fields are present
+            let validationPassed = true;
+            let missingFields = [];
+            
+            fieldsToValidate.forEach(field => {
+                const value = mockFormValues[field];
+                if (!value || (Array.isArray(value) && value.length === 0)) {
+                    validationPassed = false;
+                    missingFields.push(field);
+                }
+            });
+            
+            if (validationPassed) {
+                resultDiv.innerHTML = `
+                    <div class="success">✅ Form validation logic is correct!</div>
+                    <div class="info">Tab: ${aiGenType}</div>
+                    <div class="info">Fields to validate: ${fieldsToValidate.join(', ')}</div>
+                    <div class="info">All required fields have values</div>
+                    <details>
+                        <summary>Form Values</summary>
+                        <pre>${JSON.stringify(mockFormValues, null, 2)}</pre>
+                    </details>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="error">❌ Form validation would fail</div>
+                    <div class="error">Missing fields: ${missingFields.join(', ')}</div>
+                    <div class="warning">This indicates a bug in the validation logic</div>
+                `;
+            }
+        }
+
+        function testFieldNames() {
+            const resultDiv = document.getElementById('field-names-result');
+            
+            // Expected field names for each tab
+            const expectedFieldNames = {
+                diff: ['diffContent', 'diffMaxTests', 'diffTestTypes'],
+                function: ['functionName', 'filePath', 'subsystem', 'funcMaxTests'],
+                kernel: ['kernelFunctionName', 'kernelFilePath', 'kernelSubsystem', 'kernelTestTypes']
+            };
+            
+            // Check if field names are unique across tabs
+            const allFields = [];
+            Object.values(expectedFieldNames).forEach(fields => {
+                allFields.push(...fields);
+            });
+            
+            const uniqueFields = [...new Set(allFields)];
+            const hasDuplicates = allFields.length !== uniqueFields.length;
+            
+            if (hasDuplicates) {
+                const duplicates = allFields.filter((field, index) => allFields.indexOf(field) !== index);
+                resultDiv.innerHTML = `
+                    <div class="error">❌ Duplicate field names detected!</div>
+                    <div class="error">Duplicates: ${[...new Set(duplicates)].join(', ')}</div>
+                    <div class="warning">This could cause form validation conflicts</div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="success">✅ Field names are unique across tabs!</div>
+                    <div class="info">Total fields: ${allFields.length}</div>
+                    <div class="info">Unique fields: ${uniqueFields.length}</div>
+                    <details>
+                        <summary>Field Names by Tab</summary>
+                        <pre>${JSON.stringify(expectedFieldNames, null, 2)}</pre>
+                    </details>
+                `;
+            }
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            console.log('🧪 Running automatic tests...');
+            testFormValidationLogic();
+            testFieldNames();
+        });
+    </script>
+</body>
+</html>

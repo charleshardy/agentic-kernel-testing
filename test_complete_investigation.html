@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Investigation - Backend vs Proxy</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; border-radius: 3px; font-size: 12px; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 3px; }
+        button:hover { background: #0056b3; }
+        .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .comparison > div { padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Complete Investigation: Backend vs Proxy</h1>
+    <p><strong>Goal:</strong> Determine why the system worked 2 days ago but has issues today.</p>
+    
+    <div class="test-section">
+        <h2>📊 Current Status</h2>
+        <div id="current-status">
+            <div class="info">🔄 Checking current system status...</div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Comprehensive API Tests</h2>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="clearResults()">Clear Results</button>
+        
+        <div class="comparison">
+            <div>
+                <h3>🌐 Via Proxy (/api/v1/...)</h3>
+                <div id="proxy-results"></div>
+            </div>
+            <div>
+                <h3>🔗 Direct (localhost:8000/api/v1/...)</h3>
+                <div id="direct-results"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎯 Root Cause Analysis</h2>
+        <div id="root-cause-analysis"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>💡 Recommendations</h2>
+        <div id="recommendations"></div>
+    </div>
+
+    <script>
+        let testResults = {
+            proxy: {},
+            direct: {}
+        };
+
+        async function checkCurrentStatus() {
+            const statusDiv = document.getElementById('current-status');
+            
+            // Check if we're on the right port
+            const currentPort = window.location.port;
+            const expectedPort = '3000';
+            
+            let status = `
+                <div class="info">📍 Current URL: ${window.location.href}</div>
+                <div class="info">🔌 Current Port: ${currentPort}</div>
+            `;
+            
+            if (currentPort !== expectedPort) {
+                status += `<div class="warning">⚠️ Expected to be on port ${expectedPort} for Vite dev server</div>`;
+            } else {
+                status += `<div class="success">✅ Running on correct Vite dev server port</div>`;
+            }
+            
+            statusDiv.innerHTML = status;
+        }
+
+        async function testEndpoint(url, label, resultContainer) {
+            const resultDiv = document.createElement('div');
+            resultDiv.innerHTML = `<div class="info">🔄 Testing ${label}...</div>`;
+            resultContainer.appendChild(resultDiv);
+            
+            try {
+                const startTime = Date.now();
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const endTime = Date.now();
+                const responseTime = endTime - startTime;
+                
+                console.log(`${label} - Status:`, response.status, 'Time:', responseTime + 'ms');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ ${label}</div>
+                        <div class="info">Status: ${response.status} (${responseTime}ms)</div>
+                        <div class="info">URL: ${response.url}</div>
+                    `;
+                    return { success: true, status: response.status, responseTime, data, url: response.url };
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ ${label}</div>
+                        <div>Status: ${response.status} (${responseTime}ms)</div>
+                        <div>URL: ${response.url}</div>
+                        <details><summary>Error</summary><pre>${errorText}</pre></details>
+                    `;
+                    return { success: false, status: response.status, responseTime, error: errorText, url: response.url };
+                }
+            } catch (error) {
+                console.error(`${label} Error:`, error);
+                resultDiv.innerHTML = `
+                    <div class="error">❌ ${label}</div>
+                    <div class="error">Network Error: ${error.message}</div>
+                `;
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function testKernelDriverEndpoint(url, label, resultContainer) {
+            const resultDiv = document.createElement('div');
+            resultDiv.innerHTML = `<div class="info">🔄 Testing ${label}...</div>`;
+            resultContainer.appendChild(resultDiv);
+            
+            const testUrl = url + '/tests/generate-kernel-driver?function_name=test_func&file_path=test.c&subsystem=kernel/core&test_types=unit,integration';
+            
+            try {
+                const startTime = Date.now();
+                const response = await fetch(testUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const endTime = Date.now();
+                const responseTime = endTime - startTime;
+                
+                console.log(`${label} Kernel Driver - Status:`, response.status, 'Time:', responseTime + 'ms');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ ${label}</div>
+                        <div class="info">Status: ${response.status} (${responseTime}ms)</div>
+                        <div class="info">Generated: ${data.data?.generated_count || 'N/A'} tests</div>
+                        <div class="info">URL: ${response.url}</div>
+                    `;
+                    return { success: true, status: response.status, responseTime, data, url: response.url };
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ ${label}</div>
+                        <div>Status: ${response.status} (${responseTime}ms)</div>
+                        <div>URL: ${response.url}</div>
+                        <details><summary>Error</summary><pre>${errorText}</pre></details>
+                    `;
+                    return { success: false, status: response.status, responseTime, error: errorText, url: response.url };
+                }
+            } catch (error) {
+                console.error(`${label} Kernel Driver Error:`, error);
+                resultDiv.innerHTML = `
+                    <div class="error">❌ ${label}</div>
+                    <div class="error">Network Error: ${error.message}</div>
+                `;
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function runAllTests() {
+            const proxyContainer = document.getElementById('proxy-results');
+            const directContainer = document.getElementById('direct-results');
+            
+            // Clear previous results
+            proxyContainer.innerHTML = '';
+            directContainer.innerHTML = '';
+            
+            console.log('🧪 Starting comprehensive API tests...');
+            
+            // Test health endpoints
+            testResults.proxy.health = await testEndpoint('/api/v1/health', 'Health Check (Proxy)', proxyContainer);
+            testResults.direct.health = await testEndpoint('http://localhost:8000/api/v1/health', 'Health Check (Direct)', directContainer);
+            
+            // Test kernel driver endpoints
+            testResults.proxy.kernelDriver = await testKernelDriverEndpoint('/api/v1', 'Kernel Driver (Proxy)', proxyContainer);
+            testResults.direct.kernelDriver = await testKernelDriverEndpoint('http://localhost:8000/api/v1', 'Kernel Driver (Direct)', directContainer);
+            
+            // Analyze results
+            analyzeResults();
+        }
+
+        function analyzeResults() {
+            const analysisDiv = document.getElementById('root-cause-analysis');
+            const recommendationsDiv = document.getElementById('recommendations');
+            
+            const proxyHealthWorking = testResults.proxy.health?.success;
+            const directHealthWorking = testResults.direct.health?.success;
+            const proxyKernelWorking = testResults.proxy.kernelDriver?.success;
+            const directKernelWorking = testResults.direct.kernelDriver?.success;
+            
+            let analysis = '<h3>🔍 Analysis Results:</h3>';
+            let recommendations = '<h3>💡 Action Items:</h3>';
+            
+            // Scenario 1: Both working
+            if (proxyHealthWorking && directHealthWorking && proxyKernelWorking && directKernelWorking) {
+                analysis += `
+                    <div class="success">✅ GOOD NEWS: Both proxy and direct connections are working!</div>
+                    <div class="info">📋 This means the Vite proxy configuration is now functional</div>
+                    <div class="info">🎯 The issue was likely that the backend server wasn't running</div>
+                `;
+                recommendations += `
+                    <div class="success">✅ Revert API service to use proxy URLs (/api/v1/...)</div>
+                    <div class="info">• Update dashboard/src/services/api.ts to use proxy instead of direct URLs</div>
+                    <div class="info">• This will restore the original working configuration</div>
+                    <div class="info">• Ensure backend server starts automatically in development</div>
+                `;
+            }
+            // Scenario 2: Direct working, proxy broken
+            else if (directHealthWorking && !proxyHealthWorking) {
+                analysis += `
+                    <div class="warning">⚠️ Backend is working but Vite proxy is broken</div>
+                    <div class="info">📋 This explains the network errors from 2 days ago</div>
+                    <div class="error">🔧 Proxy configuration issue needs investigation</div>
+                `;
+                recommendations += `
+                    <div class="warning">⚠️ Keep using direct URLs as workaround</div>
+                    <div class="info">• Current API service configuration is correct</div>
+                    <div class="info">• Investigate Vite proxy configuration</div>
+                    <div class="info">• Check if Vite version or configuration changed</div>
+                `;
+            }
+            // Scenario 3: Neither working
+            else if (!directHealthWorking) {
+                analysis += `
+                    <div class="error">❌ Backend server is not responding</div>
+                    <div class="info">📋 This is the primary issue</div>
+                    <div class="warning">🔧 Backend server needs to be started</div>
+                `;
+                recommendations += `
+                    <div class="error">❌ Start the backend server first</div>
+                    <div class="info">• Run: ./start-backend.sh</div>
+                    <div class="info">• Ensure backend starts automatically in development</div>
+                    <div class="info">• Add backend startup to development workflow</div>
+                `;
+            }
+            // Scenario 4: Mixed results
+            else {
+                analysis += `
+                    <div class="warning">⚠️ Mixed results - partial functionality</div>
+                    <div class="info">📋 Some endpoints working, others failing</div>
+                    <div class="info">🔧 Requires detailed investigation</div>
+                `;
+                recommendations += `
+                    <div class="warning">⚠️ Investigate specific endpoint failures</div>
+                    <div class="info">• Check backend logs for errors</div>
+                    <div class="info">• Verify API endpoint implementations</div>
+                    <div class="info">• Test authentication and authorization</div>
+                `;
+            }
+            
+            // Add performance comparison if both are working
+            if (proxyHealthWorking && directHealthWorking) {
+                const proxyTime = testResults.proxy.health?.responseTime || 0;
+                const directTime = testResults.direct.health?.responseTime || 0;
+                
+                analysis += `
+                    <h4>⚡ Performance Comparison:</h4>
+                    <div class="info">• Proxy: ${proxyTime}ms</div>
+                    <div class="info">• Direct: ${directTime}ms</div>
+                `;
+                
+                if (proxyTime > directTime * 2) {
+                    analysis += '<div class="warning">⚠️ Proxy adds significant latency</div>';
+                } else {
+                    analysis += '<div class="success">✅ Proxy performance is acceptable</div>';
+                }
+            }
+            
+            analysisDiv.innerHTML = analysis;
+            recommendationsDiv.innerHTML = recommendations;
+        }
+
+        function clearResults() {
+            document.getElementById('proxy-results').innerHTML = '';
+            document.getElementById('direct-results').innerHTML = '';
+            document.getElementById('root-cause-analysis').innerHTML = '';
+            document.getElementById('recommendations').innerHTML = '';
+            testResults = { proxy: {}, direct: {} };
+        }
+
+        // Auto-run on page load
+        window.addEventListener('load', () => {
+            checkCurrentStatus();
+            console.log('🧪 Page loaded - ready for testing');
+            
+            // Auto-run tests after a short delay
+            setTimeout(() => {
+                console.log('🚀 Auto-running comprehensive tests...');
+                runAllTests();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

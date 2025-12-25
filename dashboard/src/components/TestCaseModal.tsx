@@ -560,23 +560,27 @@ const TestCaseModal: React.FC<TestCaseModalProps> = ({
                 style={{ marginBottom: 16 }}
               />
               <Card size="small" title="Script Content">
-                <div
-                  style={{
-                    backgroundColor: '#f6f8fa',
-                    border: '1px solid #d0d7de',
+                <SyntaxHighlighter
+                  language="bash"
+                  style={tomorrow}
+                  customStyle={{
+                    margin: 0,
                     borderRadius: '6px',
-                    padding: '16px',
-                    fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
                     fontSize: '12px',
                     lineHeight: '1.45',
-                    overflow: 'auto',
                     maxHeight: '400px',
+                    overflow: 'auto',
+                  }}
+                  showLineNumbers={true}
+                  wrapLines={true}
+                  codeTagProps={{
+                    style: {
+                      fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+                    }
                   }}
                 >
-                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-                    {testCase.test_script || 'No test script available'}
-                  </pre>
-                </div>
+                  {testCase.test_script || '# No test script available'}
+                </SyntaxHighlighter>
               </Card>
               {testCase.test_script && (
                 <div style={{ marginTop: 16 }}>
