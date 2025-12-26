@@ -419,7 +419,7 @@ async def get_active_executions(
             # Check if this plan is already in the execution service
             plan_in_service = any(exec_data["plan_id"] == plan_id for exec_data in active_executions)
             
-            if not plan_in_service and status == "queued":
+            if not plan_in_service and status in ["queued", "running"]:
                 # Handle datetime serialization
                 started_at = plan_data.get("created_at")
                 if started_at and hasattr(started_at, 'isoformat'):
@@ -435,16 +435,44 @@ async def get_active_executions(
                 else:
                     estimated_completion = str(estimated_completion)
                 
+                # Get test plan name - try multiple sources
+                test_plan_name = plan_data.get("test_plan_name")
+                
+                # If no test plan name, try to look it up from test plans store
+                if not test_plan_name:
+                    test_plan_id = plan_data.get("test_plan_id") or plan_data.get("plan_id")
+                    if test_plan_id:
+                        try:
+                            # Import test plans store to look up the name
+                            from api.routers.test_plans import test_plans_store
+                            if test_plan_id in test_plans_store:
+                                test_plan_name = test_plans_store[test_plan_id]["name"]
+                            else:
+                                # Check if plan_id matches any test plan ID
+                                for tp_id, tp_data in test_plans_store.items():
+                                    if tp_id == plan_id or tp_id == test_plan_id:
+                                        test_plan_name = tp_data["name"]
+                                        break
+                        except Exception as e:
+                            print(f"Error looking up test plan name: {e}")
+                
+                # Final fallback
+                if not test_plan_name:
+                    test_plan_name = None  # Will show as "Direct Execution" in UI
+                
                 active_executions.append({
                     "plan_id": plan_id,
                     "submission_id": plan_data.get("submission_id", f"sub-{plan_id[:8]}"),
-                    "overall_status": "queued",
+                    "overall_status": status,
                     "total_tests": len(plan_data.get("test_case_ids", [])),
                     "completed_tests": 0,
                     "failed_tests": 0,
                     "progress": 0.0,
                     "started_at": started_at,
-                    "estimated_completion": estimated_completion
+                    "estimated_completion": estimated_completion,
+                    "test_plan_name": test_plan_name,
+                    "test_plan_id": plan_data.get("test_plan_id"),
+                    "created_by": plan_data.get("created_by", "unknown")
                 })
         
         return APIResponse(

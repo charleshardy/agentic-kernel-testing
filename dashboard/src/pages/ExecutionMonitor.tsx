@@ -15,11 +15,9 @@ import {
   Alert,
   Spin,
   Badge,
-  Tooltip,
   Divider,
 } from 'antd'
 import {
-  PlayCircleOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
@@ -63,7 +61,6 @@ interface EnvironmentInfo {
 const ExecutionMonitor: React.FC = () => {
   const [searchParams] = useSearchParams()
   const planId = searchParams.get('planId')
-  const [selectedStage, setSelectedStage] = useState<string>('overview')
   const [autoRefresh, setAutoRefresh] = useState(true)
 
   // Fetch execution details with real-time updates
@@ -252,7 +249,7 @@ const ExecutionMonitor: React.FC = () => {
       render: (tests: string[]) => (
         <Space wrap>
           {tests.map(test => (
-            <Tag key={test} size="small">{test.slice(0, 8)}...</Tag>
+            <Tag key={test}>{test.slice(0, 8)}...</Tag>
           ))}
         </Space>
       )
@@ -299,11 +296,18 @@ const ExecutionMonitor: React.FC = () => {
                   <Row justify="space-between" align="middle">
                     <Col>
                       <Space direction="vertical" size="small">
-                        <Text strong>Plan ID: {execution.plan_id.slice(0, 8)}...</Text>
+                        <Text strong>
+                          {execution.test_plan_name || `Plan ID: ${execution.plan_id.slice(0, 8)}...`}
+                        </Text>
                         <Text type="secondary">
                           Status: <Tag color={execution.overall_status === 'running' ? 'blue' : 'orange'}>
                             {execution.overall_status.toUpperCase()}
                           </Tag>
+                          {execution.created_by && (
+                            <span style={{ marginLeft: 8 }}>
+                              by {execution.created_by}
+                            </span>
+                          )}
                         </Text>
                       </Space>
                     </Col>
@@ -365,6 +369,9 @@ const ExecutionMonitor: React.FC = () => {
           <Title level={2}>Execution Monitor</Title>
           <Text type="secondary">
             Real-time monitoring for execution plan: <Text code>{planId}</Text>
+            {executionData?.test_plan_name && (
+              <span> - {executionData.test_plan_name}</span>
+            )}
           </Text>
         </div>
         <Space>

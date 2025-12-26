@@ -176,7 +176,7 @@ class APIService {
       
     this.client = axios.create({
       baseURL,
-      timeout: 30000,
+      timeout: 60000, // Increased to 60 seconds
       headers: {
         'Content-Type': 'application/json',
       },
@@ -744,6 +744,75 @@ class APIService {
     const token = await this.getDemoToken()
     if (!token) {
       throw new Error('Failed to obtain authentication token')
+    }
+  }
+
+  // Test Plan Management
+  async getTestPlans(): Promise<any[]> {
+    try {
+      const response: AxiosResponse<APIResponse<{plans: any[]}>> = await this.client.get('/test-plans')
+      return response.data.data?.plans || []
+    } catch (error: any) {
+      console.error('Failed to fetch test plans:', error)
+      // Return mock data for now
+      return []
+    }
+  }
+
+  async createTestPlan(planData: any): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse> = await this.client.post('/test-plans', planData)
+      return response.data.data
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse> = await this.client.post('/test-plans', planData)
+        return response.data.data
+      }
+      throw error
+    }
+  }
+
+  async updateTestPlan(planId: string, planData: any): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse> = await this.client.put(`/test-plans/${planId}`, planData)
+      return response.data.data
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse> = await this.client.put(`/test-plans/${planId}`, planData)
+        return response.data.data
+      }
+      throw error
+    }
+  }
+
+  async deleteTestPlan(planId: string): Promise<void> {
+    try {
+      await this.client.delete(`/test-plans/${planId}`)
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        await this.client.delete(`/test-plans/${planId}`)
+      } else {
+        throw error
+      }
+    }
+  }
+
+  async executeTestPlan(planId: string): Promise<{ execution_plan_id: string }> {
+    try {
+      const response: AxiosResponse<APIResponse<{ execution_plan_id: string }>> = 
+        await this.client.post(`/test-plans/${planId}/execute`)
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<{ execution_plan_id: string }>> = 
+          await this.client.post(`/test-plans/${planId}/execute`)
+        return response.data.data!
+      }
+      throw error
     }
   }
 }

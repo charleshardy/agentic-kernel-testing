@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Active Executions Data</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .execution { border: 1px solid #ccc; margin: 10px 0; padding: 10px; }
+        .field { margin: 5px 0; }
+        .label { font-weight: bold; }
+        .value { color: #0066cc; }
+        .missing { color: #cc0000; font-style: italic; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Active Executions Data</h1>
+    <p>This page fetches the active executions API and shows the raw data to verify test_plan_name is present.</p>
+    
+    <button onclick="fetchData()">🔄 Fetch Active Executions</button>
+    <button onclick="clearResults()">🗑️ Clear Results</button>
+    
+    <div id="results"></div>
+
+    <script>
+        async function fetchData() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>⏳ Fetching data...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/execution/active');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const executions = data.data.executions;
+                    let html = `<h2>✅ Found ${executions.length} Active Executions</h2>`;
+                    
+                    executions.forEach((execution, index) => {
+                        html += `
+                            <div class="execution">
+                                <h3>Execution ${index + 1}</h3>
+                                <div class="field">
+                                    <span class="label">Plan ID:</span> 
+                                    <span class="value">${execution.plan_id}</span>
+                                </div>
+                                <div class="field">
+                                    <span class="label">Test Plan Name:</span> 
+                                    ${execution.test_plan_name ? 
+                                        `<span class="value">"${execution.test_plan_name}"</span>` : 
+                                        '<span class="missing">❌ MISSING</span>'
+                                    }
+                                </div>
+                                <div class="field">
+                                    <span class="label">Test Plan ID:</span> 
+                                    <span class="value">${execution.test_plan_id || 'null'}</span>
+                                </div>
+                                <div class="field">
+                                    <span class="label">Status:</span> 
+                                    <span class="value">${execution.overall_status}</span>
+                                </div>
+                                <div class="field">
+                                    <span class="label">Created By:</span> 
+                                    <span class="value">${execution.created_by || 'unknown'}</span>
+                                </div>
+                                <div class="field">
+                                    <span class="label">Total Tests:</span> 
+                                    <span class="value">${execution.total_tests}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    // Summary
+                    const withTestPlan = executions.filter(e => e.test_plan_name).length;
+                    const withoutTestPlan = executions.length - withTestPlan;
+                    
+                    html += `
+                        <div style="background: #f0f8ff; padding: 15px; margin: 20px 0; border-radius: 5px;">
+                            <h3>📊 Summary</h3>
+                            <p><strong>Total Executions:</strong> ${executions.length}</p>
+                            <p><strong>With Test Plan Name:</strong> ${withTestPlan}</p>
+                            <p><strong>Without Test Plan Name:</strong> ${withoutTestPlan}</p>
+                            
+                            ${withTestPlan > 0 ? 
+                                '<p style="color: green;">✅ Test plan names are present in the API data!</p>' :
+                                '<p style="color: red;">❌ No test plan names found in API data.</p>'
+                            }
+                        </div>
+                    `;
+                    
+                    resultsDiv.innerHTML = html;
+                } else {
+                    resultsDiv.innerHTML = `<p style="color: red;">❌ API Error: ${data.message}</p>`;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<p style="color: red;">❌ Network Error: ${error.message}</p>`;
+            }
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        // Auto-fetch on page load
+        window.onload = fetchData;
+    </script>
+</body>
+</html>

@@ -56,6 +56,19 @@ const RealTimeExecutionMonitor: React.FC<RealTimeExecutionMonitorProps> = ({
       console.log('🔍 Fetching active executions...')
       const result = await apiService.getActiveExecutions()
       console.log('📊 Active executions result:', result)
+      
+      // Debug: Log test plan names specifically
+      if (result && result.length > 0) {
+        result.forEach((execution: any, index: number) => {
+          console.log(`Execution ${index + 1}:`, {
+            plan_id: execution.plan_id?.slice(0, 8) + '...',
+            test_plan_name: execution.test_plan_name,
+            status: execution.overall_status,
+            created_by: execution.created_by
+          })
+        })
+      }
+      
       return result
     },
     {
@@ -179,6 +192,28 @@ const RealTimeExecutionMonitor: React.FC<RealTimeExecutionMonitorProps> = ({
       ),
     },
     {
+      title: 'Test Plan Name',
+      dataIndex: 'test_plan_name',
+      key: 'test_plan_name',
+      width: 200,
+      render: (name: string, record: any) => {
+        console.log('Rendering test plan name:', name, 'for record:', record.plan_id?.slice(0, 8))
+        if (name) {
+          return (
+            <Tooltip title={`Test Plan: ${name}`}>
+              <span style={{ fontWeight: 500, color: '#1890ff' }}>{name}</span>
+            </Tooltip>
+          )
+        }
+        // Fallback for executions without test plan names
+        return (
+          <span style={{ color: '#8c8c8c', fontStyle: 'italic' }}>
+            Direct Execution
+          </span>
+        )
+      },
+    },
+    {
       title: 'Status',
       dataIndex: 'overall_status',
       key: 'status',
@@ -250,9 +285,16 @@ const RealTimeExecutionMonitor: React.FC<RealTimeExecutionMonitorProps> = ({
           <Button
             type="text"
             icon={<EyeOutlined />}
-            onClick={() => handleViewExecution(record.plan_id)}
+            onClick={() => {
+              // If it's a test plan execution, navigate to execution monitor
+              if (record.test_plan_name) {
+                window.location.href = `/execution-monitor?planId=${record.plan_id}`
+              } else {
+                handleViewExecution(record.plan_id)
+              }
+            }}
           >
-            View
+            {record.test_plan_name ? 'Monitor' : 'View'}
           </Button>
           {record.overall_status === 'running' && (
             <Button
@@ -339,14 +381,58 @@ const RealTimeExecutionMonitor: React.FC<RealTimeExecutionMonitorProps> = ({
         </Row>
       )}
 
+      {/* Debug Section - Remove this after testing */}
+      {process.env.NODE_ENV === 'development' && executions && executions.length > 0 && (
+        <Card title="🔍 Debug: Raw Execution Data" style={{ marginBottom: 16, backgroundColor: '#f6ffed' }}>
+          <div style={{ fontSize: '12px', fontFamily: 'monospace' }}>
+            {executions.slice(0, 2).map((execution: any, index: number) => (
+              <div key={index} style={{ marginBottom: 8, padding: 8, backgroundColor: '#fff', border: '1px solid #d9d9d9' }}>
+                <div><strong>Execution {index + 1}:</strong></div>
+                <div>plan_id: {execution.plan_id?.slice(0, 12)}...</div>
+                <div>test_plan_name: <span style={{ color: execution.test_plan_name ? 'green' : 'red' }}>
+                  {execution.test_plan_name ? `"${execution.test_plan_name}"` : 'MISSING'}
+                </span></div>
+                <div>status: {execution.overall_status}</div>
+                <div>created_by: {execution.created_by}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* Active Executions Table */}
-      <Card title="Active Test Executions" extra={
+      <Card title="Active Test Executions (Real-time Data)" extra={
         <Space>
           <span style={{ fontSize: '12px', color: '#666' }}>
             Last updated: {currentMetrics?.timestamp ? new Date(currentMetrics.timestamp).toLocaleTimeString() : 'Unknown'}
           </span>
         </Space>
       }>
+        {/* Debug Information */}
+        {executions && executions.length > 0 && (
+          <div style={{ 
+            marginBottom: 16, 
+            padding: 12, 
+            backgroundColor: '#f6f6f6', 
+            borderRadius: 4,
+            fontSize: '12px',
+            fontFamily: 'monospace'
+          }}>
+            <div><strong>Debug Info - Execution Data:</strong></div>
+            {executions.slice(0, 3).map((execution: any, index: number) => (
+              <div key={index} style={{ marginTop: 4 }}>
+                <div><strong>Execution {index + 1}:</strong></div>
+                <div>plan_id: {execution.plan_id?.slice(0, 12)}...</div>
+                <div>test_plan_name: <span style={{ color: execution.test_plan_name ? 'green' : 'red' }}>
+                  {execution.test_plan_name ? `"${execution.test_plan_name}"` : 'MISSING'}
+                </span></div>
+                <div>status: {execution.overall_status}</div>
+              </div>
+            ))}
+            {executions.length > 3 && <div>... and {executions.length - 3} more</div>}
+          </div>
+        )}
+        
         <Table
           columns={columns}
           dataSource={executions}

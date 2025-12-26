@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Frontend API Response</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .execution { border: 1px solid #ccc; margin: 10px 0; padding: 10px; }
+        .field { margin: 5px 0; }
+        .missing { color: red; font-weight: bold; }
+        .present { color: green; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Frontend API Response</h1>
+    <p>This page tests the API response that the frontend should receive.</p>
+    
+    <button onclick="testAPI()">Test API Response</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <div id="results"></div>
+
+    <script>
+        async function testAPI() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>🔄 Testing API...</p>';
+            
+            try {
+                // Test authentication first
+                console.log('🔑 Testing authentication...');
+                const authResponse = await fetch('http://localhost:8000/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: 'admin',
+                        password: 'admin123'
+                    })
+                });
+                
+                let headers = {};
+                if (authResponse.ok) {
+                    const authData = await authResponse.json();
+                    const token = authData.data?.access_token;
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                        console.log('✅ Authentication successful');
+                    }
+                } else {
+                    console.log('⚠️ Authentication failed, proceeding without token');
+                }
+                
+                // Test active executions API
+                console.log('📡 Fetching active executions...');
+                const response = await fetch('http://localhost:8000/api/v1/execution/active', {
+                    headers: headers
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('📊 API Response:', data);
+                
+                // Display results
+                let html = '<h2>✅ API Response Received</h2>';
+                html += `<div class="field"><strong>Success:</strong> ${data.success}</div>`;
+                html += `<div class="field"><strong>Message:</strong> ${data.message}</div>`;
+                
+                const executions = data.data?.executions || [];
+                html += `<div class="field"><strong>Executions Found:</strong> ${executions.length}</div>`;
+                
+                if (executions.length > 0) {
+                    html += '<h3>📋 Execution Details:</h3>';
+                    
+                    executions.forEach((execution, index) => {
+                        const hasTestPlanName = 'test_plan_name' in execution;
+                        const testPlanNameValue = execution.test_plan_name;
+                        
+                        html += `<div class="execution">`;
+                        html += `<h4>Execution ${index + 1}</h4>`;
+                        html += `<div class="field"><strong>Plan ID:</strong> ${execution.plan_id}</div>`;
+                        html += `<div class="field"><strong>Status:</strong> ${execution.overall_status}</div>`;
+                        html += `<div class="field"><strong>Total Tests:</strong> ${execution.total_tests}</div>`;
+                        html += `<div class="field"><strong>Created By:</strong> ${execution.created_by || 'N/A'}</div>`;
+                        
+                        // Test Plan Name analysis
+                        html += `<div class="field">`;
+                        html += `<strong>Has 'test_plan_name' field:</strong> `;
+                        html += `<span class="${hasTestPlanName ? 'present' : 'missing'}">${hasTestPlanName}</span>`;
+                        html += `</div>`;
+                        
+                        if (hasTestPlanName) {
+                            html += `<div class="field">`;
+                            html += `<strong>Test Plan Name Value:</strong> `;
+                            if (testPlanNameValue) {
+                                html += `<span class="present">"${testPlanNameValue}"</span>`;
+                            } else {
+                                html += `<span class="missing">null/undefined</span>`;
+                            }
+                            html += `</div>`;
+                        }
+                        
+                        html += `</div>`;
+                    });
+                    
+                    // Frontend simulation
+                    html += '<h3>🖥️ Frontend Column Simulation:</h3>';
+                    html += '<table border="1" cellpadding="5" cellspacing="0">';
+                    html += '<tr><th>Execution ID</th><th>Test Plan Name</th><th>Status</th></tr>';
+                    
+                    executions.forEach(execution => {
+                        const shortId = execution.plan_id.slice(0, 8) + '...';
+                        let testPlanDisplay;
+                        
+                        if (execution.test_plan_name) {
+                            testPlanDisplay = `<span style="color: #1890ff; font-weight: 500;">${execution.test_plan_name}</span>`;
+                        } else {
+                            testPlanDisplay = `<span style="color: #8c8c8c; font-style: italic;">Direct Execution</span>`;
+                        }
+                        
+                        html += `<tr>`;
+                        html += `<td><code>${shortId}</code></td>`;
+                        html += `<td>${testPlanDisplay}</td>`;
+                        html += `<td>${execution.overall_status.toUpperCase()}</td>`;
+                        html += `</tr>`;
+                    });
+                    
+                    html += '</table>';
+                    
+                    // Instructions
+                    html += '<h3>🎯 Next Steps:</h3>';
+                    html += '<ol>';
+                    html += '<li>If you see test plan names above, the API is working correctly</li>';
+                    html += '<li>Go to your Test Execution page and open browser DevTools (F12)</li>';
+                    html += '<li>Look in the Console tab for these messages:</li>';
+                    html += '<ul>';
+                    html += '<li>"🔍 Fetching active executions..."</li>';
+                    html += '<li>"📊 Active executions result: ..."</li>';
+                    html += '<li>"Execution 1: {plan_id: ..., test_plan_name: ..., ...}"</li>';
+                    html += '</ul>';
+                    html += '<li>If you see the console logs but not the column, try:</li>';
+                    html += '<ul>';
+                    html += '<li>Hard refresh (Ctrl+Shift+R)</li>';
+                    html += '<li>Clear browser cache</li>';
+                    html += '<li>Check for JavaScript errors in console</li>';
+                    html += '</ul>';
+                    html += '</ol>';
+                } else {
+                    html += '<p>⚠️ No active executions found. Create and execute a test plan first.</p>';
+                }
+                
+                resultsDiv.innerHTML = html;
+                
+            } catch (error) {
+                console.error('❌ API Test Error:', error);
+                resultsDiv.innerHTML = `<h2>❌ Error</h2><p>${error.message}</p>`;
+            }
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        // Auto-run test on page load
+        window.addEventListener('load', () => {
+            setTimeout(testAPI, 1000);
+        });
+    </script>
+</body>
+</html>

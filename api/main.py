@@ -9,7 +9,7 @@ import uvicorn
 from typing import Optional
 import os
 
-from .routers import tests, status, results, health, auth, webhooks, environments, performance, execution
+from .routers import tests, status, results, health, auth, webhooks, environments, performance, execution, test_plans
 from .middleware import RequestLoggingMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
 from .auth import verify_token, get_current_user
 from .models import APIResponse, ErrorResponse
@@ -92,6 +92,7 @@ security = HTTPBearer()
 app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
 app.include_router(tests.router, prefix="/api/v1", tags=["Tests"])
+app.include_router(test_plans.router, prefix="/api/v1", tags=["Test Plans"])
 app.include_router(status.router, prefix="/api/v1", tags=["Status"])
 app.include_router(execution.router, prefix="/api/v1", tags=["Execution"])
 app.include_router(results.router, prefix="/api/v1", tags=["Results"])

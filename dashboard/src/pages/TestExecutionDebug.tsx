@@ -256,6 +256,20 @@ const TestExecutionDebug: React.FC = () => {
       },
       onSuccess: (data) => {
         console.log('TestExecutionDebug: Successfully fetched executions:', data)
+        
+        // Debug: Log test plan names specifically
+        if (data && data.length > 0) {
+          console.log('TestExecutionDebug: Checking test plan names in received data:')
+          data.forEach((execution: any, index: number) => {
+            console.log(`  Execution ${index + 1}:`, {
+              plan_id: execution.plan_id?.slice(0, 8) + '...',
+              test_plan_name: execution.test_plan_name,
+              has_test_plan_name: !!execution.test_plan_name,
+              status: execution.overall_status,
+              created_by: execution.created_by
+            })
+          })
+        }
       }
     }
   )
@@ -276,6 +290,28 @@ const TestExecutionDebug: React.FC = () => {
           <Text code>{id.slice(0, 8)}...</Text>
         </Tooltip>
       ),
+    },
+    {
+      title: 'Test Plan Name',
+      dataIndex: 'test_plan_name',
+      key: 'test_plan_name',
+      width: 200,
+      render: (name: string, record: any) => {
+        console.log('TestExecutionDebug: Rendering test plan name:', name, 'for record:', record.plan_id?.slice(0, 8))
+        if (name) {
+          return (
+            <Tooltip title={`Test Plan: ${name}`}>
+              <span style={{ fontWeight: 500, color: '#1890ff' }}>{name}</span>
+            </Tooltip>
+          )
+        }
+        // Fallback for executions without test plan names
+        return (
+          <span style={{ color: '#8c8c8c', fontStyle: 'italic' }}>
+            Direct Execution
+          </span>
+        )
+      },
     },
     {
       title: 'Status',
@@ -662,6 +698,33 @@ const TestExecutionDebug: React.FC = () => {
         <TabPane tab="Executions" key="executions">
           {/* Executions Table */}
           <Card title="Active Test Executions (Real-time Data)">
+            {/* Debug Section - Show raw execution data */}
+            {process.env.NODE_ENV === 'development' && executionsData && executionsData.length > 0 && (
+              <Alert
+                message="🔍 Debug: Raw Execution Data"
+                description={
+                  <div style={{ fontSize: '12px', fontFamily: 'monospace', maxHeight: '200px', overflow: 'auto' }}>
+                    {executionsData.slice(0, 3).map((execution: any, index: number) => (
+                      <div key={index} style={{ marginBottom: 8, padding: 8, backgroundColor: '#f9f9f9', border: '1px solid #d9d9d9' }}>
+                        <div><strong>Execution {index + 1}:</strong></div>
+                        <div>plan_id: {execution.plan_id?.slice(0, 12)}...</div>
+                        <div>test_plan_name: <span style={{ color: execution.test_plan_name ? 'green' : 'red' }}>
+                          {execution.test_plan_name ? `"${execution.test_plan_name}"` : 'MISSING'}
+                        </span></div>
+                        <div>status: {execution.overall_status}</div>
+                        <div>created_by: {execution.created_by || 'N/A'}</div>
+                        <div>total_tests: {execution.total_tests}</div>
+                      </div>
+                    ))}
+                    {executionsData.length > 3 && <div>... and {executionsData.length - 3} more executions</div>}
+                  </div>
+                }
+                type="info"
+                style={{ marginBottom: 16 }}
+                closable
+              />
+            )}
+            
             {/* Connection Status Alert */}
             {error && (
               <Alert

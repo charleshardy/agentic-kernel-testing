@@ -4,6 +4,8 @@ import { Layout, Alert } from 'antd'
 import DashboardLayout from './components/Layout/DashboardLayout'
 import Dashboard from './pages/Dashboard'
 import TestCases from './pages/TestCases'
+import TestPlans from './pages/TestPlans'
+import TestPlanDetails from './pages/TestPlanDetails'
 import TestExecution from './pages/TestExecution'
 import TestExecutionSimple from './pages/TestExecutionSimple'
 import TestExecutionDebug from './pages/TestExecutionDebug'
@@ -54,6 +56,8 @@ function App() {
       {/* Main dashboard routes - flattened structure */}
       <Route path="/" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
       <Route path="/test-cases" element={<DashboardLayout><TestCases /></DashboardLayout>} />
+      <Route path="/test-plans" element={<DashboardLayout><TestPlans /></DashboardLayout>} />
+      <Route path="/test-plans/:planId" element={<DashboardLayout><TestPlanDetails /></DashboardLayout>} />
       <Route path="/test-execution" element={<DashboardLayout><TestExecution /></DashboardLayout>} />
       <Route path="/tests" element={<DashboardLayout><TestExecutionDebug /></DashboardLayout>} />
       <Route path="/execution-debug" element={<DashboardLayout><ExecutionDebug /></DashboardLayout>} />

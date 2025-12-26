@@ -14,6 +14,7 @@ import {
   WifiOutlined,
   DisconnectOutlined,
   RobotOutlined,
+  ScheduleOutlined,
 } from '@ant-design/icons'
 import { useDashboardStore } from '../../store'
 import webSocketService from '../../services/websocket'
@@ -69,6 +70,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       key: '/test-cases',
       icon: <ExperimentOutlined />,
       label: 'Test Cases',
+    },
+    {
+      key: '/test-plans',
+      icon: <ScheduleOutlined />,
+      label: 'Test Plans',
     },
     {
       key: '/tests',
