@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons'
 import { useQuery } from 'react-query'
 import EnvironmentTable from './EnvironmentTable'
+import ResourceUtilizationCharts from './ResourceUtilizationCharts'
 import ConnectionStatus from './ConnectionStatus'
 import apiService from '../services/api'
 import useRealTimeUpdates from '../hooks/useRealTimeUpdates'
@@ -312,7 +313,23 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
         </Col>
 
         {/* Additional components will be added in future tasks */}
-        {/* TODO: Add ResourceUtilizationCharts component */}
+        {/* Resource Utilization Charts */}
+        <Col span={24}>
+          <ResourceUtilizationCharts
+            environments={state.environments}
+            timeRange={{
+              start: new Date(Date.now() - 30 * 60 * 1000), // Last 30 minutes
+              end: new Date()
+            }}
+            chartType="realtime"
+            metrics={[
+              { name: 'CPU Usage', type: 'cpu', unit: '%' },
+              { name: 'Memory Usage', type: 'memory', unit: '%' },
+              { name: 'Disk Usage', type: 'disk', unit: '%' },
+              { name: 'Network I/O', type: 'network', unit: 'MB/s' }
+            ]}
+          />
+        </Col>
         {/* TODO: Add AllocationQueueViewer component */}
         {/* TODO: Add AllocationHistory component */}
       </Row>

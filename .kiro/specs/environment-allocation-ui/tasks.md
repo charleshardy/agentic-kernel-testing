@@ -56,7 +56,7 @@ This implementation plan converts the Environment Allocation UI design into a se
   - Create aggregate resource utilization dashboard view
   - _Requirements: 2.1, 2.2, 2.3_
 
-- [ ] 5.1 Write property test for resource metrics display
+- [x] 5.1 Write property test for resource metrics display
   - **Property 3: Resource Metrics Display Completeness**
   - **Validates: Requirements 2.1, 2.2, 2.3, 7.1, 7.3**
 
