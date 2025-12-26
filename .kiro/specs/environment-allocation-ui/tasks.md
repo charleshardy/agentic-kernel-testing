@@ -60,14 +60,14 @@ This implementation plan converts the Environment Allocation UI design into a se
   - **Property 3: Resource Metrics Display Completeness**
   - **Validates: Requirements 2.1, 2.2, 2.3, 7.1, 7.3**
 
-- [ ] 6. Implement environment management controls
+- [x] 6. Implement environment management controls
   - Create environment action buttons (reset, maintenance, offline)
   - Add environment creation form with hardware configuration options
   - Implement confirmation dialogs for destructive actions
   - Add manual cleanup triggers and progress indicators
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 6.1 Write property test for management controls functionality
+- [x] 6.1 Write property test for management controls functionality
   - **Property 4: Environment Management Controls Functionality**
   - **Validates: Requirements 4.1, 4.2, 4.3, 4.4, 4.5**
 

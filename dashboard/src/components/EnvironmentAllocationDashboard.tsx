@@ -10,6 +10,7 @@ import {
 import { useQuery } from 'react-query'
 import EnvironmentTable from './EnvironmentTable'
 import ResourceUtilizationCharts from './ResourceUtilizationCharts'
+import EnvironmentManagementControls, { EnvironmentCreationConfig } from './EnvironmentManagementControls'
 import ConnectionStatus from './ConnectionStatus'
 import apiService from '../services/api'
 import useRealTimeUpdates from '../hooks/useRealTimeUpdates'
@@ -45,6 +46,7 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
   const [isAutoRefresh, setIsAutoRefresh] = useState(autoRefresh)
   const [environmentFilter, setEnvironmentFilter] = useState<EnvironmentFilter>({})
   const [lastStatusUpdate, setLastStatusUpdate] = useState<Date | null>(null)
+  const [selectedEnvironments, setSelectedEnvironments] = useState<Environment[]>([])
 
   // Real-time updates hook
   const realTimeUpdates = useRealTimeUpdates({
@@ -134,6 +136,19 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
       ...prev,
       selectedEnvironment: prev.selectedEnvironment === envId ? undefined : envId
     }))
+    
+    // Update selected environments for management controls
+    const environment = state.environments.find(env => env.id === envId)
+    if (environment) {
+      setSelectedEnvironments(prev => {
+        const isSelected = prev.some(env => env.id === envId)
+        if (isSelected) {
+          return prev.filter(env => env.id !== envId)
+        } else {
+          return [...prev, environment]
+        }
+      })
+    }
   }
 
   // Handle environment actions (reset, maintenance, etc.)
@@ -144,7 +159,33 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
       refetch()
     } catch (error) {
       console.error('Failed to perform environment action:', error)
-      // TODO: Show error notification
+      throw error // Re-throw to let the management controls handle the error
+    }
+  }
+
+  // Handle bulk environment actions
+  const handleBulkEnvironmentAction = async (envIds: string[], action: EnvironmentAction) => {
+    try {
+      await apiService.performBulkEnvironmentAction(envIds, action)
+      // Refresh data after action
+      refetch()
+      // Clear selection after successful bulk action
+      setSelectedEnvironments([])
+    } catch (error) {
+      console.error('Failed to perform bulk environment action:', error)
+      throw error // Re-throw to let the management controls handle the error
+    }
+  }
+
+  // Handle environment creation
+  const handleCreateEnvironment = async (config: EnvironmentCreationConfig) => {
+    try {
+      await apiService.createEnvironment(config)
+      // Refresh data after creation
+      refetch()
+    } catch (error) {
+      console.error('Failed to create environment:', error)
+      throw error // Re-throw to let the management controls handle the error
     }
   }
 
@@ -262,6 +303,17 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
 
       {/* Main Content */}
       <Row gutter={[24, 24]}>
+        {/* Environment Management Controls */}
+        <Col span={24}>
+          <EnvironmentManagementControls
+            selectedEnvironments={selectedEnvironments}
+            onEnvironmentAction={handleEnvironmentAction}
+            onCreateEnvironment={handleCreateEnvironment}
+            onBulkAction={handleBulkEnvironmentAction}
+            isLoading={isLoading}
+          />
+        </Col>
+
         {/* Environment Table - Main View */}
         <Col span={24}>
           <Card

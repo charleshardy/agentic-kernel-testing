@@ -696,6 +696,81 @@ class APIService {
     }
   }
 
+  async performBulkEnvironmentAction(envIds: string[], action: {
+    type: 'reset' | 'maintenance' | 'offline' | 'cleanup'
+    parameters?: Record<string, any>
+  }): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.post(`/environments/bulk-actions/${action.type}`, {
+        environment_ids: envIds,
+        parameters: action.parameters || {}
+      })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.post(`/environments/bulk-actions/${action.type}`, {
+          environment_ids: envIds,
+          parameters: action.parameters || {}
+        })
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async createEnvironment(config: {
+    type: string
+    architecture: string
+    cpuCores: number
+    memoryMB: number
+    storageGB: number
+    enableKVM?: boolean
+    enableNestedVirtualization?: boolean
+    customKernelVersion?: string
+    additionalFeatures?: string[]
+  }): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.post('/environments', {
+        architecture: config.architecture,
+        cpu_model: `${config.cpuCores} cores`,
+        memory_mb: config.memoryMB,
+        storage_type: 'ssd',
+        is_virtual: config.type !== 'physical',
+        emulator: config.type.startsWith('qemu') ? 'qemu' : config.type === 'docker' ? 'docker' : null,
+        additional_config: {
+          storage_gb: config.storageGB,
+          enable_kvm: config.enableKVM,
+          enable_nested_virtualization: config.enableNestedVirtualization,
+          custom_kernel_version: config.customKernelVersion,
+          additional_features: config.additionalFeatures
+        }
+      })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.post('/environments', {
+          architecture: config.architecture,
+          cpu_model: `${config.cpuCores} cores`,
+          memory_mb: config.memoryMB,
+          storage_type: 'ssd',
+          is_virtual: config.type !== 'physical',
+          emulator: config.type.startsWith('qemu') ? 'qemu' : config.type === 'docker' ? 'docker' : null,
+          additional_config: {
+            storage_gb: config.storageGB,
+            enable_kvm: config.enableKVM,
+            enable_nested_virtualization: config.enableNestedVirtualization,
+            custom_kernel_version: config.customKernelVersion,
+            additional_features: config.additionalFeatures
+          }
+        })
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
   async updateAllocationRequestPriority(requestId: string, priority: number): Promise<any> {
     try {
       const response: AxiosResponse<APIResponse<any>> = await this.client.patch(`/environments/allocation/request/${requestId}`, { priority })

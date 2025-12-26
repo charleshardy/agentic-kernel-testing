@@ -445,12 +445,14 @@ async def delete_environment(
     )
 
 
-@router.post("/environments/{env_id}/reset", response_model=APIResponse)
-async def reset_environment(
+@router.post("/environments/{env_id}/actions/{action_type}", response_model=APIResponse)
+async def perform_environment_action(
     env_id: str,
+    action_type: str,
+    parameters: Dict[str, Any] = {},
     current_user: Dict[str, Any] = Depends(require_permission("test:submit"))
 ):
-    """Reset an environment to clean state."""
+    """Perform an action on a specific environment."""
     if env_id not in environments:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -459,31 +461,194 @@ async def reset_environment(
     
     env = environments[env_id]
     
-    # Check if environment can be reset
-    if env.status == EnvironmentStatus.BUSY:
+    # Validate action type
+    valid_actions = ["reset", "maintenance", "offline", "cleanup"]
+    if action_type not in valid_actions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid action type. Must be one of: {valid_actions}"
+        )
+    
+    # Check if action is allowed based on current status
+    if action_type == "reset" and env.status == EnvironmentStatus.BUSY:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot reset busy environment"
         )
     
-    # Reset environment
-    env.status = EnvironmentStatus.PROVISIONING
-    env.kernel_version = None
-    env.last_used = datetime.utcnow()
+    try:
+        # Perform the action
+        if action_type == "reset":
+            env.status = EnvironmentStatus.PROVISIONING
+            env.kernel_version = None
+            # Simulate reset process
+            await asyncio.sleep(0.1)  # Simulate processing time
+            env.status = EnvironmentStatus.IDLE
+            
+        elif action_type == "maintenance":
+            env.status = EnvironmentStatus.MAINTENANCE
+            
+        elif action_type == "offline":
+            env.status = EnvironmentStatus.OFFLINE
+            
+        elif action_type == "cleanup":
+            env.status = EnvironmentStatus.PROVISIONING
+            # Simulate cleanup process
+            await asyncio.sleep(0.1)  # Simulate processing time
+            env.status = EnvironmentStatus.IDLE
+        
+        env.last_used = datetime.utcnow()
+        
+        # Create allocation event
+        event = AllocationEvent(
+            id=f"event-{str(uuid.uuid4())[:8]}",
+            type="action_performed",
+            environment_id=env_id,
+            timestamp=datetime.utcnow(),
+            metadata={
+                "action_type": action_type,
+                "performed_by": current_user["username"],
+                "parameters": parameters
+            }
+        )
+        allocation_history.append(event)
+        
+        # Broadcast to WebSocket clients
+        await allocation_manager.broadcast(json.dumps({
+            "type": "environment_action",
+            "environment_id": env_id,
+            "action_type": action_type,
+            "new_status": env.status.value,
+            "performed_by": current_user["username"],
+            "timestamp": datetime.utcnow().isoformat()
+        }))
+        
+        return APIResponse(
+            success=True,
+            message=f"Environment {action_type} completed successfully",
+            data={
+                "environment_id": env_id,
+                "action_type": action_type,
+                "new_status": env.status.value,
+                "performed_at": datetime.utcnow().isoformat(),
+                "performed_by": current_user["username"]
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to perform {action_type}: {str(e)}"
+        )
+
+
+@router.post("/environments/bulk-actions/{action_type}", response_model=APIResponse)
+async def perform_bulk_environment_action(
+    action_type: str,
+    request_data: Dict[str, Any],
+    current_user: Dict[str, Any] = Depends(require_permission("test:submit"))
+):
+    """Perform an action on multiple environments."""
+    environment_ids = request_data.get("environment_ids", [])
+    parameters = request_data.get("parameters", {})
     
-    # Mock reset process
-    print(f"Resetting environment {env_id}")
+    if not environment_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No environment IDs provided"
+        )
     
-    # Simulate reset completion
-    env.status = EnvironmentStatus.IDLE
+    # Validate action type
+    valid_actions = ["reset", "maintenance", "offline", "cleanup"]
+    if action_type not in valid_actions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid action type. Must be one of: {valid_actions}"
+        )
+    
+    results = []
+    failed_environments = []
+    
+    for env_id in environment_ids:
+        try:
+            if env_id not in environments:
+                failed_environments.append({"env_id": env_id, "error": "Environment not found"})
+                continue
+            
+            env = environments[env_id]
+            
+            # Check if action is allowed
+            if action_type == "reset" and env.status == EnvironmentStatus.BUSY:
+                failed_environments.append({"env_id": env_id, "error": "Cannot reset busy environment"})
+                continue
+            
+            # Perform the action
+            if action_type == "reset":
+                env.status = EnvironmentStatus.PROVISIONING
+                env.kernel_version = None
+                await asyncio.sleep(0.1)  # Simulate processing time
+                env.status = EnvironmentStatus.IDLE
+                
+            elif action_type == "maintenance":
+                env.status = EnvironmentStatus.MAINTENANCE
+                
+            elif action_type == "offline":
+                env.status = EnvironmentStatus.OFFLINE
+                
+            elif action_type == "cleanup":
+                env.status = EnvironmentStatus.PROVISIONING
+                await asyncio.sleep(0.1)  # Simulate processing time
+                env.status = EnvironmentStatus.IDLE
+            
+            env.last_used = datetime.utcnow()
+            
+            results.append({
+                "environment_id": env_id,
+                "status": "success",
+                "new_status": env.status.value
+            })
+            
+            # Create allocation event
+            event = AllocationEvent(
+                id=f"event-{str(uuid.uuid4())[:8]}",
+                type="bulk_action_performed",
+                environment_id=env_id,
+                timestamp=datetime.utcnow(),
+                metadata={
+                    "action_type": action_type,
+                    "performed_by": current_user["username"],
+                    "parameters": parameters,
+                    "bulk_operation": True
+                }
+            )
+            allocation_history.append(event)
+            
+        except Exception as e:
+            failed_environments.append({"env_id": env_id, "error": str(e)})
+    
+    # Broadcast bulk action to WebSocket clients
+    await allocation_manager.broadcast(json.dumps({
+        "type": "bulk_environment_action",
+        "action_type": action_type,
+        "successful_count": len(results),
+        "failed_count": len(failed_environments),
+        "environment_ids": environment_ids,
+        "performed_by": current_user["username"],
+        "timestamp": datetime.utcnow().isoformat()
+    }))
     
     return APIResponse(
-        success=True,
-        message="Environment reset successfully",
+        success=len(failed_environments) == 0,
+        message=f"Bulk {action_type} completed. {len(results)} successful, {len(failed_environments)} failed.",
         data={
-            "environment_id": env_id,
-            "status": env.status.value,
-            "reset_at": datetime.utcnow().isoformat()
+            "action_type": action_type,
+            "successful_operations": results,
+            "failed_operations": failed_environments,
+            "total_requested": len(environment_ids),
+            "successful_count": len(results),
+            "failed_count": len(failed_environments),
+            "performed_by": current_user["username"],
+            "performed_at": datetime.utcnow().isoformat()
         }
     )
 
