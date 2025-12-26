@@ -1,21 +1,25 @@
-import React, { useState, useEffect } from 'react'
-import { Card, Row, Col, Typography, Space, Button, Alert, Spin } from 'antd'
+import React, { useState, useEffect, useCallback } from 'react'
+import { Card, Row, Col, Typography, Space, Button, Alert, Spin, notification } from 'antd'
 import { 
   CloudServerOutlined, 
   ReloadOutlined, 
   EyeOutlined,
-  SettingOutlined 
+  SettingOutlined,
+  WifiOutlined
 } from '@ant-design/icons'
 import { useQuery } from 'react-query'
 import EnvironmentTable from './EnvironmentTable'
+import ConnectionStatus from './ConnectionStatus'
 import apiService from '../services/api'
+import useRealTimeUpdates from '../hooks/useRealTimeUpdates'
 import { 
   EnvironmentAllocationDashboardProps, 
   EnvironmentAllocationState,
   Environment,
   AllocationRequest,
   EnvironmentAction,
-  EnvironmentFilter
+  EnvironmentFilter,
+  AllocationEvent
 } from '../types/environment'
 
 const { Title, Text } = Typography
@@ -39,6 +43,65 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
 
   const [isAutoRefresh, setIsAutoRefresh] = useState(autoRefresh)
   const [environmentFilter, setEnvironmentFilter] = useState<EnvironmentFilter>({})
+  const [lastStatusUpdate, setLastStatusUpdate] = useState<Date | null>(null)
+
+  // Real-time updates hook
+  const realTimeUpdates = useRealTimeUpdates({
+    enableWebSocket: true,
+    enableSSE: true,
+    onEnvironmentUpdate: useCallback((environment: Environment) => {
+      console.log('🔄 Environment update received:', environment)
+      setLastStatusUpdate(new Date())
+      
+      // Show notification for significant status changes
+      const significantStatuses = ['error', 'offline', 'ready']
+      if (significantStatuses.includes(environment.status)) {
+        notification.info({
+          message: 'Environment Status Changed',
+          description: `Environment ${environment.id.slice(0, 8)}... is now ${environment.status.toUpperCase()}`,
+          duration: 3,
+          placement: 'topRight'
+        })
+      }
+    }, []),
+    onAllocationUpdate: useCallback((request: AllocationRequest) => {
+      console.log('🔄 Allocation update received:', request)
+      setLastStatusUpdate(new Date())
+    }, []),
+    onAllocationEvent: useCallback((event: AllocationEvent) => {
+      console.log('🔄 Allocation event received:', event)
+      setLastStatusUpdate(new Date())
+      
+      // Show notification for allocation events
+      if (event.type === 'allocated') {
+        notification.success({
+          message: 'Environment Allocated',
+          description: `Test ${event.testId} has been allocated to environment ${event.environmentId.slice(0, 8)}...`,
+          duration: 4,
+          placement: 'topRight'
+        })
+      }
+    }, []),
+    onConnectionHealthChange: useCallback((health: 'healthy' | 'degraded' | 'disconnected') => {
+      console.log('🔄 Connection health changed:', health)
+      
+      if (health === 'disconnected') {
+        notification.warning({
+          message: 'Real-time Connection Lost',
+          description: 'Live updates are unavailable. Data will be refreshed periodically.',
+          duration: 5,
+          placement: 'topRight'
+        })
+      } else if (health === 'healthy') {
+        notification.success({
+          message: 'Real-time Connection Restored',
+          description: 'Live updates are now available.',
+          duration: 3,
+          placement: 'topRight'
+        })
+      }
+    }, [])
+  })
 
   // Fetch environment allocation data with real-time updates
   const { 
@@ -50,7 +113,7 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
     ['environmentAllocation', planId],
     () => apiService.getEnvironmentAllocation(),
     {
-      refetchInterval: isAutoRefresh ? refreshInterval : false,
+      refetchInterval: isAutoRefresh && realTimeUpdates.connectionHealth !== 'healthy' ? refreshInterval : false,
       refetchOnWindowFocus: true,
       onSuccess: (data) => {
         setState(prev => ({
@@ -87,6 +150,27 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
   // Toggle auto-refresh
   const toggleAutoRefresh = () => {
     setIsAutoRefresh(!isAutoRefresh)
+  }
+
+  // Manual refresh with real-time connection check
+  const handleManualRefresh = useCallback(() => {
+    refetch()
+    
+    // Also reconnect real-time connections if they're not healthy
+    if (realTimeUpdates.connectionHealth !== 'healthy') {
+      realTimeUpdates.reconnectAll()
+    }
+  }, [refetch, realTimeUpdates])
+
+  // Get connection status for display
+  const getConnectionStatusText = () => {
+    if (realTimeUpdates.connectionHealth === 'healthy') {
+      return 'Live'
+    } else if (realTimeUpdates.connectionHealth === 'degraded') {
+      return 'Degraded'
+    } else {
+      return isAutoRefresh ? 'Polling' : 'Paused'
+    }
   }
 
   if (error) {
@@ -134,15 +218,26 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
             onClick={toggleAutoRefresh}
             type={isAutoRefresh ? 'primary' : 'default'}
           >
-            {isAutoRefresh ? 'Live' : 'Paused'}
+            {getConnectionStatusText()}
           </Button>
           <Button
             icon={<ReloadOutlined />}
-            onClick={() => refetch()}
+            onClick={handleManualRefresh}
             loading={isLoading}
           >
             Refresh
           </Button>
+          <ConnectionStatus
+            isConnected={realTimeUpdates.isConnected}
+            connectionHealth={realTimeUpdates.connectionHealth}
+            lastUpdate={realTimeUpdates.lastUpdate}
+            updateCount={realTimeUpdates.updateCount}
+            errors={realTimeUpdates.errors}
+            webSocketStatus={realTimeUpdates.webSocket}
+            sseStatus={realTimeUpdates.sse}
+            onReconnect={realTimeUpdates.reconnectAll}
+            showDetails={true}
+          />
           <Button
             icon={<SettingOutlined />}
             onClick={() => {
@@ -179,11 +274,31 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
               </Space>
             }
             extra={
-              isAutoRefresh && (
-                <Text type="secondary" style={{ fontSize: '12px' }}>
-                  Auto-refreshing every {refreshInterval / 1000}s
-                </Text>
-              )
+              <Space>
+                {realTimeUpdates.isConnected && (
+                  <ConnectionStatus
+                    isConnected={realTimeUpdates.isConnected}
+                    connectionHealth={realTimeUpdates.connectionHealth}
+                    lastUpdate={realTimeUpdates.lastUpdate}
+                    updateCount={realTimeUpdates.updateCount}
+                    errors={realTimeUpdates.errors}
+                    webSocketStatus={realTimeUpdates.webSocket}
+                    sseStatus={realTimeUpdates.sse}
+                    onReconnect={realTimeUpdates.reconnectAll}
+                    showDetails={false}
+                  />
+                )}
+                {isAutoRefresh && realTimeUpdates.connectionHealth !== 'healthy' && (
+                  <Text type="secondary" style={{ fontSize: '12px' }}>
+                    Polling every {refreshInterval / 1000}s
+                  </Text>
+                )}
+                {realTimeUpdates.connectionHealth === 'healthy' && (
+                  <Text type="success" style={{ fontSize: '12px' }}>
+                    Live updates
+                  </Text>
+                )}
+              </Space>
             }
           >
             <EnvironmentTable

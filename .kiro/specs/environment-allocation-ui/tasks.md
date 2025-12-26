@@ -45,7 +45,7 @@ This implementation plan converts the Environment Allocation UI design into a se
   - Add connection health monitoring and reconnection logic
   - _Requirements: 1.2, 2.4_
 
-- [ ] 4.1 Write property test for real-time update consistency
+- [x] 4.1 Write property test for real-time update consistency
   - **Property 2: Real-time Status Updates**
   - **Validates: Requirements 1.2, 2.4**
 

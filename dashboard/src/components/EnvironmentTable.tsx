@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   Table, 
   Tag, 
@@ -23,6 +23,7 @@ import {
   CloudServerOutlined
 } from '@ant-design/icons'
 import { ColumnsType } from 'antd/es/table'
+import StatusChangeIndicator from './StatusChangeIndicator'
 import { 
   Environment, 
   EnvironmentTableProps, 
@@ -46,6 +47,16 @@ const EnvironmentTable: React.FC<EnvironmentTableProps> = ({
   filterOptions
 }) => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([])
+  const [previousStatuses, setPreviousStatuses] = useState<Record<string, EnvironmentStatus>>({})
+
+  // Track status changes for animations
+  useEffect(() => {
+    const newStatuses: Record<string, EnvironmentStatus> = {}
+    environments.forEach(env => {
+      newStatuses[env.id] = env.status
+    })
+    setPreviousStatuses(prev => ({ ...prev, ...newStatuses }))
+  }, [environments])
 
   // Get status badge configuration
   const getStatusBadge = (status: EnvironmentStatus) => {
@@ -65,7 +76,7 @@ const EnvironmentTable: React.FC<EnvironmentTableProps> = ({
       case EnvironmentStatus.OFFLINE:
         return { status: 'default' as const, text: 'OFFLINE' }
       default:
-        return { status: 'default' as const, text: status.toUpperCase() }
+        return { status: 'default' as const, text: String(status).toUpperCase() }
     }
   }
 
@@ -199,10 +210,16 @@ const EnvironmentTable: React.FC<EnvironmentTableProps> = ({
       dataIndex: 'status',
       key: 'status',
       width: 120,
-      render: (status: EnvironmentStatus) => {
-        const badge = getStatusBadge(status)
-        return <Badge status={badge.status} text={badge.text} />
-      }
+      render: (status: EnvironmentStatus, record: Environment) => (
+        <StatusChangeIndicator
+          status={status}
+          previousStatus={previousStatuses[record.id]}
+          showAnimation={true}
+          size="default"
+          showText={true}
+          lastUpdated={new Date(record.updatedAt)}
+        />
+      )
     },
     {
       title: 'Health',
@@ -233,13 +250,13 @@ const EnvironmentTable: React.FC<EnvironmentTableProps> = ({
             <Text type="secondary">None</Text>
           ) : (
             tests.slice(0, 2).map(test => (
-              <Tag key={test} size="small">
+              <Tag key={test}>
                 {test.slice(0, 8)}...
               </Tag>
             ))
           )}
           {tests.length > 2 && (
-            <Tag size="small">+{tests.length - 2} more</Tag>
+            <Tag>+{tests.length - 2} more</Tag>
           )}
         </Space>
       )
