@@ -23,7 +23,7 @@ This implementation plan converts the Environment Allocation UI design into a se
   - Implement WebSocket endpoint for live environment updates
   - _Requirements: 8.1, 8.2, 8.3_
 
-- [ ] 2.1 Write property test for API endpoint data consistency
+- [x] 2.1 Write property test for API endpoint data consistency
   - **Property 7: Allocation Queue Management Accuracy**
   - **Validates: Requirements 8.1, 8.2, 8.3, 8.4, 8.5**
 
