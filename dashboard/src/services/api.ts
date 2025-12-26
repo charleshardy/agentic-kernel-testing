@@ -117,6 +117,96 @@ export interface SystemMetrics {
   network_io: Record<string, number>
 }
 
+// Environment Allocation Interfaces
+export interface EnvironmentAllocationData {
+  environments: Environment[]
+  queue: AllocationRequest[]
+  metrics: AllocationMetrics
+  history: AllocationEvent[]
+}
+
+export interface Environment {
+  id: string
+  type: string
+  status: string
+  architecture: string
+  assigned_tests: string[]
+  resources: ResourceUsage
+  health: string
+  metadata: EnvironmentMetadata
+  created_at: string
+  updated_at: string
+}
+
+export interface ResourceUsage {
+  cpu: number
+  memory: number
+  disk: number
+  network: NetworkMetrics
+}
+
+export interface NetworkMetrics {
+  bytes_in: number
+  bytes_out: number
+  packets_in: number
+  packets_out: number
+}
+
+export interface EnvironmentMetadata {
+  kernel_version?: string
+  ip_address?: string
+  ssh_credentials?: Record<string, any>
+  provisioned_at?: string
+  last_health_check?: string
+  additional_metadata: Record<string, any>
+}
+
+export interface AllocationRequest {
+  id: string
+  test_id: string
+  requirements: HardwareRequirements
+  preferences?: AllocationPreferences
+  priority: number
+  submitted_at: string
+  estimated_start_time?: string
+  status: string
+}
+
+export interface HardwareRequirements {
+  architecture: string
+  min_memory_mb: number
+  min_cpu_cores: number
+  required_features: string[]
+  preferred_environment_type?: string
+  isolation_level: string
+}
+
+export interface AllocationPreferences {
+  environment_type?: string
+  architecture?: string
+  max_wait_time?: number
+  allow_shared_environment: boolean
+  require_dedicated_resources: boolean
+}
+
+export interface AllocationEvent {
+  id: string
+  type: string
+  environment_id: string
+  test_id?: string
+  timestamp: string
+  metadata: Record<string, any>
+}
+
+export interface AllocationMetrics {
+  total_allocations: number
+  successful_allocations: number
+  failed_allocations: number
+  average_allocation_time: number
+  queue_length: number
+  utilization_rate: number
+}
+
 export interface HealthStatus {
   status: string
   version: string
@@ -506,6 +596,134 @@ class APIService {
   async getEnvironmentStatus(envId: string): Promise<any> {
     const response: AxiosResponse<APIResponse> = await this.client.get(`/environments/${envId}/status`)
     return response.data.data!
+  }
+
+  // Environment Allocation API endpoints
+  async getEnvironmentAllocation(): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/allocation')
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/allocation')
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async getEnvironmentAllocationQueue(): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/allocation/queue')
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/allocation/queue')
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async getEnvironmentAllocationHistory(params?: {
+    page?: number
+    page_size?: number
+    start_date?: string
+    end_date?: string
+  }): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/allocation/history', { params })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/allocation/history', { params })
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async createAllocationRequest(request: {
+    test_id: string
+    requirements: any
+    preferences?: any
+    priority?: number
+  }): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.post('/environments/allocation/request', request)
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.post('/environments/allocation/request', request)
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async cancelAllocationRequest(requestId: string): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.delete(`/environments/allocation/request/${requestId}`)
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.delete(`/environments/allocation/request/${requestId}`)
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async performEnvironmentAction(envId: string, action: {
+    type: 'reset' | 'maintenance' | 'offline' | 'cleanup'
+    parameters?: Record<string, any>
+  }): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.post(`/environments/${envId}/actions/${action.type}`, action.parameters || {})
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.post(`/environments/${envId}/actions/${action.type}`, action.parameters || {})
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async updateAllocationRequestPriority(requestId: string, priority: number): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.patch(`/environments/allocation/request/${requestId}`, { priority })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.patch(`/environments/allocation/request/${requestId}`, { priority })
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  // Real-time allocation events (Server-Sent Events)
+  createAllocationEventStream(): EventSource {
+    const baseURL = this.client.defaults.baseURL
+    const token = localStorage.getItem('auth_token')
+    const url = `${baseURL}/environments/allocation/events${token ? `?token=${token}` : ''}`
+    return new EventSource(url)
+  }
+
+  // WebSocket connection for live environment updates
+  createEnvironmentWebSocket(): WebSocket {
+    const baseURL = this.client.defaults.baseURL?.replace('http', 'ws')
+    const token = localStorage.getItem('auth_token')
+    const url = `${baseURL}/ws/environments/allocation${token ? `?token=${token}` : ''}`
+    return new WebSocket(url)
   }
 
   // AI Test Generation

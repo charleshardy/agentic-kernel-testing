@@ -143,28 +143,66 @@ class EnvironmentModel(Base):
     id = Column(String(255), primary_key=True)
     hardware_config_id = Column(Integer, ForeignKey("hardware_configs.id"), nullable=False)
     status = Column(SQLEnum(EnvironmentStatus), default=EnvironmentStatus.IDLE)
+    health = Column(String(20), default="unknown")  # healthy, degraded, unhealthy, unknown
+    architecture = Column(String(50), nullable=False, default="x86_64")
+    environment_type = Column(String(50), nullable=False, default="qemu")  # qemu-x86, qemu-arm, docker, physical, container
+    assigned_tests = Column(JSON, default=list)  # List of currently assigned test IDs
     kernel_version = Column(String(100), nullable=True)
     ip_address = Column(String(45), nullable=True)  # IPv6 compatible
     ssh_credentials = Column(JSON, nullable=True)
+    
+    # Resource usage tracking
+    current_cpu_usage = Column(Float, default=0.0)
+    current_memory_usage = Column(Float, default=0.0)
+    current_disk_usage = Column(Float, default=0.0)
+    
+    # Allocation tracking
+    allocation_count = Column(Integer, default=0)  # Total number of allocations
+    last_allocated_at = Column(DateTime, nullable=True)
+    last_deallocated_at = Column(DateTime, nullable=True)
+    
     created_at = Column(DateTime, default=datetime.utcnow)
     last_used = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     env_metadata = Column(JSON, default=dict)
     
     # Relationships
     hardware_config = relationship("HardwareConfigModel", back_populates="environments")
     test_results = relationship("TestResultModel", back_populates="environment")
+    allocation_requests = relationship("AllocationRequestModel", back_populates="allocated_environment")
+    allocation_events = relationship("AllocationEventModel", back_populates="environment")
+    resource_metrics = relationship("EnvironmentResourceMetricsModel", back_populates="environment")
     
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
             'id': self.id,
-            'hardware_config': self.hardware_config.to_dict() if self.hardware_config else None,
+            'type': self.environment_type,
             'status': self.status.value,
+            'health': self.health,
+            'architecture': self.architecture,
+            'assigned_tests': self.assigned_tests or [],
+            'resources': {
+                'cpu': self.current_cpu_usage,
+                'memory': self.current_memory_usage,
+                'disk': self.current_disk_usage,
+                'network': {
+                    'bytes_in': 0,
+                    'bytes_out': 0,
+                    'packets_in': 0,
+                    'packets_out': 0
+                }
+            },
+            'hardware_config': self.hardware_config.to_dict() if self.hardware_config else None,
             'kernel_version': self.kernel_version,
             'ip_address': self.ip_address,
             'ssh_credentials': self.ssh_credentials,
+            'allocation_count': self.allocation_count,
+            'last_allocated_at': self.last_allocated_at.isoformat() if self.last_allocated_at else None,
+            'last_deallocated_at': self.last_deallocated_at.isoformat() if self.last_deallocated_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'last_used': self.last_used.isoformat() if self.last_used else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'metadata': self.env_metadata or {}
         }
 
@@ -358,3 +396,131 @@ class SecurityIssueModel(Base):
     
     # Relationships
     test_result = relationship("TestResultModel")
+
+
+class AllocationRequestModel(Base):
+    """Database model for environment allocation requests."""
+    
+    __tablename__ = "allocation_requests"
+    
+    id = Column(String(255), primary_key=True)
+    test_id = Column(String(255), ForeignKey("test_cases.id"), nullable=False)
+    requirements = Column(JSON, nullable=False)  # HardwareRequirements as JSON
+    preferences = Column(JSON, nullable=True)    # AllocationPreferences as JSON
+    priority = Column(Integer, nullable=False, default=5)
+    status = Column(String(50), nullable=False, default="queued")  # queued, allocating, allocated, failed, cancelled
+    submitted_at = Column(DateTime, default=datetime.utcnow)
+    estimated_start_time = Column(DateTime, nullable=True)
+    allocated_environment_id = Column(String(255), ForeignKey("environments.id"), nullable=True)
+    allocation_metadata = Column(JSON, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    test_case = relationship("TestCaseModel")
+    allocated_environment = relationship("EnvironmentModel")
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            'id': self.id,
+            'test_id': self.test_id,
+            'requirements': self.requirements or {},
+            'preferences': self.preferences,
+            'priority': self.priority,
+            'status': self.status,
+            'submitted_at': self.submitted_at.isoformat() if self.submitted_at else None,
+            'estimated_start_time': self.estimated_start_time.isoformat() if self.estimated_start_time else None,
+            'allocated_environment_id': self.allocated_environment_id,
+            'allocation_metadata': self.allocation_metadata or {},
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class AllocationEventModel(Base):
+    """Database model for allocation events."""
+    
+    __tablename__ = "allocation_events"
+    
+    id = Column(String(255), primary_key=True)
+    event_type = Column(String(50), nullable=False)  # allocated, deallocated, failed, queued
+    environment_id = Column(String(255), ForeignKey("environments.id"), nullable=False)
+    test_id = Column(String(255), ForeignKey("test_cases.id"), nullable=True)
+    allocation_request_id = Column(String(255), ForeignKey("allocation_requests.id"), nullable=True)
+    event_metadata = Column(JSON, default=dict)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    environment = relationship("EnvironmentModel")
+    test_case = relationship("TestCaseModel")
+    allocation_request = relationship("AllocationRequestModel")
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            'id': self.id,
+            'event_type': self.event_type,
+            'environment_id': self.environment_id,
+            'test_id': self.test_id,
+            'allocation_request_id': self.allocation_request_id,
+            'event_metadata': self.event_metadata or {},
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None
+        }
+
+
+class EnvironmentResourceMetricsModel(Base):
+    """Database model for environment resource metrics."""
+    
+    __tablename__ = "environment_resource_metrics"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    environment_id = Column(String(255), ForeignKey("environments.id"), nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    cpu_usage = Column(Float, nullable=False, default=0.0)
+    cpu_cores = Column(Integer, nullable=False, default=1)
+    cpu_frequency = Column(Float, nullable=True)
+    memory_used = Column(Integer, nullable=False, default=0)  # in MB
+    memory_total = Column(Integer, nullable=False, default=0)  # in MB
+    memory_available = Column(Integer, nullable=False, default=0)  # in MB
+    disk_used = Column(Integer, nullable=False, default=0)  # in MB
+    disk_total = Column(Integer, nullable=False, default=0)  # in MB
+    disk_iops = Column(Integer, nullable=True)
+    network_bytes_in = Column(Integer, nullable=False, default=0)
+    network_bytes_out = Column(Integer, nullable=False, default=0)
+    network_packets_in = Column(Integer, nullable=False, default=0)
+    network_packets_out = Column(Integer, nullable=False, default=0)
+    metrics_metadata = Column(JSON, default=dict)
+    
+    # Relationships
+    environment = relationship("EnvironmentModel")
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            'id': self.id,
+            'environment_id': self.environment_id,
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
+            'cpu': {
+                'usage': self.cpu_usage,
+                'cores': self.cpu_cores,
+                'frequency': self.cpu_frequency
+            },
+            'memory': {
+                'used': self.memory_used,
+                'total': self.memory_total,
+                'available': self.memory_available
+            },
+            'disk': {
+                'used': self.disk_used,
+                'total': self.disk_total,
+                'iops': self.disk_iops
+            },
+            'network': {
+                'bytes_in': self.network_bytes_in,
+                'bytes_out': self.network_bytes_out,
+                'packets_in': self.network_packets_in,
+                'packets_out': self.network_packets_out
+            },
+            'metadata': self.metrics_metadata or {}
+        }

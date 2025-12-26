@@ -233,6 +233,166 @@ class SystemMetrics(BaseModel):
     network_io: Dict[str, float] = Field(..., description="Network I/O statistics")
 
 
+# Environment Allocation Models
+class EnvironmentTypeEnum(str, Enum):
+    """Environment type enumeration."""
+    QEMU_X86 = "qemu-x86"
+    QEMU_ARM = "qemu-arm"
+    DOCKER = "docker"
+    PHYSICAL = "physical"
+    CONTAINER = "container"
+
+
+class EnvironmentStatusEnum(str, Enum):
+    """Environment status enumeration."""
+    ALLOCATING = "allocating"
+    READY = "ready"
+    RUNNING = "running"
+    CLEANUP = "cleanup"
+    MAINTENANCE = "maintenance"
+    ERROR = "error"
+    OFFLINE = "offline"
+
+
+class EnvironmentHealthEnum(str, Enum):
+    """Environment health enumeration."""
+    HEALTHY = "healthy"
+    DEGRADED = "degraded"
+    UNHEALTHY = "unhealthy"
+    UNKNOWN = "unknown"
+
+
+class AllocationStatusEnum(str, Enum):
+    """Allocation status enumeration."""
+    QUEUED = "queued"
+    ALLOCATING = "allocating"
+    ALLOCATED = "allocated"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class NetworkMetrics(BaseModel):
+    """Network metrics model."""
+    bytes_in: int = Field(..., description="Bytes received")
+    bytes_out: int = Field(..., description="Bytes sent")
+    packets_in: int = Field(..., description="Packets received")
+    packets_out: int = Field(..., description="Packets sent")
+
+
+class ResourceUsage(BaseModel):
+    """Resource usage model."""
+    cpu: float = Field(..., ge=0.0, le=100.0, description="CPU usage percentage")
+    memory: float = Field(..., ge=0.0, le=100.0, description="Memory usage percentage")
+    disk: float = Field(..., ge=0.0, le=100.0, description="Disk usage percentage")
+    network: NetworkMetrics = Field(..., description="Network metrics")
+
+
+class EnvironmentMetadata(BaseModel):
+    """Environment metadata model."""
+    kernel_version: Optional[str] = Field(None, description="Kernel version")
+    ip_address: Optional[str] = Field(None, description="IP address")
+    ssh_credentials: Optional[Dict[str, Any]] = Field(None, description="SSH credentials")
+    provisioned_at: Optional[datetime] = Field(None, description="Provisioning timestamp")
+    last_health_check: Optional[datetime] = Field(None, description="Last health check timestamp")
+    additional_metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+
+
+class EnvironmentResponse(BaseModel):
+    """Response model for environment information."""
+    id: str = Field(..., description="Environment ID")
+    type: EnvironmentTypeEnum = Field(..., description="Environment type")
+    status: EnvironmentStatusEnum = Field(..., description="Environment status")
+    architecture: str = Field(..., description="CPU architecture")
+    assigned_tests: List[str] = Field(default_factory=list, description="Assigned test IDs")
+    resources: ResourceUsage = Field(..., description="Resource usage")
+    health: EnvironmentHealthEnum = Field(..., description="Environment health")
+    metadata: EnvironmentMetadata = Field(..., description="Environment metadata")
+    created_at: datetime = Field(..., description="Creation timestamp")
+    updated_at: datetime = Field(..., description="Last update timestamp")
+
+
+class HardwareRequirements(BaseModel):
+    """Hardware requirements model."""
+    architecture: str = Field(..., description="Required CPU architecture")
+    min_memory_mb: int = Field(..., ge=1, description="Minimum memory in MB")
+    min_cpu_cores: int = Field(..., ge=1, description="Minimum CPU cores")
+    required_features: List[str] = Field(default_factory=list, description="Required hardware features")
+    preferred_environment_type: Optional[EnvironmentTypeEnum] = Field(None, description="Preferred environment type")
+    isolation_level: str = Field(..., pattern="^(none|process|container|vm)$", description="Required isolation level")
+
+
+class AllocationPreferences(BaseModel):
+    """Allocation preferences model."""
+    environment_type: Optional[EnvironmentTypeEnum] = Field(None, description="Preferred environment type")
+    architecture: Optional[str] = Field(None, description="Preferred architecture")
+    max_wait_time: Optional[int] = Field(None, ge=0, description="Maximum wait time in seconds")
+    allow_shared_environment: bool = Field(True, description="Allow shared environments")
+    require_dedicated_resources: bool = Field(False, description="Require dedicated resources")
+
+
+class AllocationRequest(BaseModel):
+    """Allocation request model."""
+    id: str = Field(..., description="Request ID")
+    test_id: str = Field(..., description="Test ID")
+    requirements: HardwareRequirements = Field(..., description="Hardware requirements")
+    preferences: Optional[AllocationPreferences] = Field(None, description="Allocation preferences")
+    priority: int = Field(..., ge=1, le=10, description="Request priority")
+    submitted_at: datetime = Field(..., description="Submission timestamp")
+    estimated_start_time: Optional[datetime] = Field(None, description="Estimated start time")
+    status: AllocationStatusEnum = Field(..., description="Allocation status")
+
+
+class AllocationEvent(BaseModel):
+    """Allocation event model."""
+    id: str = Field(..., description="Event ID")
+    type: str = Field(..., pattern="^(allocated|deallocated|failed|queued)$", description="Event type")
+    environment_id: str = Field(..., description="Environment ID")
+    test_id: Optional[str] = Field(None, description="Test ID")
+    timestamp: datetime = Field(..., description="Event timestamp")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Event metadata")
+
+
+class AllocationMetrics(BaseModel):
+    """Allocation metrics model."""
+    total_allocations: int = Field(..., description="Total allocations")
+    successful_allocations: int = Field(..., description="Successful allocations")
+    failed_allocations: int = Field(..., description="Failed allocations")
+    average_allocation_time: float = Field(..., description="Average allocation time in seconds")
+    queue_length: int = Field(..., description="Current queue length")
+    utilization_rate: float = Field(..., ge=0.0, le=1.0, description="Environment utilization rate")
+
+
+class ResourceMetrics(BaseModel):
+    """Resource metrics model."""
+    timestamp: datetime = Field(..., description="Metrics timestamp")
+    environment_id: str = Field(..., description="Environment ID")
+    cpu: Dict[str, float] = Field(..., description="CPU metrics")
+    memory: Dict[str, int] = Field(..., description="Memory metrics")
+    disk: Dict[str, int] = Field(..., description="Disk metrics")
+    network: Dict[str, int] = Field(..., description="Network metrics")
+
+
+class EnvironmentAllocationResponse(BaseModel):
+    """Response model for environment allocation data."""
+    environments: List[EnvironmentResponse] = Field(..., description="Environment list")
+    queue: List[AllocationRequest] = Field(..., description="Allocation queue")
+    metrics: AllocationMetrics = Field(..., description="Allocation metrics")
+    history: List[AllocationEvent] = Field(..., description="Allocation history")
+
+
+class AllocationQueueResponse(BaseModel):
+    """Response model for allocation queue."""
+    queue: List[AllocationRequest] = Field(..., description="Allocation queue")
+    estimated_wait_times: Dict[str, int] = Field(..., description="Estimated wait times by request ID")
+    total_wait_time: int = Field(..., description="Total estimated wait time")
+
+
+class AllocationHistoryResponse(BaseModel):
+    """Response model for allocation history."""
+    events: List[AllocationEvent] = Field(..., description="Allocation events")
+    pagination: Dict[str, Any] = Field(..., description="Pagination information")
+
+
 class TestExecutionRequest(BaseModel):
     """Request model for test execution."""
     test_case_ids: List[str] = Field(..., min_length=1, description="List of test case IDs to execute")
