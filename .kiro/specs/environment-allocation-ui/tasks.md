@@ -27,14 +27,14 @@ This implementation plan converts the Environment Allocation UI design into a se
   - **Property 7: Allocation Queue Management Accuracy**
   - **Validates: Requirements 8.1, 8.2, 8.3, 8.4, 8.5**
 
-- [ ] 3. Create core UI components structure
+- [x] 3. Create core UI components structure
   - Implement `EnvironmentAllocationDashboard` main container component
   - Create `EnvironmentTable` component with basic environment display
   - Set up React Query integration for API data management
   - Implement basic routing and navigation for environment allocation views
   - _Requirements: 1.1, 1.2_
 
-- [ ] 3.1 Write property test for component rendering accuracy
+- [x] 3.1 Write property test for component rendering accuracy
   - **Property 1: Environment Information Display Accuracy**
   - **Validates: Requirements 1.1, 1.4, 3.1, 3.3**
 

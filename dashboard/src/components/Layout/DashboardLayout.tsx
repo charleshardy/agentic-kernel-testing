@@ -15,6 +15,7 @@ import {
   DisconnectOutlined,
   RobotOutlined,
   ScheduleOutlined,
+  CloudServerOutlined,
 } from '@ant-design/icons'
 import { useDashboardStore } from '../../store'
 import webSocketService from '../../services/websocket'
@@ -85,6 +86,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       key: '/execution-monitor',
       icon: <BarChartOutlined />,
       label: 'Execution Monitor',
+    },
+    {
+      key: '/environment-allocation',
+      icon: <CloudServerOutlined />,
+      label: 'Environment Allocation',
     },
     {
       key: '/results',
