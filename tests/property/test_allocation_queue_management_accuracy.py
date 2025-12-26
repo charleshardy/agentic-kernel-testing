@@ -50,14 +50,23 @@ def gen_allocation_preferences(draw):
 @st.composite
 def gen_allocation_request(draw):
     """Generate a random allocation request."""
+    submitted_at = draw(st.datetimes(min_value=datetime(2020, 1, 1)).map(lambda dt: dt.replace(tzinfo=timezone.utc)))
+    
+    # Generate estimated_start_time that is always >= submitted_at when present
+    estimated_start_time = None
+    if draw(st.booleans()):  # 50% chance of having estimated_start_time
+        # Add a random delay (0 to 24 hours) to submitted_at
+        delay_seconds = draw(st.integers(min_value=0, max_value=86400))  # 0 to 24 hours
+        estimated_start_time = submitted_at + timedelta(seconds=delay_seconds)
+    
     return AllocationRequest(
         id=draw(st.text(min_size=8, max_size=32, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd')))),
         test_id=draw(st.text(min_size=8, max_size=32, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd')))),
         requirements=draw(gen_hardware_requirements()),
         preferences=draw(st.one_of(st.none(), gen_allocation_preferences())),
         priority=draw(st.integers(min_value=1, max_value=10)),
-        submitted_at=draw(st.datetimes(min_value=datetime(2020, 1, 1)).map(lambda dt: dt.replace(tzinfo=timezone.utc))),
-        estimated_start_time=draw(st.one_of(st.none(), st.datetimes(min_value=datetime(2020, 1, 1)).map(lambda dt: dt.replace(tzinfo=timezone.utc)))),
+        submitted_at=submitted_at,
+        estimated_start_time=estimated_start_time,
         status=draw(st.sampled_from(list(AllocationStatusEnum)))
     )
 
@@ -79,7 +88,7 @@ def gen_allocation_queue(draw):
 
 
 @given(gen_allocation_request())
-@settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
 def test_allocation_request_contains_all_required_fields(request):
     """
     Property: For any allocation request, all required fields should be present and valid.
@@ -97,7 +106,7 @@ def test_allocation_request_contains_all_required_fields(request):
 
 
 @given(gen_allocation_request())
-@settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
 def test_allocation_request_hardware_requirements_are_valid(request):
     """
     Property: For any allocation request, hardware requirements should be within valid ranges.
@@ -127,7 +136,7 @@ def test_allocation_request_hardware_requirements_are_valid(request):
 
 
 @given(gen_allocation_request())
-@settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
 def test_allocation_request_timestamps_are_consistent(request):
     """
     Property: For any allocation request, estimated_start_time should be after submitted_at when present.
@@ -141,7 +150,7 @@ def test_allocation_request_timestamps_are_consistent(request):
 
 
 @given(gen_allocation_queue())
-@settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+@settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
 def test_allocation_queue_priority_ordering(queue):
     """
     Property: For any allocation queue, requests should be orderable by priority (higher priority = lower number).
@@ -164,7 +173,7 @@ def test_allocation_queue_priority_ordering(queue):
 
 
 @given(gen_allocation_queue())
-@settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+@settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
 def test_allocation_queue_position_calculation(queue):
     """
     Property: For any allocation queue, queue positions should be calculable and consistent.

@@ -11,6 +11,7 @@ import { useQuery } from 'react-query'
 import EnvironmentTable from './EnvironmentTable'
 import ResourceUtilizationCharts from './ResourceUtilizationCharts'
 import EnvironmentManagementControls, { EnvironmentCreationConfig } from './EnvironmentManagementControls'
+import AllocationQueueViewer from './AllocationQueueViewer'
 import ConnectionStatus from './ConnectionStatus'
 import apiService from '../services/api'
 import useRealTimeUpdates from '../hooks/useRealTimeUpdates'
@@ -188,6 +189,30 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
       throw error // Re-throw to let the management controls handle the error
     }
   }
+
+  // Handle allocation request priority change
+  const handleAllocationPriorityChange = useCallback(async (requestId: string, priority: number) => {
+    try {
+      await apiService.updateAllocationRequestPriority(requestId, priority)
+      // Refresh data after priority change
+      refetch()
+    } catch (error) {
+      console.error('Failed to update allocation request priority:', error)
+      throw error
+    }
+  }, [refetch])
+
+  // Handle bulk allocation request cancellation
+  const handleBulkAllocationCancel = useCallback(async (requestIds: string[]) => {
+    try {
+      await apiService.bulkCancelAllocationRequests(requestIds)
+      // Refresh data after cancellation
+      refetch()
+    } catch (error) {
+      console.error('Failed to cancel allocation requests:', error)
+      throw error
+    }
+  }, [refetch])
 
   // Toggle auto-refresh
   const toggleAutoRefresh = () => {
@@ -382,7 +407,20 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
             ]}
           />
         </Col>
-        {/* TODO: Add AllocationQueueViewer component */}
+
+        {/* Allocation Queue Viewer */}
+        <Col span={24}>
+          <AllocationQueueViewer
+            queue={state.allocationQueue}
+            estimatedWaitTimes={new Map(
+              state.allocationQueue.map(req => [
+                req.id, 
+                Math.floor(Math.random() * 300) + 60 // Mock estimated wait times (60-360 seconds)
+              ])
+            )}
+            onPriorityChange={handleAllocationPriorityChange}
+          />
+        </Col>
         {/* TODO: Add AllocationHistory component */}
       </Row>
 

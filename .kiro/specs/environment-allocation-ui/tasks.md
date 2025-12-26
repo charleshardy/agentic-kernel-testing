@@ -78,7 +78,7 @@ This implementation plan converts the Environment Allocation UI design into a se
   - Create visual indicators for queue status and progress
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 7.1 Write property test for queue management accuracy
+- [x] 7.1 Write property test for queue management accuracy
   - **Property 7: Allocation Queue Management Accuracy**
   - **Validates: Requirements 8.1, 8.2, 8.3, 8.4, 8.5**
 

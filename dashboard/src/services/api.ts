@@ -785,6 +785,24 @@ class APIService {
     }
   }
 
+  async bulkCancelAllocationRequests(requestIds: string[]): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.post('/environments/allocation/bulk-cancel', {
+        request_ids: requestIds
+      })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.post('/environments/allocation/bulk-cancel', {
+          request_ids: requestIds
+        })
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
   // Real-time allocation events (Server-Sent Events)
   createAllocationEventStream(): EventSource {
     const baseURL = this.client.defaults.baseURL
