@@ -82,14 +82,14 @@ This implementation plan converts the Environment Allocation UI design into a se
   - **Property 7: Allocation Queue Management Accuracy**
   - **Validates: Requirements 8.1, 8.2, 8.3, 8.4, 8.5**
 
-- [ ] 8. Implement environment preference and requirements system
+- [x] 8. Implement environment preference and requirements system
   - Create preference specification forms for test submissions
   - Add hardware requirements validation against available environments
   - Implement compatibility checking and allocation likelihood display
   - Create preference profile saving and reuse functionality
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 8.1 Write property test for preference management consistency
+- [x] 8.1 Write property test for preference management consistency
   - **Property 6: Environment Preference Management Consistency**
   - **Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5**
 
@@ -101,7 +101,7 @@ This implementation plan converts the Environment Allocation UI design into a se
   - Add data export functionality (CSV/JSON)
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 9.1 Write property test for history and logging accuracy
+- [x] 9.1 Write property test for history and logging accuracy
   - **Property 5: Allocation History and Logging Accuracy**
   - **Validates: Requirements 5.1, 5.2, 5.3, 5.4, 5.5**
 

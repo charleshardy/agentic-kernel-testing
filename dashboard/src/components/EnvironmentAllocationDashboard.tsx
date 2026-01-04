@@ -12,6 +12,8 @@ import EnvironmentTable from './EnvironmentTable'
 import ResourceUtilizationCharts from './ResourceUtilizationCharts'
 import EnvironmentManagementControls, { EnvironmentCreationConfig } from './EnvironmentManagementControls'
 import AllocationQueueViewer from './AllocationQueueViewer'
+import AllocationHistoryViewer from './AllocationHistoryViewer'
+import EnvironmentPreferenceModal from './EnvironmentPreferenceModal'
 import ConnectionStatus from './ConnectionStatus'
 import apiService from '../services/api'
 import useRealTimeUpdates from '../hooks/useRealTimeUpdates'
@@ -22,7 +24,9 @@ import {
   AllocationRequest,
   EnvironmentAction,
   EnvironmentFilter,
-  AllocationEvent
+  AllocationEvent,
+  HardwareRequirements,
+  AllocationPreferences
 } from '../types/environment'
 
 const { Title, Text } = Typography
@@ -48,6 +52,7 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
   const [environmentFilter, setEnvironmentFilter] = useState<EnvironmentFilter>({})
   const [lastStatusUpdate, setLastStatusUpdate] = useState<Date | null>(null)
   const [selectedEnvironments, setSelectedEnvironments] = useState<Environment[]>([])
+  const [preferenceModalVisible, setPreferenceModalVisible] = useState(false)
 
   // Real-time updates hook
   const realTimeUpdates = useRealTimeUpdates({
@@ -308,10 +313,10 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
           <Button
             icon={<SettingOutlined />}
             onClick={() => {
-              // TODO: Open environment settings/preferences modal
+              setPreferenceModalVisible(true)
             }}
           >
-            Settings
+            Environment Preferences
           </Button>
         </Space>
       </div>
@@ -421,7 +426,16 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
             onPriorityChange={handleAllocationPriorityChange}
           />
         </Col>
-        {/* TODO: Add AllocationHistory component */}
+      </Row>
+
+      {/* Allocation History */}
+      <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
+        <Col span={24}>
+          <AllocationHistoryViewer
+            autoRefresh={autoRefresh}
+            refreshInterval={refreshInterval}
+          />
+        </Col>
       </Row>
 
       {/* Selected Environment Details */}
@@ -444,6 +458,22 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
           </Text>
         </Card>
       )}
+
+      {/* Environment Preference Modal */}
+      <EnvironmentPreferenceModal
+        visible={preferenceModalVisible}
+        onClose={() => setPreferenceModalVisible(false)}
+        testId={planId}
+        availableEnvironments={state.environments}
+        onApplyPreferences={(requirements, preferences) => {
+          // Handle preference application
+          console.log('Applied preferences:', { requirements, preferences })
+          notification.success({
+            message: 'Preferences Applied',
+            description: 'Environment preferences have been saved and will be used for future allocations.'
+          })
+        }}
+      />
     </div>
   )
 }

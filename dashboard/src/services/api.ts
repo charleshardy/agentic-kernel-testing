@@ -630,8 +630,12 @@ class APIService {
   async getEnvironmentAllocationHistory(params?: {
     page?: number
     page_size?: number
-    start_date?: string
-    end_date?: string
+    event_type?: string
+    environment_id?: string
+    test_id?: string
+    start_time?: string
+    end_time?: string
+    sort_order?: string
   }): Promise<any> {
     try {
       const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/allocation/history', { params })
@@ -641,6 +645,65 @@ class APIService {
         await this.ensureDemoToken()
         const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/allocation/history', { params })
         return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async getAllocationStatistics(params?: {
+    start_time?: string
+    end_time?: string
+  }): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/allocation/statistics', { params })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/allocation/statistics', { params })
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async getAllocationCorrelations(environmentId: string, params?: {
+    start_time?: string
+    end_time?: string
+  }): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get(`/environments/allocation/correlations/${environmentId}`, { params })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get(`/environments/allocation/correlations/${environmentId}`, { params })
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async exportAllocationData(params?: {
+    format?: 'csv' | 'json'
+    start_time?: string
+    end_time?: string
+    event_type?: string
+  }): Promise<Blob> {
+    try {
+      const response: AxiosResponse<Blob> = await this.client.get('/environments/allocation/export', { 
+        params,
+        responseType: 'blob'
+      })
+      return response.data
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<Blob> = await this.client.get('/environments/allocation/export', { 
+          params,
+          responseType: 'blob'
+        })
+        return response.data
       }
       throw error
     }
@@ -817,6 +880,88 @@ class APIService {
     const token = localStorage.getItem('auth_token')
     const url = `${baseURL}/ws/environments/allocation${token ? `?token=${token}` : ''}`
     return new WebSocket(url)
+  }
+
+  // Environment Preference Management
+  async validateEnvironmentCompatibility(requirements: HardwareRequirements, preferences?: AllocationPreferences): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.post('/environments/validate-compatibility', {
+        requirements,
+        preferences
+      })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.post('/environments/validate-compatibility', {
+          requirements,
+          preferences
+        })
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async getEnvironmentCapabilities(): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/capabilities')
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/capabilities')
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async savePreferenceProfile(profile: {
+    name: string
+    description?: string
+    requirements: HardwareRequirements
+    preferences: AllocationPreferences
+  }): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.post('/environments/preference-profiles', profile)
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.post('/environments/preference-profiles', profile)
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async getPreferenceProfiles(): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/preference-profiles')
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/preference-profiles')
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async deletePreferenceProfile(profileId: string): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.delete(`/environments/preference-profiles/${profileId}`)
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.delete(`/environments/preference-profiles/${profileId}`)
+        return response.data.data!
+      }
+      throw error
+    }
   }
 
   // AI Test Generation
