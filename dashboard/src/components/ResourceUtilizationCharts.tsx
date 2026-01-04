@@ -874,6 +874,7 @@ const ResourceUtilizationCharts: React.FC<ResourceUtilizationChartsProps> = ({
           {renderEnvironmentCards()}
         </Card>
       </Card>
+    </div>
     </ErrorBoundary>
   )
 }
