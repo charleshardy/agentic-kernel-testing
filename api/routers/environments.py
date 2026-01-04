@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, Query, status, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
-import asyncio
 
 from ..models import (
     APIResponse, HardwareConfigRequest, PaginationParams,

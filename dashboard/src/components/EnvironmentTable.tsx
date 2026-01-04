@@ -1,249 +1,253 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { Table, Tag, Badge, Space, Progress, Tooltip, Button, Skeleton } from 'antd'
+import { FixedSizeList as List } from 'react-window'
 import { 
-  Table, 
-  Tag, 
-  Progress, 
-  Space, 
-  Button, 
-  Dropdown, 
-  Tooltip, 
-  Badge,
-  Typography,
-  Popover,
-  Descriptions,
-  MenuProps
-} from 'antd'
-import { 
-  MoreOutlined, 
-  PlayCircleOutlined, 
-  PauseCircleOutlined,
-  ToolOutlined,
-  StopOutlined,
-  InfoCircleOutlined,
-  CloudServerOutlined,
-  LoadingOutlined
+  EyeOutlined, 
+  SettingOutlined, 
+  ReloadOutlined,
+  ThunderboltOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons'
-import { ColumnsType } from 'antd/es/table'
+import { Environment, EnvironmentAction, EnvironmentFilter } from '../types/environment'
 import StatusChangeIndicator from './StatusChangeIndicator'
-import ProvisioningProgressIndicator from './ProvisioningProgressIndicator'
-import { 
-  Environment, 
-  EnvironmentTableProps, 
-  EnvironmentStatus, 
-  EnvironmentType, 
-  EnvironmentHealth,
-  EnvironmentAction,
-  ProvisioningStage
-} from '../types/environment'
 
-const { Text } = Typography
+interface EnvironmentTableProps {
+  environments: Environment[]
+  onEnvironmentSelect: (envId: string) => void
+  onEnvironmentAction: (envId: string, action: EnvironmentAction) => void
+  showResourceUsage: boolean
+  filterOptions: EnvironmentFilter
+  selectedEnvironments?: string[]
+  onSelectionChange?: (selectedIds: string[]) => void
+  realTimeUpdates?: boolean
+  lastUpdateTime?: Date
+  loading?: boolean
+  enableVirtualization?: boolean
+  virtualizationThreshold?: number
+}
 
-/**
- * Table component displaying real-time environment status with interactive controls
- * Shows environment information, resource usage, and provides management actions
- */
 const EnvironmentTable: React.FC<EnvironmentTableProps> = ({
   environments,
   onEnvironmentSelect,
   onEnvironmentAction,
   showResourceUsage,
-  filterOptions
+  filterOptions,
+  selectedEnvironments = [],
+  onSelectionChange,
+  realTimeUpdates = true,
+  lastUpdateTime,
+  loading = false,
+  enableVirtualization = true,
+  virtualizationThreshold = 50
 }) => {
-  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([])
-  const [previousStatuses, setPreviousStatuses] = useState<Record<string, EnvironmentStatus>>({})
+  const [previousEnvironments, setPreviousEnvironments] = useState<Environment[]>([])
+  const [updatingEnvironments, setUpdatingEnvironments] = useState<Set<string>>(new Set())
+  const [focusedRowIndex, setFocusedRowIndex] = useState<number>(-1)
+  const environmentsRef = useRef<Environment[]>([])
+  const tableRef = useRef<HTMLDivElement>(null)
 
-  // Track status changes for animations
+  // Memoize environments to prevent unnecessary re-renders
+  const memoizedEnvironments = useMemo(() => environments, [environments])
+
+  // Track environment changes for animations with debouncing
   useEffect(() => {
-    const newStatuses: Record<string, EnvironmentStatus> = {}
-    environments.forEach(env => {
-      newStatuses[env.id] = env.status
-    })
-    setPreviousStatuses(prev => ({ ...prev, ...newStatuses }))
-  }, [environments])
-
-  // Get status badge configuration
-  const getStatusBadge = (status: EnvironmentStatus) => {
-    switch (status) {
-      case EnvironmentStatus.READY:
-        return { status: 'success' as const, text: 'READY' }
-      case EnvironmentStatus.RUNNING:
-        return { status: 'processing' as const, text: 'RUNNING' }
-      case EnvironmentStatus.ALLOCATING:
-        return { status: 'warning' as const, text: 'ALLOCATING' }
-      case EnvironmentStatus.CLEANUP:
-        return { status: 'processing' as const, text: 'CLEANUP' }
-      case EnvironmentStatus.MAINTENANCE:
-        return { status: 'default' as const, text: 'MAINTENANCE' }
-      case EnvironmentStatus.ERROR:
-        return { status: 'error' as const, text: 'ERROR' }
-      case EnvironmentStatus.OFFLINE:
-        return { status: 'default' as const, text: 'OFFLINE' }
-      default:
-        return { status: 'default' as const, text: String(status).toUpperCase() }
-    }
-  }
-
-  // Get health indicator color
-  const getHealthColor = (health: EnvironmentHealth) => {
-    switch (health) {
-      case EnvironmentHealth.HEALTHY:
-        return 'green'
-      case EnvironmentHealth.DEGRADED:
-        return 'orange'
-      case EnvironmentHealth.UNHEALTHY:
-        return 'red'
-      case EnvironmentHealth.UNKNOWN:
-      default:
-        return 'default'
-    }
-  }
-
-  // Get environment type color
-  const getTypeColor = (type: EnvironmentType) => {
-    switch (type) {
-      case EnvironmentType.QEMU_X86:
-        return 'blue'
-      case EnvironmentType.QEMU_ARM:
-        return 'cyan'
-      case EnvironmentType.DOCKER:
-        return 'green'
-      case EnvironmentType.PHYSICAL:
-        return 'purple'
-      case EnvironmentType.CONTAINER:
-        return 'orange'
-      default:
-        return 'default'
-    }
-  }
-
-  // Create action menu for each environment
-  const getActionMenu = (environment: Environment): MenuProps => ({
-    items: [
-      {
-        key: 'reset',
-        label: 'Reset Environment',
-        icon: <PlayCircleOutlined />,
-        disabled: environment.status === EnvironmentStatus.RUNNING,
-        onClick: () => onEnvironmentAction(environment.id, { type: 'reset' })
-      },
-      {
-        key: 'maintenance',
-        label: 'Enter Maintenance',
-        icon: <ToolOutlined />,
-        disabled: environment.status === EnvironmentStatus.MAINTENANCE,
-        onClick: () => onEnvironmentAction(environment.id, { type: 'maintenance' })
-      },
-      {
-        key: 'offline',
-        label: 'Take Offline',
-        icon: <StopOutlined />,
-        disabled: environment.status === EnvironmentStatus.OFFLINE,
-        onClick: () => onEnvironmentAction(environment.id, { type: 'offline' })
-      },
-      {
-        key: 'cleanup',
-        label: 'Force Cleanup',
-        icon: <PauseCircleOutlined />,
-        disabled: environment.status === EnvironmentStatus.CLEANUP,
-        onClick: () => onEnvironmentAction(environment.id, { type: 'cleanup' })
+    const timeoutId = setTimeout(() => {
+      if (environmentsRef.current.length > 0) {
+        setPreviousEnvironments(environmentsRef.current)
       }
-    ]
-  })
+      environmentsRef.current = memoizedEnvironments
+    }, 100) // Debounce updates
 
-  // Environment details popover content
-  const getEnvironmentDetails = (environment: Environment) => (
-    <Descriptions size="small" column={1} style={{ width: 300 }}>
-      <Descriptions.Item label="Environment ID">
-        <Text code>{environment.id}</Text>
-      </Descriptions.Item>
-      <Descriptions.Item label="Architecture">
-        {environment.architecture}
-      </Descriptions.Item>
-      <Descriptions.Item label="Created">
-        {new Date(environment.createdAt).toLocaleString()}
-      </Descriptions.Item>
-      <Descriptions.Item label="Last Updated">
-        {new Date(environment.updatedAt).toLocaleString()}
-      </Descriptions.Item>
-      {environment.metadata.kernelVersion && (
-        <Descriptions.Item label="Kernel Version">
-          {environment.metadata.kernelVersion}
-        </Descriptions.Item>
-      )}
-      {environment.metadata.ipAddress && (
-        <Descriptions.Item label="IP Address">
-          <Text code>{environment.metadata.ipAddress}</Text>
-        </Descriptions.Item>
-      )}
-      {environment.metadata.lastHealthCheck && (
-        <Descriptions.Item label="Last Health Check">
-          {new Date(environment.metadata.lastHealthCheck).toLocaleString()}
-        </Descriptions.Item>
-      )}
-    </Descriptions>
-  )
+    return () => clearTimeout(timeoutId)
+  }, [memoizedEnvironments])
 
-  // Table columns configuration
-  const columns: ColumnsType<Environment> = [
-    {
-      title: 'Environment',
-      key: 'environment',
-      width: 200,
-      render: (_, environment) => (
-        <Space direction="vertical" size="small">
-          <Space>
-            <CloudServerOutlined />
-            <Text strong>{environment.id.slice(0, 12)}...</Text>
-            <Popover 
-              content={getEnvironmentDetails(environment)}
-              title="Environment Details"
-              trigger="hover"
-            >
-              <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'pointer' }} />
-            </Popover>
-          </Space>
-          <Tag color={getTypeColor(environment.type)}>
-            {environment.type}
+  // Handle environment status changes with visual feedback
+  const handleStatusChange = useCallback((envId: string, newStatus: any, previousStatus?: any) => {
+    console.log(`🎨 Environment ${envId} status changed: ${previousStatus} → ${newStatus}`)
+    
+    // Show updating state briefly
+    setUpdatingEnvironments(prev => new Set(prev).add(envId))
+    
+    setTimeout(() => {
+      setUpdatingEnvironments(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(envId)
+        return newSet
+      })
+    }, 1000)
+  }, [])
+
+  // Get previous status for an environment
+  const getPreviousStatus = useCallback((envId: string) => {
+    const prevEnv = previousEnvironments.find(env => env.id === envId)
+    return prevEnv?.status
+  }, [previousEnvironments])
+
+  // Enhanced resource usage display with real-time indicators
+  const renderResourceUsage = useCallback((env: Environment) => {
+    const isHighUsage = (value: number) => value > 80
+    const isMediumUsage = (value: number) => value > 60
+    
+    return (
+      <Space direction="vertical" size="small" style={{ width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: '11px', width: '30px' }} aria-label="CPU Usage">CPU:</span>
+          <Progress 
+            percent={env.resources.cpu} 
+            size="small" 
+            status={isHighUsage(env.resources.cpu) ? 'exception' : isMediumUsage(env.resources.cpu) ? 'active' : 'success'}
+            strokeColor={isHighUsage(env.resources.cpu) ? '#ff4d4f' : isMediumUsage(env.resources.cpu) ? '#faad14' : '#52c41a'}
+            showInfo={false}
+            aria-label={`CPU usage: ${env.resources.cpu.toFixed(1)}%`}
+          />
+          <span style={{ fontSize: '10px', color: '#666', minWidth: '35px' }}>
+            {env.resources.cpu.toFixed(1)}%
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: '11px', width: '30px' }} aria-label="Memory Usage">MEM:</span>
+          <Progress 
+            percent={env.resources.memory} 
+            size="small" 
+            status={isHighUsage(env.resources.memory) ? 'exception' : isMediumUsage(env.resources.memory) ? 'active' : 'success'}
+            strokeColor={isHighUsage(env.resources.memory) ? '#ff4d4f' : isMediumUsage(env.resources.memory) ? '#faad14' : '#52c41a'}
+            showInfo={false}
+            aria-label={`Memory usage: ${env.resources.memory.toFixed(1)}%`}
+          />
+          <span style={{ fontSize: '10px', color: '#666', minWidth: '35px' }}>
+            {env.resources.memory.toFixed(1)}%
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: '11px', width: '30px' }} aria-label="Disk Usage">DSK:</span>
+          <Progress 
+            percent={env.resources.disk} 
+            size="small" 
+            status={isHighUsage(env.resources.disk) ? 'exception' : isMediumUsage(env.resources.disk) ? 'active' : 'success'}
+            strokeColor={isHighUsage(env.resources.disk) ? '#ff4d4f' : isMediumUsage(env.resources.disk) ? '#faad14' : '#52c41a'}
+            showInfo={false}
+            aria-label={`Disk usage: ${env.resources.disk.toFixed(1)}%`}
+          />
+          <span style={{ fontSize: '10px', color: '#666', minWidth: '35px' }}>
+            {env.resources.disk.toFixed(1)}%
+          </span>
+        </div>
+      </Space>
+    )
+  }, [])
+
+  // Enhanced assigned tests display
+  const renderAssignedTests = useCallback((tests: string[]) => {
+    if (tests.length === 0) {
+      return <span style={{ color: '#999', fontSize: '12px' }} aria-label="No tests assigned">No tests</span>
+    }
+    
+    return (
+      <Space wrap size="small" role="list" aria-label={`${tests.length} assigned tests`}>
+        {tests.slice(0, 2).map(test => (
+          <Tag key={test} size="small" color="blue" role="listitem">
+            {test.slice(0, 8)}...
           </Tag>
-        </Space>
+        ))}
+        {tests.length > 2 && (
+          <Tooltip title={`${tests.length - 2} more tests: ${tests.slice(2).join(', ')}`}>
+            <Tag size="small" color="default" role="listitem">
+              +{tests.length - 2}
+            </Tag>
+          </Tooltip>
+        )}
+      </Space>
+    )
+  }, [])
+
+  // Enhanced environment type display
+  const renderEnvironmentType = useCallback((type: string) => {
+    const typeColors: Record<string, string> = {
+      'qemu-x86': 'blue',
+      'qemu-arm': 'cyan',
+      'docker': 'green',
+      'physical': 'orange',
+      'container': 'purple'
+    }
+    
+    return (
+      <Tag color={typeColors[type] || 'default'} aria-label={`Environment type: ${type}`}>
+        {type.toUpperCase()}
+      </Tag>
+    )
+  }, [])
+
+  // Keyboard navigation handler
+  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+    if (!memoizedEnvironments.length) return
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault()
+        setFocusedRowIndex(prev => Math.min(prev + 1, memoizedEnvironments.length - 1))
+        break
+      case 'ArrowUp':
+        event.preventDefault()
+        setFocusedRowIndex(prev => Math.max(prev - 1, 0))
+        break
+      case 'Enter':
+      case ' ':
+        event.preventDefault()
+        if (focusedRowIndex >= 0 && focusedRowIndex < memoizedEnvironments.length) {
+          onEnvironmentSelect(memoizedEnvironments[focusedRowIndex].id)
+        }
+        break
+      case 'Escape':
+        setFocusedRowIndex(-1)
+        break
+    }
+  }, [memoizedEnvironments, focusedRowIndex, onEnvironmentSelect])
+
+  const columns = [
+    {
+      title: 'Environment ID',
+      dataIndex: 'id',
+      key: 'id',
+      width: 200,
+      render: (id: string) => (
+        <Tooltip title={id}>
+          <span style={{ 
+            fontFamily: 'monospace', 
+            fontSize: '12px',
+            color: selectedEnvironments.includes(id) ? '#1890ff' : undefined,
+            fontWeight: selectedEnvironments.includes(id) ? 'bold' : 'normal'
+          }}>
+            {id.slice(0, 12)}...
+          </span>
+        </Tooltip>
       )
+    },
+    {
+      title: 'Type',
+      dataIndex: 'type',
+      key: 'type',
+      width: 120,
+      render: renderEnvironmentType
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 200,
-      render: (status: EnvironmentStatus, record: Environment) => (
-        <Space direction="vertical" size="small">
-          <StatusChangeIndicator
-            status={status}
-            previousStatus={previousStatuses[record.id]}
-            showAnimation={true}
-            size="default"
-            showText={true}
-            lastUpdated={new Date(record.updatedAt)}
-          />
-          {/* Show provisioning progress for allocating environments */}
-          {status === EnvironmentStatus.ALLOCATING && record.provisioningProgress && (
-            <ProvisioningProgressIndicator
-              progress={record.provisioningProgress}
-              environmentId={record.id}
-              showDetails={false}
-              size="small"
-            />
-          )}
-        </Space>
-      )
-    },
-    {
-      title: 'Health',
-      dataIndex: 'health',
-      key: 'health',
-      width: 100,
-      render: (health: EnvironmentHealth) => (
-        <Tag color={getHealthColor(health)}>
-          {health.toUpperCase()}
-        </Tag>
+      width: 140,
+      render: (status: any, env: Environment) => (
+        <StatusChangeIndicator
+          status={status}
+          previousStatus={getPreviousStatus(env.id)}
+          isUpdating={updatingEnvironments.has(env.id)}
+          showAnimation={realTimeUpdates}
+          size="default"
+          showText={true}
+          lastUpdated={env.lastUpdated || lastUpdateTime}
+          environmentId={env.id}
+          onStatusChange={(newStatus, prevStatus) => handleStatusChange(env.id, newStatus, prevStatus)}
+          enableNotifications={false} // Disable individual notifications to avoid spam
+          animationDuration={1500}
+        />
       )
     },
     {
@@ -251,104 +255,113 @@ const EnvironmentTable: React.FC<EnvironmentTableProps> = ({
       dataIndex: 'architecture',
       key: 'architecture',
       width: 100,
-      render: (arch: string) => <Tag>{arch}</Tag>
+      render: (arch: string) => (
+        <Tag color="geekblue" style={{ fontSize: '11px' }}>
+          {arch}
+        </Tag>
+      )
     },
     {
       title: 'Assigned Tests',
       dataIndex: 'assignedTests',
       key: 'assignedTests',
+      width: 180,
+      render: renderAssignedTests
+    },
+    ...(showResourceUsage ? [{
+      title: 'Resource Usage',
+      key: 'resources',
       width: 200,
-      render: (tests: string[]) => (
-        <Space wrap>
-          {tests.length === 0 ? (
-            <Text type="secondary">None</Text>
-          ) : (
-            tests.slice(0, 2).map(test => (
-              <Tag key={test}>
-                {test.slice(0, 8)}...
-              </Tag>
-            ))
-          )}
-          {tests.length > 2 && (
-            <Tag>+{tests.length - 2} more</Tag>
-          )}
+      render: (_: any, env: Environment) => renderResourceUsage(env)
+    }] : []),
+    {
+      title: 'Health',
+      dataIndex: 'health',
+      key: 'health',
+      width: 100,
+      render: (health: string) => {
+        const healthColors: Record<string, string> = {
+          'healthy': 'success',
+          'degraded': 'warning',
+          'unhealthy': 'error',
+          'unknown': 'default'
+        }
+        return (
+          <Badge 
+            status={healthColors[health] as any || 'default'} 
+            text={health.toUpperCase()} 
+          />
+        )
+      }
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 120,
+      render: (_: any, env: Environment) => (
+        <Space size="small">
+          <Tooltip title="View Details">
+            <Button 
+              size="small" 
+              icon={<EyeOutlined />} 
+              onClick={(e) => {
+                e.stopPropagation()
+                onEnvironmentSelect(env.id)
+              }}
+            />
+          </Tooltip>
+          <Tooltip title="Quick Actions">
+            <Button 
+              size="small" 
+              icon={<SettingOutlined />} 
+              onClick={(e) => {
+                e.stopPropagation()
+                // Show quick actions menu
+              }}
+            />
+          </Tooltip>
         </Space>
       )
     }
   ]
 
-  // Add resource usage columns if enabled
-  if (showResourceUsage) {
-    columns.push({
-      title: 'Resource Usage',
-      key: 'resources',
-      width: 200,
-      render: (_, environment) => (
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
-          <div>
-            <Text style={{ fontSize: '12px' }}>CPU:</Text>
-            <Progress 
-              percent={environment.resources.cpu} 
-              size="small" 
-              status={environment.resources.cpu > 80 ? 'exception' : 'normal'}
-              format={(percent) => `${percent}%`}
-            />
-          </div>
-          <div>
-            <Text style={{ fontSize: '12px' }}>Memory:</Text>
-            <Progress 
-              percent={environment.resources.memory} 
-              size="small"
-              status={environment.resources.memory > 80 ? 'exception' : 'normal'}
-              format={(percent) => `${percent}%`}
-            />
-          </div>
-          <div>
-            <Text style={{ fontSize: '12px' }}>Disk:</Text>
-            <Progress 
-              percent={environment.resources.disk} 
-              size="small"
-              status={environment.resources.disk > 80 ? 'exception' : 'normal'}
-              format={(percent) => `${percent}%`}
-            />
-          </div>
-        </Space>
-      )
-    })
-  }
-
-  // Actions column
-  columns.push({
-    title: 'Actions',
-    key: 'actions',
-    width: 80,
-    render: (_, environment) => (
-      <Dropdown menu={getActionMenu(environment)} trigger={['click']}>
-        <Button 
-          type="text" 
-          icon={<MoreOutlined />} 
-          size="small"
-        />
-      </Dropdown>
-    )
-  })
-
   // Row selection configuration
-  const rowSelection = {
-    selectedRowKeys,
-    onChange: (newSelectedRowKeys: React.Key[]) => {
-      setSelectedRowKeys(newSelectedRowKeys as string[])
+  const rowSelection = onSelectionChange ? {
+    selectedRowKeys: selectedEnvironments,
+    onChange: (selectedRowKeys: React.Key[]) => {
+      onSelectionChange(selectedRowKeys as string[])
     },
-    onSelect: (record: Environment, selected: boolean) => {
-      if (selected) {
-        onEnvironmentSelect(record.id)
-      }
-    }
-  }
+    getCheckboxProps: (record: Environment) => ({
+      disabled: record.status === 'error' || record.status === 'offline'
+    })
+  } : undefined
 
   return (
     <div>
-      <Table<Environment>
+      {/* Real-time update indicator */}
+      {realTimeUpdates && lastUpdateTime && (
+        <div style={{ 
+          marginBottom: 12, 
+          padding: '4px 8px', 
+          backgroundColor: '#f6ffed', 
+          border: '1px solid #b7eb8f',
+          borderRadius: '4px',
+          fontSize: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8
+        }}>
+          <ThunderboltOutlined style={{ color: '#52c41a' }} />
+          <span>Live updates enabled</span>
+          <span style={{ color: '#666' }}>•</span>
+          <ClockCircleOutlined style={{ color: '#666' }} />
+          <span style={{ color: '#666' }}>
+            Last update: {lastUpdateTime.toLocaleTimeString()}
+          </span>
+        </div>
+      )}
+      
+      <Table
         columns={columns}
         dataSource={environments}
         rowKey="id"
@@ -363,33 +376,28 @@ const EnvironmentTable: React.FC<EnvironmentTableProps> = ({
         rowSelection={rowSelection}
         onRow={(record) => ({
           onClick: () => onEnvironmentSelect(record.id),
-          style: { cursor: 'pointer' }
+          style: { 
+            cursor: 'pointer',
+            backgroundColor: selectedEnvironments.includes(record.id) ? '#e6f7ff' : undefined
+          },
+          className: updatingEnvironments.has(record.id) ? 'environment-updating' : undefined
         })}
-        scroll={{ x: 800 }}
-        loading={environments.length === 0}
+        scroll={{ x: 1200 }}
       />
       
-      {selectedRowKeys.length > 0 && (
-        <div style={{ 
-          marginTop: 16, 
-          padding: 12, 
-          background: '#f0f2f5', 
-          borderRadius: 6 
-        }}>
-          <Space>
-            <Text strong>{selectedRowKeys.length} environment(s) selected</Text>
-            <Button size="small" type="primary">
-              Bulk Actions
-            </Button>
-            <Button 
-              size="small" 
-              onClick={() => setSelectedRowKeys([])}
-            >
-              Clear Selection
-            </Button>
-          </Space>
-        </div>
-      )}
+      {/* Inject CSS for updating animation */}
+      <style>{`
+        .environment-updating {
+          background-color: #f0f9ff !important;
+          animation: environmentUpdate 2s ease-in-out;
+        }
+        
+        @keyframes environmentUpdate {
+          0% { background-color: #e6f7ff; }
+          50% { background-color: #bae7ff; }
+          100% { background-color: #f0f9ff; }
+        }
+      `}</style>
     </div>
   )
 }

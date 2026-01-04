@@ -773,6 +773,86 @@ class APIService {
     }
   }
 
+  async getAllocationHistory(params?: {
+    planId?: string
+    environmentId?: string
+    testId?: string
+    eventTypes?: string[]
+    environmentIds?: string[]
+    testIds?: string[]
+    startDate?: string
+    endDate?: string
+    search?: string
+    limit?: number
+  }): Promise<{ events: AllocationEvent[] }> {
+    try {
+      // Convert the params to match the backend API format
+      const queryParams: Record<string, any> = {}
+      
+      if (params?.planId) queryParams.plan_id = params.planId
+      if (params?.environmentId) queryParams.environment_id = params.environmentId
+      if (params?.testId) queryParams.test_id = params.testId
+      if (params?.eventTypes?.length) queryParams.event_types = params.eventTypes.join(',')
+      if (params?.environmentIds?.length) queryParams.environment_ids = params.environmentIds.join(',')
+      if (params?.testIds?.length) queryParams.test_ids = params.testIds.join(',')
+      if (params?.startDate) queryParams.start_time = params.startDate
+      if (params?.endDate) queryParams.end_time = params.endDate
+      if (params?.search) queryParams.search = params.search
+      if (params?.limit) queryParams.limit = params.limit
+
+      const response: AxiosResponse<APIResponse<{ events: AllocationEvent[] }>> = 
+        await this.client.get('/environments/allocation/history', { params: queryParams })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<{ events: AllocationEvent[] }>> = 
+          await this.client.get('/environments/allocation/history', { params: queryParams })
+        return response.data.data!
+      }
+      
+      // Return mock data for development
+      console.log('🔧 Returning mock allocation history data')
+      return this.generateMockAllocationHistory(params)
+    }
+  }
+
+  private generateMockAllocationHistory(params?: any): { events: AllocationEvent[] } {
+    const events: AllocationEvent[] = []
+    const eventTypes = ['allocated', 'deallocated', 'failed', 'queued']
+    const environments = ['env-001-qemu-x86', 'env-002-qemu-arm', 'env-003-docker', 'env-004-physical']
+    const tests = ['test-kernel-boot', 'test-network-stack', 'test-filesystem', 'test-memory-mgmt']
+    
+    for (let i = 0; i < 50; i++) {
+      const timestamp = new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000) // Last 7 days
+      const eventType = eventTypes[Math.floor(Math.random() * eventTypes.length)]
+      const envId = environments[Math.floor(Math.random() * environments.length)]
+      const testIdValue = tests[Math.floor(Math.random() * tests.length)]
+      
+      events.push({
+        id: `event-${i}`,
+        type: eventType,
+        environment_id: eventType === 'queued' ? '' : envId,
+        test_id: testIdValue,
+        timestamp: timestamp.toISOString(),
+        metadata: {
+          duration: eventType === 'allocated' ? Math.floor(Math.random() * 300) + 30 : undefined,
+          priority: eventType === 'queued' ? Math.floor(Math.random() * 10) + 1 : undefined,
+          reason: eventType === 'deallocated' ? ['completed', 'timeout', 'cancelled'][Math.floor(Math.random() * 3)] : undefined,
+          error: eventType === 'failed' ? ['timeout', 'resource_exhausted', 'configuration_error'][Math.floor(Math.random() * 3)] : undefined,
+          queuePosition: eventType === 'queued' ? Math.floor(Math.random() * 20) + 1 : undefined,
+          resourceUsage: eventType === 'allocated' ? {
+            cpu: Math.floor(Math.random() * 100),
+            memory: Math.floor(Math.random() * 100),
+            disk: Math.floor(Math.random() * 100)
+          } : undefined
+        }
+      })
+    }
+    
+    return { events: events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) }
+  }
+
   async getEnvironmentAllocationHistory(params?: {
     page?: number
     page_size?: number

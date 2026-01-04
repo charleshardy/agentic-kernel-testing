@@ -1,21 +1,20 @@
-/**
- * Connection Status Component
- * Displays real-time connection health and provides manual reconnection controls
- */
-
-import React from 'react'
-import { Badge, Button, Tooltip, Space, Typography, Popover, Descriptions } from 'antd'
+import React, { useState, useEffect } from 'react'
+import { Badge, Tooltip, Space, Button, Progress, Popover, Typography } from 'antd'
 import { 
   WifiOutlined, 
   DisconnectOutlined, 
+  ReloadOutlined, 
+  CheckCircleOutlined,
   ExclamationCircleOutlined,
-  ReloadOutlined,
-  InfoCircleOutlined
+  CloseCircleOutlined,
+  ThunderboltOutlined,
+  ClockCircleOutlined,
+  ApiOutlined
 } from '@ant-design/icons'
 
 const { Text } = Typography
 
-export interface ConnectionStatusProps {
+interface ConnectionStatusProps {
   isConnected: boolean
   connectionHealth: 'healthy' | 'degraded' | 'disconnected'
   lastUpdate: Date | null
@@ -34,7 +33,9 @@ export interface ConnectionStatusProps {
     lastError: string | null
   } | null
   onReconnect: () => void
-  showDetails?: boolean
+  showDetails: boolean
+  enableHealthMonitoring?: boolean
+  connectionQuality?: number // 0-100 representing connection quality
 }
 
 const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
@@ -46,106 +47,197 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   webSocketStatus,
   sseStatus,
   onReconnect,
-  showDetails = true
+  showDetails,
+  enableHealthMonitoring = true,
+  connectionQuality = 100
 }) => {
-  // Get status badge configuration
-  const getStatusBadge = () => {
+  const [isBlinking, setIsBlinking] = useState(false)
+  const [healthHistory, setHealthHistory] = useState<Array<{ time: Date, health: string }>>([])
+
+  // Track connection health changes for blinking animation
+  useEffect(() => {
+    if (connectionHealth === 'degraded' || connectionHealth === 'disconnected') {
+      setIsBlinking(true)
+      const timer = setTimeout(() => setIsBlinking(false), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [connectionHealth])
+
+  // Track health history for monitoring
+  useEffect(() => {
+    if (enableHealthMonitoring) {
+      setHealthHistory(prev => [
+        { time: new Date(), health: connectionHealth },
+        ...prev.slice(0, 9) // Keep last 10 entries
+      ])
+    }
+  }, [connectionHealth, enableHealthMonitoring])
+
+  const getStatusColor = () => {
     switch (connectionHealth) {
-      case 'healthy':
-        return {
-          status: 'success' as const,
-          text: 'Connected',
-          icon: <WifiOutlined />,
-          color: '#52c41a'
-        }
-      case 'degraded':
-        return {
-          status: 'warning' as const,
-          text: 'Degraded',
-          icon: <ExclamationCircleOutlined />,
-          color: '#faad14'
-        }
-      case 'disconnected':
-      default:
-        return {
-          status: 'error' as const,
-          text: 'Disconnected',
-          icon: <DisconnectOutlined />,
-          color: '#ff4d4f'
-        }
+      case 'healthy': return 'success'
+      case 'degraded': return 'warning'
+      case 'disconnected': return 'error'
+      default: return 'default'
     }
   }
 
-  const statusBadge = getStatusBadge()
+  const getStatusText = () => {
+    switch (connectionHealth) {
+      case 'healthy': return 'Connected'
+      case 'degraded': return 'Degraded'
+      case 'disconnected': return 'Disconnected'
+      default: return 'Unknown'
+    }
+  }
 
-  // Connection details for popover
+  const getStatusIcon = () => {
+    switch (connectionHealth) {
+      case 'healthy': return <CheckCircleOutlined style={{ color: '#52c41a' }} />
+      case 'degraded': return <ExclamationCircleOutlined style={{ color: '#faad14' }} />
+      case 'disconnected': return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+      default: return <WifiOutlined />
+    }
+  }
+
+  const formatLastUpdate = () => {
+    if (!lastUpdate) return 'Never'
+    const now = new Date()
+    const diff = now.getTime() - lastUpdate.getTime()
+    if (diff < 60000) return `${Math.floor(diff / 1000)}s ago`
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
+    return lastUpdate.toLocaleTimeString()
+  }
+
+  const getConnectionQualityColor = () => {
+    if (connectionQuality >= 80) return '#52c41a'
+    if (connectionQuality >= 60) return '#faad14'
+    return '#ff4d4f'
+  }
+
+  // Detailed connection information for popover
   const connectionDetails = (
-    <div style={{ width: 300 }}>
-      <Descriptions size="small" column={1}>
-        <Descriptions.Item label="Overall Status">
-          <Badge status={statusBadge.status} text={statusBadge.text} />
-        </Descriptions.Item>
-        
-        <Descriptions.Item label="Last Update">
-          {lastUpdate ? (
-            <Text>{lastUpdate.toLocaleTimeString()}</Text>
-          ) : (
-            <Text type="secondary">Never</Text>
-          )}
-        </Descriptions.Item>
-        
-        <Descriptions.Item label="Updates Received">
-          <Text>{updateCount}</Text>
-        </Descriptions.Item>
-
-        {webSocketStatus && (
-          <Descriptions.Item label="WebSocket">
-            <Space>
-              <Badge 
-                status={webSocketStatus.isConnected ? 'success' : webSocketStatus.isConnecting ? 'processing' : 'error'} 
-                text={webSocketStatus.isConnected ? 'Connected' : webSocketStatus.isConnecting ? 'Connecting...' : 'Disconnected'} 
+    <div style={{ minWidth: 300 }}>
+      <div style={{ marginBottom: 16 }}>
+        <Text strong>Connection Status</Text>
+        <div style={{ marginTop: 8 }}>
+          <Space>
+            {getStatusIcon()}
+            <Text>{getStatusText()}</Text>
+            {connectionQuality < 100 && (
+              <Progress 
+                percent={connectionQuality} 
+                size="small" 
+                strokeColor={getConnectionQualityColor()}
+                format={() => `${connectionQuality}%`}
               />
-              {webSocketStatus.connectionAttempts > 0 && (
-                <Text type="secondary">({webSocketStatus.connectionAttempts} attempts)</Text>
-              )}
-            </Space>
-          </Descriptions.Item>
-        )}
+            )}
+          </Space>
+        </div>
+      </div>
 
-        {sseStatus && (
-          <Descriptions.Item label="Server-Sent Events">
-            <Space>
-              <Badge 
-                status={sseStatus.isConnected ? 'success' : sseStatus.isConnecting ? 'processing' : 'error'} 
-                text={sseStatus.isConnected ? 'Connected' : sseStatus.isConnecting ? 'Connecting...' : 'Disconnected'} 
-              />
-              {sseStatus.connectionAttempts > 0 && (
-                <Text type="secondary">({sseStatus.connectionAttempts} attempts)</Text>
-              )}
-            </Space>
-          </Descriptions.Item>
-        )}
-
-        {errors.length > 0 && (
-          <Descriptions.Item label="Recent Errors">
-            <div style={{ maxHeight: 100, overflowY: 'auto' }}>
-              {errors.slice(-3).map((error, index) => (
-                <div key={index}>
-                  <Text type="danger" style={{ fontSize: '12px' }}>
-                    {error}
-                  </Text>
-                </div>
-              ))}
+      {/* WebSocket Status */}
+      {webSocketStatus && (
+        <div style={{ marginBottom: 12 }}>
+          <Text strong>WebSocket</Text>
+          <div style={{ marginTop: 4, fontSize: '12px' }}>
+            <div>
+              Status: {webSocketStatus.isConnected ? 
+                <Text type="success">Connected</Text> : 
+                webSocketStatus.isConnecting ? 
+                <Text type="warning">Connecting...</Text> : 
+                <Text type="danger">Disconnected</Text>
+              }
             </div>
-          </Descriptions.Item>
-        )}
-      </Descriptions>
+            {webSocketStatus.connectionAttempts > 0 && (
+              <div>Attempts: {webSocketStatus.connectionAttempts}</div>
+            )}
+            {webSocketStatus.lastError && (
+              <div style={{ color: '#ff4d4f' }}>
+                Error: {webSocketStatus.lastError}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
-      <div style={{ marginTop: 12, textAlign: 'center' }}>
-        <Button 
-          size="small" 
-          icon={<ReloadOutlined />} 
+      {/* SSE Status */}
+      {sseStatus && (
+        <div style={{ marginBottom: 12 }}>
+          <Text strong>Server-Sent Events</Text>
+          <div style={{ marginTop: 4, fontSize: '12px' }}>
+            <div>
+              Status: {sseStatus.isConnected ? 
+                <Text type="success">Connected</Text> : 
+                sseStatus.isConnecting ? 
+                <Text type="warning">Connecting...</Text> : 
+                <Text type="danger">Disconnected</Text>
+              }
+            </div>
+            {sseStatus.connectionAttempts > 0 && (
+              <div>Attempts: {sseStatus.connectionAttempts}</div>
+            )}
+            {sseStatus.lastError && (
+              <div style={{ color: '#ff4d4f' }}>
+                Error: {sseStatus.lastError}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Update Statistics */}
+      <div style={{ marginBottom: 12 }}>
+        <Text strong>Update Statistics</Text>
+        <div style={{ marginTop: 4, fontSize: '12px' }}>
+          <div>Total Updates: {updateCount}</div>
+          <div>Last Update: {formatLastUpdate()}</div>
+          {lastUpdate && (
+            <div>
+              Update Rate: {updateCount > 0 ? 
+                `${(updateCount / ((Date.now() - lastUpdate.getTime()) / 60000)).toFixed(1)} per min` : 
+                'N/A'
+              }
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Recent Errors */}
+      {errors.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <Text strong>Recent Errors</Text>
+          <div style={{ marginTop: 4, fontSize: '11px', maxHeight: 100, overflow: 'auto' }}>
+            {errors.slice(-3).map((error, index) => (
+              <div key={index} style={{ color: '#ff4d4f', marginBottom: 2 }}>
+                • {error}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Health History */}
+      {enableHealthMonitoring && healthHistory.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <Text strong>Health History</Text>
+          <div style={{ marginTop: 4, fontSize: '11px' }}>
+            {healthHistory.slice(0, 5).map((entry, index) => (
+              <div key={index} style={{ marginBottom: 2 }}>
+                {entry.time.toLocaleTimeString()}: {entry.health}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div style={{ textAlign: 'center', marginTop: 16 }}>
+        <Button
+          size="small"
+          icon={<ReloadOutlined />}
           onClick={onReconnect}
+          type="primary"
           disabled={connectionHealth === 'healthy'}
         >
           Reconnect
@@ -155,50 +247,72 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   )
 
   if (!showDetails) {
-    // Simple badge version
     return (
-      <Tooltip title={`Connection: ${statusBadge.text}`}>
-        <Badge status={statusBadge.status} />
-      </Tooltip>
+      <Popover content={connectionDetails} title="Connection Details" trigger="hover">
+        <div style={{ 
+          display: 'inline-flex', 
+          alignItems: 'center', 
+          gap: 4,
+          animation: isBlinking ? 'connectionBlink 1s infinite' : undefined
+        }}>
+          <Badge status={getStatusColor()} />
+          <Text style={{ fontSize: '12px' }}>{getStatusText()}</Text>
+          {connectionHealth === 'healthy' && (
+            <ThunderboltOutlined style={{ color: '#52c41a', fontSize: '12px' }} />
+          )}
+        </div>
+      </Popover>
     )
   }
 
-  // Full status display
   return (
-    <Space size="small">
-      <Popover 
-        content={connectionDetails} 
-        title="Connection Status" 
-        trigger="hover"
-        placement="bottomRight"
-      >
-        <Space size="small" style={{ cursor: 'pointer' }}>
-          <span style={{ color: statusBadge.color }}>
-            {statusBadge.icon}
-          </span>
-          <Text style={{ color: statusBadge.color, fontSize: '12px' }}>
-            {statusBadge.text}
-          </Text>
-          <InfoCircleOutlined style={{ color: '#1890ff', fontSize: '12px' }} />
-        </Space>
-      </Popover>
-
-      {connectionHealth !== 'healthy' && (
-        <Button 
-          size="small" 
-          type="text" 
-          icon={<ReloadOutlined />} 
-          onClick={onReconnect}
-          style={{ padding: '0 4px' }}
-        />
-      )}
-
-      {lastUpdate && (
-        <Text type="secondary" style={{ fontSize: '11px' }}>
-          {updateCount > 0 && `${updateCount} updates`}
-        </Text>
-      )}
-    </Space>
+    <Popover content={connectionDetails} title="Connection Details" trigger="click">
+      <Space style={{ 
+        cursor: 'pointer',
+        animation: isBlinking ? 'connectionBlink 1s infinite' : undefined
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {getStatusIcon()}
+          <div style={{ fontSize: '12px' }}>
+            <div style={{ fontWeight: 'bold' }}>{getStatusText()}</div>
+            <div style={{ color: '#666' }}>
+              <ClockCircleOutlined style={{ marginRight: 4 }} />
+              Updates: {updateCount}
+            </div>
+            <div style={{ color: '#666' }}>
+              Last: {formatLastUpdate()}
+            </div>
+            {connectionQuality < 100 && (
+              <div style={{ color: getConnectionQualityColor() }}>
+                Quality: {connectionQuality}%
+              </div>
+            )}
+          </div>
+        </div>
+        {connectionHealth !== 'healthy' && (
+          <Button
+            size="small"
+            icon={<ReloadOutlined />}
+            onClick={(e) => {
+              e.stopPropagation()
+              onReconnect()
+            }}
+            type="link"
+            style={{ padding: 0 }}
+          >
+            Reconnect
+          </Button>
+        )}
+      </Space>
+      
+      {/* Inject CSS for blinking animation */}
+      <style>{`
+        @keyframes connectionBlink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+      `}</style>
+    </Popover>
   )
 }
 

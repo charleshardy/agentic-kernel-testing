@@ -1,575 +1,740 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { 
   Card, 
-  Table, 
+  Timeline, 
+  Tag, 
+  Space, 
+  Empty, 
   Button, 
-  Input, 
   Select, 
   DatePicker, 
-  Space, 
-  Tag, 
+  Input, 
+  Table, 
   Tooltip, 
-  Modal,
-  Timeline,
-  Statistic,
-  Row,
+  Badge, 
+  Statistic, 
+  Row, 
   Col,
-  Spin,
+  Drawer,
+  Descriptions,
   Alert,
+  Switch,
   Dropdown,
   Menu,
-  message
-} from 'antd';
+  Typography,
+  Divider,
+  Progress
+} from 'antd'
 import { 
-  HistoryOutlined, 
-  FilterOutlined, 
-  ExportOutlined, 
-  ReloadOutlined,
+  ClockCircleOutlined, 
+  CheckCircleOutlined, 
+  ExclamationCircleOutlined, 
+  StopOutlined,
+  FilterOutlined,
+  ExportOutlined,
   SearchOutlined,
-  DownloadOutlined,
+  ReloadOutlined,
+  BarChartOutlined,
   EyeOutlined,
-  BarChartOutlined
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
-import dayjs from 'dayjs';
-import { apiService } from '../services/api';
-import type { AllocationEvent, AllocationHistoryResponse } from '../types/environment';
+  DownloadOutlined,
+  CalendarOutlined,
+  BugOutlined,
+  LinkOutlined
+} from '@ant-design/icons'
+import { useQuery } from 'react-query'
+import dayjs, { Dayjs } from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import { AllocationEvent, Environment, AllocationRequest } from '../types/environment'
+import apiService from '../services/api'
+import useRealTimeUpdates from '../hooks/useRealTimeUpdates'
 
-const { RangePicker } = DatePicker;
-const { Option } = Select;
+dayjs.extend(relativeTime)
+
+const { RangePicker } = DatePicker
+const { Search } = Input
+const { Text, Title } = Typography
 
 interface AllocationHistoryViewerProps {
-  environmentId?: string;
-  testId?: string;
-  autoRefresh?: boolean;
-  refreshInterval?: number;
+  autoRefresh?: boolean
+  refreshInterval?: number
+  planId?: string
+  environmentId?: string
+  testId?: string
+  showAnalytics?: boolean
+  enableExport?: boolean
+  enableFiltering?: boolean
+  maxEvents?: number
 }
 
-interface FilterState {
-  eventType?: string;
-  environmentId?: string;
-  testId?: string;
-  timeRange?: [dayjs.Dayjs, dayjs.Dayjs];
-  searchText?: string;
+interface HistoryFilter {
+  eventTypes: string[]
+  environmentIds: string[]
+  testIds: string[]
+  dateRange: [Dayjs, Dayjs] | null
+  searchQuery: string
+  severity: string[]
 }
 
-interface StatisticsData {
-  total_events: number;
-  event_type_counts: Record<string, number>;
-  environment_usage: Record<string, number>;
-  hourly_distribution: Record<string, number>;
+interface AllocationAnalytics {
+  totalEvents: number
+  successfulAllocations: number
+  failedAllocations: number
+  averageAllocationTime: number
+  mostActiveEnvironment: string
+  peakUsageTime: string
+  failureRate: number
+  queueWaitTimes: number[]
 }
 
 const AllocationHistoryViewer: React.FC<AllocationHistoryViewerProps> = ({
+  autoRefresh = true,
+  refreshInterval = 5000,
+  planId,
   environmentId,
   testId,
-  autoRefresh = false,
-  refreshInterval = 30000
+  showAnalytics = true,
+  enableExport = true,
+  enableFiltering = true,
+  maxEvents = 1000
 }) => {
-  const [events, setEvents] = useState<AllocationEvent[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [pagination, setPagination] = useState({
-    current: 1,
-    pageSize: 20,
-    total: 0
-  });
-  const [filters, setFilters] = useState<FilterState>({
-    environmentId,
-    testId
-  });
-  const [statistics, setStatistics] = useState<StatisticsData | null>(null);
-  const [showStatistics, setShowStatistics] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<AllocationEvent | null>(null);
-  const [correlations, setCorrelations] = useState<any[]>([]);
-  const [showCorrelations, setShowCorrelations] = useState(false);
+  const [viewMode, setViewMode] = useState<'timeline' | 'table'>('timeline')
+  const [filter, setFilter] = useState<HistoryFilter>({
+    eventTypes: [],
+    environmentIds: [],
+    testIds: [],
+    dateRange: null,
+    searchQuery: '',
+    severity: []
+  })
+  const [selectedEvent, setSelectedEvent] = useState<AllocationEvent | null>(null)
+  const [drawerVisible, setDrawerVisible] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
-  // Event type color mapping
-  const eventTypeColors: Record<string, string> = {
-    allocated: 'green',
-    deallocated: 'blue',
-    failed: 'red',
-    queued: 'orange',
-    cancelled: 'gray',
-    action_performed: 'purple',
-    bulk_action_performed: 'cyan'
-  };
+  // Real-time updates for allocation events
+  const realTimeUpdates = useRealTimeUpdates({
+    enableWebSocket: true,
+    enableSSE: true,
+    onAllocationEvent: useCallback((event: AllocationEvent) => {
+      console.log('📊 New allocation event received:', event)
+      // The query will automatically refetch due to real-time updates
+    }, [])
+  })
 
-  // Load allocation history
-  const loadHistory = async (page = 1, pageSize = 20) => {
-    setLoading(true);
-    try {
-      const params: any = {
-        page,
-        page_size: pageSize
-      };
-
-      if (filters.eventType) params.event_type = filters.eventType;
-      if (filters.environmentId) params.environment_id = filters.environmentId;
-      if (filters.testId) params.test_id = filters.testId;
-      if (filters.timeRange) {
-        params.start_time = filters.timeRange[0].toISOString();
-        params.end_time = filters.timeRange[1].toISOString();
-      }
-
-      const response = await apiService.getEnvironmentAllocationHistory(params);
-      const historyData = response as AllocationHistoryResponse;
+  // Generate mock data for demonstration
+  const mockHistoryData = useMemo(() => {
+    const events: AllocationEvent[] = []
+    const eventTypes = ['allocated', 'deallocated', 'failed', 'queued']
+    const environments = ['env-001-qemu-x86', 'env-002-qemu-arm', 'env-003-docker', 'env-004-physical']
+    const tests = ['test-kernel-boot', 'test-network-stack', 'test-filesystem', 'test-memory-mgmt']
+    
+    for (let i = 0; i < 50; i++) {
+      const timestamp = new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000) // Last 7 days
+      const eventType = eventTypes[Math.floor(Math.random() * eventTypes.length)]
+      const envId = environments[Math.floor(Math.random() * environments.length)]
+      const testIdValue = tests[Math.floor(Math.random() * tests.length)]
       
-      setEvents(historyData.events);
-      setPagination({
-        current: historyData.pagination.page,
-        pageSize: historyData.pagination.page_size,
-        total: historyData.pagination.total_count
-      });
+      events.push({
+        id: `event-${i}`,
+        type: eventType as any,
+        environmentId: eventType === 'queued' ? '' : envId,
+        testId: testIdValue,
+        timestamp,
+        metadata: {
+          duration: eventType === 'allocated' ? Math.floor(Math.random() * 300) + 30 : undefined,
+          priority: eventType === 'queued' ? Math.floor(Math.random() * 10) + 1 : undefined,
+          reason: eventType === 'deallocated' ? ['completed', 'timeout', 'cancelled'][Math.floor(Math.random() * 3)] : undefined,
+          error: eventType === 'failed' ? ['timeout', 'resource_exhausted', 'configuration_error'][Math.floor(Math.random() * 3)] : undefined,
+          queuePosition: eventType === 'queued' ? Math.floor(Math.random() * 20) + 1 : undefined,
+          resourceUsage: eventType === 'allocated' ? {
+            cpu: Math.floor(Math.random() * 100),
+            memory: Math.floor(Math.random() * 100),
+            disk: Math.floor(Math.random() * 100)
+          } : undefined
+        }
+      })
+    }
+    
+    return events.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+  }, [])
+
+  const allocationHistory = mockHistoryData
+
+  // Calculate analytics
+  const analytics = useMemo((): AllocationAnalytics => {
+    const events = allocationHistory
+    const allocatedEvents = events.filter((e: AllocationEvent) => e.type === 'allocated')
+    const failedEvents = events.filter((e: AllocationEvent) => e.type === 'failed')
+    const queuedEvents = events.filter((e: AllocationEvent) => e.type === 'queued')
+    
+    const environmentCounts = events.reduce((acc: Record<string, number>, event: AllocationEvent) => {
+      if (event.environmentId) {
+        acc[event.environmentId] = (acc[event.environmentId] || 0) + 1
+      }
+      return acc
+    }, {})
+    
+    const mostActiveEnvironment = Object.entries(environmentCounts)
+      .sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'N/A'
+    
+    const avgAllocationTime = allocatedEvents.length > 0 
+      ? allocatedEvents.reduce((sum: number, event: AllocationEvent) => sum + (event.metadata?.duration || 0), 0) / allocatedEvents.length
+      : 0
+    
+    const queueWaitTimes = queuedEvents
+      .map((event: AllocationEvent) => event.metadata?.duration || 0)
+      .filter((time: number) => time > 0)
+    
+    return {
+      totalEvents: events.length,
+      successfulAllocations: allocatedEvents.length,
+      failedAllocations: failedEvents.length,
+      averageAllocationTime: avgAllocationTime,
+      mostActiveEnvironment,
+      peakUsageTime: 'N/A', // Would be calculated from real data
+      failureRate: events.length > 0 ? (failedEvents.length / events.length) * 100 : 0,
+      queueWaitTimes
+    }
+  }, [allocationHistory])
+
+  // Apply filters to history data
+  const filteredHistory = useMemo(() => {
+    let filtered = allocationHistory
+
+    if (filter.eventTypes.length > 0) {
+      filtered = filtered.filter((event: AllocationEvent) => filter.eventTypes.includes(event.type))
+    }
+
+    if (filter.environmentIds.length > 0) {
+      filtered = filtered.filter((event: AllocationEvent) => 
+        event.environmentId && filter.environmentIds.includes(event.environmentId)
+      )
+    }
+
+    if (filter.testIds.length > 0) {
+      filtered = filtered.filter((event: AllocationEvent) => 
+        event.testId && filter.testIds.includes(event.testId)
+      )
+    }
+
+    if (filter.dateRange) {
+      const [start, end] = filter.dateRange
+      filtered = filtered.filter((event: AllocationEvent) => {
+        const eventDate = dayjs(event.timestamp)
+        return eventDate.isAfter(start) && eventDate.isBefore(end)
+      })
+    }
+
+    if (filter.searchQuery) {
+      const query = filter.searchQuery.toLowerCase()
+      filtered = filtered.filter((event: AllocationEvent) => 
+        event.testId?.toLowerCase().includes(query) ||
+        event.environmentId?.toLowerCase().includes(query) ||
+        event.type.toLowerCase().includes(query) ||
+        JSON.stringify(event.metadata).toLowerCase().includes(query)
+      )
+    }
+
+    return filtered
+  }, [allocationHistory, filter])
+
+  // Event type options for filtering
+  const eventTypeOptions = [
+    { label: 'Allocated', value: 'allocated', color: 'green' },
+    { label: 'Deallocated', value: 'deallocated', color: 'blue' },
+    { label: 'Failed', value: 'failed', color: 'red' },
+    { label: 'Queued', value: 'queued', color: 'orange' }
+  ]
+
+  // Get unique environment and test IDs for filtering
+  const uniqueEnvironmentIds = [...new Set(allocationHistory.map((e: AllocationEvent) => e.environmentId).filter(Boolean))]
+  const uniqueTestIds = [...new Set(allocationHistory.map((e: AllocationEvent) => e.testId).filter(Boolean))]
+
+  const getEventIcon = (type: string) => {
+    switch (type) {
+      case 'allocated': return <CheckCircleOutlined style={{ color: '#52c41a' }} />
+      case 'deallocated': return <StopOutlined style={{ color: '#1890ff' }} />
+      case 'failed': return <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
+      case 'queued': return <ClockCircleOutlined style={{ color: '#faad14' }} />
+      default: return <ClockCircleOutlined />
+    }
+  }
+
+  const getEventColor = (type: string) => {
+    switch (type) {
+      case 'allocated': return 'green'
+      case 'deallocated': return 'blue'
+      case 'failed': return 'red'
+      case 'queued': return 'orange'
+      default: return 'default'
+    }
+  }
+
+  const formatRelativeTime = (timestamp: Date) => {
+    return dayjs(timestamp).fromNow()
+  }
+
+  const handleEventClick = (event: AllocationEvent) => {
+    setSelectedEvent(event)
+    setDrawerVisible(true)
+  }
+
+  const handleExport = async (format: 'csv' | 'json') => {
+    setIsExporting(true)
+    try {
+      const data = filteredHistory.map((event: AllocationEvent) => ({
+        timestamp: event.timestamp.toISOString(),
+        type: event.type,
+        environmentId: event.environmentId || '',
+        testId: event.testId || '',
+        metadata: JSON.stringify(event.metadata)
+      }))
+
+      if (format === 'csv') {
+        const csv = [
+          'Timestamp,Type,Environment ID,Test ID,Metadata',
+          ...data.map((row: any) => 
+            `${row.timestamp},${row.type},${row.environmentId},${row.testId},"${row.metadata}"`
+          )
+        ].join('\n')
+        
+        const blob = new Blob([csv], { type: 'text/csv' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `allocation-history-${Date.now()}.csv`
+        a.click()
+        URL.revokeObjectURL(url)
+      } else {
+        const json = JSON.stringify(data, null, 2)
+        const blob = new Blob([json], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `allocation-history-${Date.now()}.json`
+        a.click()
+        URL.revokeObjectURL(url)
+      }
     } catch (error) {
-      console.error('Failed to load allocation history:', error);
-      message.error('Failed to load allocation history');
+      console.error('Export failed:', error)
     } finally {
-      setLoading(false);
+      setIsExporting(false)
     }
-  };
+  }
 
-  // Load statistics
-  const loadStatistics = async () => {
-    try {
-      const params: any = {};
-      if (filters.timeRange) {
-        params.start_time = filters.timeRange[0].toISOString();
-        params.end_time = filters.timeRange[1].toISOString();
-      }
+  const clearFilters = () => {
+    setFilter({
+      eventTypes: [],
+      environmentIds: [],
+      testIds: [],
+      dateRange: null,
+      searchQuery: '',
+      severity: []
+    })
+  }
 
-      const response = await apiService.client.get('/environments/allocation/statistics', { params });
-      setStatistics(response.data.data);
-    } catch (error) {
-      console.error('Failed to load statistics:', error);
-      message.error('Failed to load statistics');
-    }
-  };
+  const hasActiveFilters = filter.eventTypes.length > 0 || 
+                          filter.environmentIds.length > 0 || 
+                          filter.testIds.length > 0 || 
+                          filter.dateRange !== null || 
+                          filter.searchQuery !== ''
 
-  // Load correlations for a specific environment
-  const loadCorrelations = async (envId: string) => {
-    try {
-      const params: any = {};
-      if (filters.timeRange) {
-        params.start_time = filters.timeRange[0].toISOString();
-        params.end_time = filters.timeRange[1].toISOString();
-      }
-
-      const response = await apiService.client.get(`/environments/allocation/correlations/${envId}`, { params });
-      setCorrelations(response.data.data.correlations);
-      setShowCorrelations(true);
-    } catch (error) {
-      console.error('Failed to load correlations:', error);
-      message.error('Failed to load correlations');
-    }
-  };
-
-  // Export data
-  const exportData = async (format: 'csv' | 'json') => {
-    try {
-      const params: any = { format };
-      if (filters.eventType) params.event_type = filters.eventType;
-      if (filters.timeRange) {
-        params.start_time = filters.timeRange[0].toISOString();
-        params.end_time = filters.timeRange[1].toISOString();
-      }
-
-      const response = await apiService.client.get('/environments/allocation/export', { 
-        params,
-        responseType: 'blob'
-      });
-
-      // Create download link
-      const blob = new Blob([response.data]);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `allocation_history_${dayjs().format('YYYYMMDD_HHmmss')}.${format}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      message.success(`Data exported as ${format.toUpperCase()}`);
-    } catch (error) {
-      console.error('Failed to export data:', error);
-      message.error('Failed to export data');
-    }
-  };
-
-  // Table columns
-  const columns: ColumnsType<AllocationEvent> = [
+  // Table columns for table view
+  const tableColumns = [
     {
-      title: 'Timestamp',
+      title: 'Time',
       dataIndex: 'timestamp',
       key: 'timestamp',
-      width: 180,
-      render: (timestamp: string) => dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss'),
-      sorter: (a, b) => dayjs(a.timestamp).unix() - dayjs(b.timestamp).unix(),
-      defaultSortOrder: 'descend'
+      width: 120,
+      render: (timestamp: Date) => (
+        <Tooltip title={dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')}>
+          <Text style={{ fontSize: '12px' }}>
+            {formatRelativeTime(timestamp)}
+          </Text>
+        </Tooltip>
+      ),
+      sorter: (a: AllocationEvent, b: AllocationEvent) => 
+        b.timestamp.getTime() - a.timestamp.getTime()
     },
     {
-      title: 'Event Type',
+      title: 'Event',
       dataIndex: 'type',
       key: 'type',
-      width: 120,
+      width: 100,
       render: (type: string) => (
-        <Tag color={eventTypeColors[type] || 'default'}>
+        <Tag color={getEventColor(type)} icon={getEventIcon(type)}>
           {type.toUpperCase()}
         </Tag>
       ),
-      filters: Object.keys(eventTypeColors).map(type => ({
-        text: type.toUpperCase(),
-        value: type
-      })),
-      onFilter: (value, record) => record.type === value
-    },
-    {
-      title: 'Environment ID',
-      dataIndex: 'environment_id',
-      key: 'environment_id',
-      width: 150,
-      render: (envId: string) => envId || '-',
-      ellipsis: true
+      filters: eventTypeOptions.map(opt => ({ text: opt.label, value: opt.value })),
+      onFilter: (value: any, record: AllocationEvent) => record.type === value
     },
     {
       title: 'Test ID',
-      dataIndex: 'test_id',
-      key: 'test_id',
+      dataIndex: 'testId',
+      key: 'testId',
       width: 150,
-      render: (testId: string) => testId || '-',
-      ellipsis: true
+      render: (testId: string) => (
+        <Text code style={{ fontSize: '11px' }}>
+          {testId ? testId.slice(0, 20) + (testId.length > 20 ? '...' : '') : 'N/A'}
+        </Text>
+      )
     },
     {
-      title: 'Metadata',
+      title: 'Environment',
+      dataIndex: 'environmentId',
+      key: 'environmentId',
+      width: 150,
+      render: (envId: string) => (
+        <Text code style={{ fontSize: '11px' }}>
+          {envId ? envId.slice(0, 20) + (envId.length > 20 ? '...' : '') : 'N/A'}
+        </Text>
+      )
+    },
+    {
+      title: 'Details',
       dataIndex: 'metadata',
       key: 'metadata',
-      render: (metadata: Record<string, any>) => {
-        const keys = Object.keys(metadata);
-        if (keys.length === 0) return '-';
-        
-        return (
-          <Tooltip title={JSON.stringify(metadata, null, 2)}>
-            <Tag>{keys.length} field{keys.length > 1 ? 's' : ''}</Tag>
-          </Tooltip>
-        );
-      }
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      width: 120,
-      render: (_, record) => (
-        <Space>
-          <Button
-            type="text"
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => setSelectedEvent(record)}
-          />
-          {record.environment_id && (
-            <Button
-              type="text"
-              size="small"
-              icon={<BarChartOutlined />}
-              onClick={() => loadCorrelations(record.environment_id)}
-            />
+      render: (metadata: any, record: AllocationEvent) => (
+        <Space size="small">
+          {metadata?.duration && (
+            <Tag color="blue">{metadata.duration}s</Tag>
           )}
+          {metadata?.priority && (
+            <Tag color="orange">P{metadata.priority}</Tag>
+          )}
+          {metadata?.error && (
+            <Tag color="red">{metadata.error}</Tag>
+          )}
+          <Button 
+            size="small" 
+            type="link" 
+            icon={<EyeOutlined />}
+            onClick={() => handleEventClick(record)}
+          >
+            View
+          </Button>
         </Space>
       )
     }
-  ];
+  ]
 
-  // Filter events based on search text
-  const filteredEvents = useMemo(() => {
-    if (!filters.searchText) return events;
-    
-    const searchLower = filters.searchText.toLowerCase();
-    return events.filter(event => 
-      event.id.toLowerCase().includes(searchLower) ||
-      event.type.toLowerCase().includes(searchLower) ||
-      event.environment_id?.toLowerCase().includes(searchLower) ||
-      event.test_id?.toLowerCase().includes(searchLower) ||
-      JSON.stringify(event.metadata).toLowerCase().includes(searchLower)
-    );
-  }, [events, filters.searchText]);
-
-  // Auto-refresh effect
-  useEffect(() => {
-    loadHistory();
-    
-    if (autoRefresh) {
-      const interval = setInterval(() => {
-        loadHistory(pagination.current, pagination.pageSize);
-      }, refreshInterval);
-      
-      return () => clearInterval(interval);
-    }
-  }, [filters, autoRefresh, refreshInterval]);
-
-  // Export menu
   const exportMenu = (
-    <Menu>
-      <Menu.Item key="csv" onClick={() => exportData('csv')}>
+    <Menu onClick={({ key }) => handleExport(key as 'csv' | 'json')}>
+      <Menu.Item key="csv" icon={<DownloadOutlined />}>
         Export as CSV
       </Menu.Item>
-      <Menu.Item key="json" onClick={() => exportData('json')}>
+      <Menu.Item key="json" icon={<DownloadOutlined />}>
         Export as JSON
       </Menu.Item>
     </Menu>
-  );
+  )
 
   return (
-    <div className="allocation-history-viewer">
-      <Card
+    <div>
+      {/* Analytics Overview */}
+      {showAnalytics && (
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+          <Col span={6}>
+            <Card size="small">
+              <Statistic
+                title="Total Events"
+                value={analytics.totalEvents}
+                prefix={<BarChartOutlined />}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card size="small">
+              <Statistic
+                title="Success Rate"
+                value={analytics.totalEvents > 0 ? 
+                  ((analytics.successfulAllocations / analytics.totalEvents) * 100).toFixed(1) : 0}
+                suffix="%"
+                valueStyle={{ 
+                  color: analytics.failureRate < 10 ? '#3f8600' : 
+                         analytics.failureRate < 25 ? '#faad14' : '#cf1322' 
+                }}
+                prefix={<CheckCircleOutlined />}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card size="small">
+              <Statistic
+                title="Avg Allocation Time"
+                value={analytics.averageAllocationTime.toFixed(1)}
+                suffix="s"
+                prefix={<ClockCircleOutlined />}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card size="small">
+              <Statistic
+                title="Most Active Env"
+                value={analytics.mostActiveEnvironment.slice(0, 12)}
+                prefix={<LinkOutlined />}
+              />
+            </Card>
+          </Col>
+        </Row>
+      )}
+
+      <Card 
         title={
           <Space>
-            <HistoryOutlined />
+            <ClockCircleOutlined />
             Allocation History
+            <Badge count={filteredHistory.length} showZero color="blue" />
+            {autoRefresh && realTimeUpdates.isConnected && (
+              <Tag color="green">Live Updates</Tag>
+            )}
+            {hasActiveFilters && (
+              <Tag color="orange">Filtered</Tag>
+            )}
           </Space>
         }
         extra={
           <Space>
-            <Button
-              icon={<BarChartOutlined />}
-              onClick={() => {
-                setShowStatistics(true);
-                loadStatistics();
-              }}
-            >
-              Statistics
-            </Button>
-            <Dropdown overlay={exportMenu} trigger={['click']}>
-              <Button icon={<ExportOutlined />}>
-                Export
-              </Button>
-            </Dropdown>
+            <Switch
+              checkedChildren="Timeline"
+              unCheckedChildren="Table"
+              checked={viewMode === 'timeline'}
+              onChange={(checked) => setViewMode(checked ? 'timeline' : 'table')}
+            />
             <Button
               icon={<ReloadOutlined />}
-              onClick={() => loadHistory(pagination.current, pagination.pageSize)}
-              loading={loading}
+              onClick={() => window.location.reload()}
+              size="small"
             >
               Refresh
             </Button>
+            {enableExport && (
+              <Dropdown overlay={exportMenu} trigger={['click']}>
+                <Button 
+                  icon={<ExportOutlined />} 
+                  loading={isExporting}
+                  size="small"
+                >
+                  Export
+                </Button>
+              </Dropdown>
+            )}
           </Space>
         }
       >
         {/* Filters */}
-        <div style={{ marginBottom: 16 }}>
-          <Row gutter={[16, 16]}>
-            <Col span={6}>
-              <Input
-                placeholder="Search events..."
-                prefix={<SearchOutlined />}
-                value={filters.searchText}
-                onChange={(e) => setFilters({ ...filters, searchText: e.target.value })}
-                allowClear
-              />
-            </Col>
-            <Col span={4}>
-              <Select
-                placeholder="Event Type"
-                value={filters.eventType}
-                onChange={(value) => setFilters({ ...filters, eventType: value })}
-                allowClear
-                style={{ width: '100%' }}
-              >
-                {Object.keys(eventTypeColors).map(type => (
-                  <Option key={type} value={type}>
-                    {type.toUpperCase()}
-                  </Option>
-                ))}
-              </Select>
-            </Col>
-            <Col span={6}>
-              <Input
-                placeholder="Environment ID"
-                value={filters.environmentId}
-                onChange={(e) => setFilters({ ...filters, environmentId: e.target.value })}
-                allowClear
-              />
-            </Col>
-            <Col span={6}>
-              <RangePicker
-                value={filters.timeRange}
-                onChange={(dates) => setFilters({ ...filters, timeRange: dates as [dayjs.Dayjs, dayjs.Dayjs] })}
-                showTime
-                style={{ width: '100%' }}
-              />
-            </Col>
-            <Col span={2}>
-              <Button
-                type="primary"
-                icon={<FilterOutlined />}
-                onClick={() => loadHistory(1, pagination.pageSize)}
-                loading={loading}
-              >
-                Filter
-              </Button>
-            </Col>
-          </Row>
-        </div>
+        {enableFiltering && (
+          <div style={{ marginBottom: 16, padding: 16, backgroundColor: '#fafafa', borderRadius: 6 }}>
+            <Row gutter={[16, 16]}>
+              <Col span={6}>
+                <Search
+                  placeholder="Search events..."
+                  value={filter.searchQuery}
+                  onChange={(e) => setFilter(prev => ({ ...prev, searchQuery: e.target.value }))}
+                  allowClear
+                />
+              </Col>
+              <Col span={6}>
+                <Select
+                  mode="multiple"
+                  placeholder="Event types"
+                  value={filter.eventTypes}
+                  onChange={(eventTypes) => setFilter(prev => ({ ...prev, eventTypes }))}
+                  style={{ width: '100%' }}
+                  allowClear
+                >
+                  {eventTypeOptions.map(opt => (
+                    <Select.Option key={opt.value} value={opt.value}>
+                      <Tag color={opt.color}>{opt.label}</Tag>
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Col>
+              <Col span={6}>
+                <Select
+                  mode="multiple"
+                  placeholder="Environments"
+                  value={filter.environmentIds}
+                  onChange={(environmentIds) => setFilter(prev => ({ ...prev, environmentIds }))}
+                  style={{ width: '100%' }}
+                  allowClear
+                >
+                  {uniqueEnvironmentIds.map((envId: string) => (
+                    <Select.Option key={envId} value={envId}>
+                      {envId.slice(0, 20)}...
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Col>
+              <Col span={6}>
+                <RangePicker
+                  value={filter.dateRange}
+                  onChange={(dateRange) => setFilter(prev => ({ ...prev, dateRange: dateRange as [Dayjs, Dayjs] | null }))}
+                  style={{ width: '100%' }}
+                  showTime
+                />
+              </Col>
+            </Row>
+            {hasActiveFilters && (
+              <div style={{ marginTop: 8 }}>
+                <Button size="small" onClick={clearFilters}>
+                  Clear Filters
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Events Table */}
-        <Table
-          columns={columns}
-          dataSource={filteredEvents}
-          rowKey="id"
-          loading={loading}
-          pagination={{
-            ...pagination,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} events`,
-            onChange: (page, pageSize) => {
-              setPagination({ ...pagination, current: page, pageSize: pageSize || 20 });
-              loadHistory(page, pageSize);
-            }
-          }}
-          scroll={{ x: 800 }}
-        />
+        {/* Content */}
+        {filteredHistory.length === 0 ? (
+          <Empty 
+            description={hasActiveFilters ? "No events match the current filters" : "No allocation history available"}
+            style={{ padding: '40px' }}
+          />
+        ) : viewMode === 'timeline' ? (
+          <Timeline
+            items={filteredHistory.slice(0, 100).map((event: AllocationEvent) => ({
+              dot: getEventIcon(event.type),
+              color: getEventColor(event.type),
+              children: (
+                <div 
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleEventClick(event)}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Space>
+                      <Tag color={getEventColor(event.type)}>
+                        {event.type.toUpperCase()}
+                      </Tag>
+                      {event.testId && (
+                        <Text code style={{ fontSize: '12px' }}>
+                          {event.testId.slice(0, 16)}...
+                        </Text>
+                      )}
+                      {event.environmentId && (
+                        <Text code style={{ fontSize: '12px', color: '#666' }}>
+                          → {event.environmentId.slice(0, 16)}...
+                        </Text>
+                      )}
+                    </Space>
+                    <Text style={{ fontSize: '12px', color: '#999' }}>
+                      {formatRelativeTime(event.timestamp)}
+                    </Text>
+                  </div>
+                  
+                  {event.metadata && Object.keys(event.metadata).length > 0 && (
+                    <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                      <Space size="small">
+                        {event.metadata.duration && (
+                          <Tag color="blue">Duration: {event.metadata.duration}s</Tag>
+                        )}
+                        {event.metadata.priority && (
+                          <Tag color="orange">Priority: {event.metadata.priority}</Tag>
+                        )}
+                        {event.metadata.error && (
+                          <Tag color="red">Error: {event.metadata.error}</Tag>
+                        )}
+                        {event.metadata.reason && (
+                          <Tag color="blue">Reason: {event.metadata.reason}</Tag>
+                        )}
+                      </Space>
+                    </div>
+                  )}
+                </div>
+              )
+            }))}
+          />
+        ) : (
+          <Table
+            dataSource={filteredHistory}
+            columns={tableColumns}
+            rowKey="id"
+            size="small"
+            pagination={{
+              pageSize: 50,
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total, range) => 
+                `${range[0]}-${range[1]} of ${total} events`
+            }}
+            onRow={(record) => ({
+              onClick: () => handleEventClick(record)
+            })}
+          />
+        )}
       </Card>
 
-      {/* Event Details Modal */}
-      <Modal
+      {/* Event Details Drawer */}
+      <Drawer
         title="Event Details"
-        open={!!selectedEvent}
-        onCancel={() => setSelectedEvent(null)}
-        footer={null}
+        placement="right"
         width={600}
+        open={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
       >
         {selectedEvent && (
           <div>
-            <Row gutter={[16, 16]}>
-              <Col span={12}>
-                <Statistic title="Event ID" value={selectedEvent.id} />
-              </Col>
-              <Col span={12}>
-                <Statistic 
-                  title="Event Type" 
-                  value={selectedEvent.type.toUpperCase()}
-                  valueStyle={{ color: eventTypeColors[selectedEvent.type] }}
-                />
-              </Col>
-              <Col span={12}>
-                <Statistic title="Environment ID" value={selectedEvent.environment_id || 'N/A'} />
-              </Col>
-              <Col span={12}>
-                <Statistic title="Test ID" value={selectedEvent.test_id || 'N/A'} />
-              </Col>
-              <Col span={24}>
-                <Statistic 
-                  title="Timestamp" 
-                  value={dayjs(selectedEvent.timestamp).format('YYYY-MM-DD HH:mm:ss')} 
-                />
-              </Col>
-            </Row>
-            
-            {Object.keys(selectedEvent.metadata).length > 0 && (
-              <div style={{ marginTop: 16 }}>
-                <h4>Metadata</h4>
-                <pre style={{ 
-                  background: '#f5f5f5', 
-                  padding: 12, 
-                  borderRadius: 4,
-                  fontSize: 12,
-                  overflow: 'auto',
-                  maxHeight: 200
-                }}>
-                  {JSON.stringify(selectedEvent.metadata, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
+            <Descriptions title="Event Information" bordered column={1}>
+              <Descriptions.Item label="Event ID">
+                <Text code>{selectedEvent.id}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Type">
+                <Tag color={getEventColor(selectedEvent.type)} icon={getEventIcon(selectedEvent.type)}>
+                  {selectedEvent.type.toUpperCase()}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Timestamp">
+                {dayjs(selectedEvent.timestamp).format('YYYY-MM-DD HH:mm:ss')}
+                <Text type="secondary" style={{ marginLeft: 8 }}>
+                  ({formatRelativeTime(selectedEvent.timestamp)})
+                </Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Test ID">
+                <Text code>{selectedEvent.testId || 'N/A'}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Environment ID">
+                <Text code>{selectedEvent.environmentId || 'N/A'}</Text>
+              </Descriptions.Item>
+            </Descriptions>
 
-      {/* Statistics Modal */}
-      <Modal
-        title="Allocation Statistics"
-        open={showStatistics}
-        onCancel={() => setShowStatistics(false)}
-        footer={null}
-        width={800}
-      >
-        {statistics && (
-          <div>
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-              <Col span={8}>
-                <Statistic title="Total Events" value={statistics.total_events} />
-              </Col>
-              <Col span={16}>
-                <h4>Event Type Distribution</h4>
-                <Space wrap>
-                  {Object.entries(statistics.event_type_counts).map(([type, count]) => (
-                    <Tag key={type} color={eventTypeColors[type]}>
-                      {type.toUpperCase()}: {count}
-                    </Tag>
+            {selectedEvent.metadata && Object.keys(selectedEvent.metadata).length > 0 && (
+              <>
+                <Divider />
+                <Title level={5}>Metadata</Title>
+                <Descriptions bordered column={1}>
+                  {Object.entries(selectedEvent.metadata).map(([key, value]) => (
+                    <Descriptions.Item key={key} label={key}>
+                      {typeof value === 'object' ? (
+                        <pre style={{ fontSize: '12px', margin: 0 }}>
+                          {JSON.stringify(value, null, 2)}
+                        </pre>
+                      ) : (
+                        <Text>{String(value)}</Text>
+                      )}
+                    </Descriptions.Item>
                   ))}
-                </Space>
-              </Col>
-            </Row>
-            
-            {Object.keys(statistics.environment_usage).length > 0 && (
-              <div style={{ marginBottom: 24 }}>
-                <h4>Environment Usage</h4>
-                <div style={{ maxHeight: 200, overflow: 'auto' }}>
-                  {Object.entries(statistics.environment_usage)
-                    .sort(([,a], [,b]) => b - a)
-                    .slice(0, 10)
-                    .map(([envId, count]) => (
-                      <div key={envId} style={{ marginBottom: 8 }}>
-                        <Tag>{envId}</Tag>
-                        <span style={{ marginLeft: 8 }}>{count} events</span>
-                      </div>
-                    ))}
-                </div>
-              </div>
+                </Descriptions>
+              </>
+            )}
+
+            {selectedEvent.type === 'failed' && selectedEvent.metadata?.error && (
+              <>
+                <Divider />
+                <Alert
+                  message="Failure Details"
+                  description={`Error: ${selectedEvent.metadata.error}`}
+                  type="error"
+                  showIcon
+                  icon={<BugOutlined />}
+                />
+              </>
             )}
           </div>
         )}
-      </Modal>
-
-      {/* Correlations Modal */}
-      <Modal
-        title="Event Correlations"
-        open={showCorrelations}
-        onCancel={() => setShowCorrelations(false)}
-        footer={null}
-        width={900}
-      >
-        <Timeline>
-          {correlations.map((correlation, index) => (
-            <Timeline.Item
-              key={index}
-              color={eventTypeColors[correlation.event.type]}
-            >
-              <div>
-                <strong>{correlation.event.type.toUpperCase()}</strong>
-                <span style={{ marginLeft: 8, color: '#666' }}>
-                  {dayjs(correlation.event.timestamp).format('YYYY-MM-DD HH:mm:ss')}
-                </span>
-                
-                {correlation.related_tests.length > 0 && (
-                  <div style={{ marginTop: 8 }}>
-                    <h5>Related Test Results:</h5>
-                    {correlation.related_tests.map((test: any, testIndex: number) => (
-                      <Tag 
-                        key={testIndex}
-                        color={test.status === 'passed' ? 'green' : 'red'}
-                        style={{ marginBottom: 4 }}
-                      >
-                        {test.test_id}: {test.status}
-                      </Tag>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </Timeline.Item>
-          ))}
-        </Timeline>
-      </Modal>
+      </Drawer>
     </div>
-  );
-};
+  )
+}
 
-export default AllocationHistoryViewer;
+export default AllocationHistoryViewer

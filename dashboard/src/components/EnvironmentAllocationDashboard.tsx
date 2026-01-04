@@ -6,9 +6,12 @@ import {
   EyeOutlined,
   SettingOutlined,
   WifiOutlined,
-  BugOutlined
+  BugOutlined,
+  BarChartOutlined,
+  SwapOutlined
 } from '@ant-design/icons'
 import { useQuery } from 'react-query'
+import { useNavigate } from 'react-router-dom'
 import EnvironmentTable from './EnvironmentTable'
 import ResourceUtilizationCharts from './ResourceUtilizationCharts'
 import EnvironmentManagementControls, { EnvironmentCreationConfig } from './EnvironmentManagementControls'
@@ -45,6 +48,7 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
   autoRefresh = true,
   refreshInterval = 2000
 }) => {
+  const navigate = useNavigate()
   const [state, setState] = useState<EnvironmentAllocationState>({
     environments: [],
     allocationQueue: [],
@@ -330,6 +334,12 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
     setIsAutoRefresh(!isAutoRefresh)
   }
 
+  // Navigation helper functions
+  const navigateToExecutionMonitor = () => {
+    const url = planId ? `/execution-monitor?planId=${planId}` : '/execution-monitor'
+    navigate(url)
+  }
+
   // Manual refresh with real-time connection check and error handling
   const handleManualRefresh = useCallback(() => {
     withErrorHandling(
@@ -432,6 +442,13 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
         </div>
         <Space>
           <Button
+            icon={<BarChartOutlined />}
+            onClick={navigateToExecutionMonitor}
+            type="default"
+          >
+            Execution Monitor
+          </Button>
+          <Button
             icon={<EyeOutlined />}
             onClick={toggleAutoRefresh}
             type={isAutoRefresh ? 'primary' : 'default'}
@@ -455,6 +472,9 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
             sseStatus={realTimeUpdates.sse}
             onReconnect={realTimeUpdates.reconnectAll}
             showDetails={true}
+            enableHealthMonitoring={true}
+            connectionQuality={realTimeUpdates.connectionHealth === 'healthy' ? 100 : 
+                              realTimeUpdates.connectionHealth === 'degraded' ? 70 : 30}
           />
           <Button
             icon={<SettingOutlined />}
@@ -534,6 +554,7 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
                     sseStatus={realTimeUpdates.sse}
                     onReconnect={realTimeUpdates.reconnectAll}
                     showDetails={false}
+                    enableHealthMonitoring={false}
                   />
                 )}
                 {isAutoRefresh && realTimeUpdates.connectionHealth !== 'healthy' && (
@@ -555,6 +576,13 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
               onEnvironmentAction={handleEnvironmentAction}
               showResourceUsage={true}
               filterOptions={environmentFilter}
+              selectedEnvironments={selectedEnvironments.map(env => env.id)}
+              onSelectionChange={(selectedIds) => {
+                const selected = state.environments.filter(env => selectedIds.includes(env.id))
+                setSelectedEnvironments(selected)
+              }}
+              realTimeUpdates={realTimeUpdates.isConnected}
+              lastUpdateTime={realTimeUpdates.lastUpdate}
             />
           </Card>
         </Col>
@@ -589,6 +617,39 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
               ])
             )}
             onPriorityChange={handleAllocationPriorityChange}
+            onCancelRequest={async (requestId: string) => {
+              return withErrorHandling(
+                async () => {
+                  await apiService.cancelAllocationRequest(requestId)
+                  refetch()
+                  
+                  notification.success({
+                    message: 'Request Cancelled',
+                    description: `Allocation request ${requestId.slice(0, 8)}... has been cancelled`,
+                    duration: 3
+                  })
+                },
+                {
+                  operation: 'cancel_allocation_request',
+                  requestId,
+                  endpoint: `/api/environments/allocation/request/${requestId}`
+                }
+              )
+            }}
+            onBulkCancel={handleBulkAllocationCancel}
+            onRefresh={() => {
+              refetch()
+              notification.info({
+                message: 'Queue Refreshed',
+                description: 'Allocation queue data has been updated',
+                duration: 2
+              })
+            }}
+            realTimeUpdates={realTimeUpdates.isConnected}
+            lastUpdateTime={realTimeUpdates.lastUpdate}
+            enableBulkOperations={true}
+            enableAdvancedFiltering={true}
+            showQueueAnalytics={true}
           />
         </Col>
       </Row>

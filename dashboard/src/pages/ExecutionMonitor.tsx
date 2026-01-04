@@ -16,6 +16,7 @@ import {
   Spin,
   Badge,
   Divider,
+  Tabs,
 } from 'antd'
 import {
   ClockCircleOutlined,
@@ -27,10 +28,13 @@ import {
   BarChartOutlined,
   EyeOutlined,
   ReloadOutlined,
+  SettingOutlined,
+  SwapOutlined,
 } from '@ant-design/icons'
 import { useQuery } from 'react-query'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
+import EnvironmentAllocationDashboard from '../components/EnvironmentAllocationDashboard'
 
 const { Title, Text } = Typography
 
@@ -60,8 +64,10 @@ interface EnvironmentInfo {
 
 const ExecutionMonitor: React.FC = () => {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const planId = searchParams.get('planId')
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [activeTab, setActiveTab] = useState('execution')
 
   // Fetch execution details with real-time updates
   const { data: executionData, isLoading, refetch } = useQuery(
@@ -361,6 +367,40 @@ const ExecutionMonitor: React.FC = () => {
   const totalStages = stages.length
   const overallProgress = (completedStages / totalStages) * 100
 
+  // Navigation helper functions
+  const navigateToEnvironmentAllocation = () => {
+    const url = planId ? `/environment-allocation?planId=${planId}` : '/environment-allocation'
+    navigate(url)
+  }
+
+  const handleTabChange = (key: string) => {
+    setActiveTab(key)
+  }
+
+  // Tab items for integrated view
+  const tabItems = [
+    {
+      key: 'execution',
+      label: (
+        <Space>
+          <BarChartOutlined />
+          Execution Progress
+        </Space>
+      ),
+      children: null, // Will be set below
+    },
+    {
+      key: 'environments',
+      label: (
+        <Space>
+          <CloudServerOutlined />
+          Environment Allocation
+        </Space>
+      ),
+      children: null, // Will be set below
+    },
+  ]
+
   return (
     <div style={{ padding: '24px' }}>
       {/* Header */}
@@ -375,6 +415,13 @@ const ExecutionMonitor: React.FC = () => {
           </Text>
         </div>
         <Space>
+          <Button
+            icon={<SwapOutlined />}
+            onClick={navigateToEnvironmentAllocation}
+            type="default"
+          >
+            Environment View
+          </Button>
           <Button
             icon={<EyeOutlined />}
             onClick={() => setAutoRefresh(!autoRefresh)}
@@ -423,205 +470,248 @@ const ExecutionMonitor: React.FC = () => {
         </Row>
       </Card>
 
-      <Row gutter={24}>
-        {/* Execution Stages */}
-        <Col span={16}>
-          <Card 
-            title={
+      {/* Integrated Tabs View */}
+      <Tabs
+        activeKey={activeTab}
+        onChange={handleTabChange}
+        items={[
+          {
+            key: 'execution',
+            label: (
               <Space>
                 <BarChartOutlined />
-                Execution Stages
+                Execution Progress
               </Space>
-            }
-            style={{ marginBottom: 24 }}
-          >
-            <Steps
-              direction="vertical"
-              current={stages.findIndex(s => s.status === 'running')}
-              status={currentStage.status === 'failed' ? 'error' : 'process'}
-              items={stages.map((stage, index) => ({
-                title: stage.name,
-                status: 
-                  stage.status === 'completed' ? 'finish' :
-                  stage.status === 'running' ? 'process' :
-                  stage.status === 'failed' ? 'error' : 'wait',
-                icon: getStageIcon(stage.status),
-                description: (
-                  <div>
-                    {stage.status === 'running' && stage.progress !== undefined && (
-                      <Progress 
-                        percent={Math.round(stage.progress)} 
-                        size="small" 
-                        style={{ marginBottom: 8 }}
-                      />
-                    )}
-                    <Space>
-                      {stage.startTime && (
-                        <Text type="secondary" style={{ fontSize: '12px' }}>
-                          Started: {new Date(stage.startTime).toLocaleTimeString()}
-                        </Text>
-                      )}
-                      {stage.duration && (
-                        <Text type="secondary" style={{ fontSize: '12px' }}>
-                          Duration: {stage.duration}s
-                        </Text>
-                      )}
-                    </Space>
-                  </div>
-                )
-              }))}
-            />
-          </Card>
+            ),
+            children: (
+              <Row gutter={24}>
+                {/* Execution Stages */}
+                <Col span={16}>
+                  <Card 
+                    title={
+                      <Space>
+                        <BarChartOutlined />
+                        Execution Stages
+                      </Space>
+                    }
+                    style={{ marginBottom: 24 }}
+                  >
+                    <Steps
+                      direction="vertical"
+                      current={stages.findIndex(s => s.status === 'running')}
+                      status={currentStage.status === 'failed' ? 'error' : 'process'}
+                      items={stages.map((stage, index) => ({
+                        title: stage.name,
+                        status: 
+                          stage.status === 'completed' ? 'finish' :
+                          stage.status === 'running' ? 'process' :
+                          stage.status === 'failed' ? 'error' : 'wait',
+                        icon: getStageIcon(stage.status),
+                        description: (
+                          <div>
+                            {stage.status === 'running' && stage.progress !== undefined && (
+                              <Progress 
+                                percent={Math.round(stage.progress)} 
+                                size="small" 
+                                style={{ marginBottom: 8 }}
+                              />
+                            )}
+                            <Space>
+                              {stage.startTime && (
+                                <Text type="secondary" style={{ fontSize: '12px' }}>
+                                  Started: {new Date(stage.startTime).toLocaleTimeString()}
+                                </Text>
+                              )}
+                              {stage.duration && (
+                                <Text type="secondary" style={{ fontSize: '12px' }}>
+                                  Duration: {stage.duration}s
+                                </Text>
+                              )}
+                            </Space>
+                          </div>
+                        )
+                      }))}
+                    />
+                  </Card>
 
-          {/* Environment Allocation Details */}
-          <Card
-            title={
+                  {/* Environment Allocation Summary */}
+                  <Card
+                    title={
+                      <Space>
+                        <CloudServerOutlined />
+                        Environment Allocation Summary
+                        <Badge count={environments.length} style={{ backgroundColor: '#52c41a' }} />
+                      </Space>
+                    }
+                    extra={
+                      <Button 
+                        size="small" 
+                        type="link"
+                        onClick={() => setActiveTab('environments')}
+                      >
+                        View Details
+                      </Button>
+                    }
+                  >
+                    <Table
+                      columns={environmentColumns}
+                      dataSource={environments}
+                      rowKey="id"
+                      size="small"
+                      pagination={false}
+                    />
+                  </Card>
+                </Col>
+
+                {/* Real-time Activity Feed */}
+                <Col span={8}>
+                  <Card
+                    title={
+                      <Space>
+                        <ClockCircleOutlined />
+                        Activity Timeline
+                      </Space>
+                    }
+                    style={{ marginBottom: 24 }}
+                  >
+                    <Timeline
+                      items={[
+                        {
+                          color: 'green',
+                          children: (
+                            <div>
+                              <Text strong>Plan Validation Completed</Text>
+                              <br />
+                              <Text type="secondary" style={{ fontSize: '12px' }}>
+                                10:00:05 - All test cases validated successfully
+                              </Text>
+                            </div>
+                          ),
+                        },
+                        {
+                          color: 'blue',
+                          children: (
+                            <div>
+                              <Text strong>Environment Allocation Started</Text>
+                              <br />
+                              <Text type="secondary" style={{ fontSize: '12px' }}>
+                                10:00:05 - Allocating 2 environments
+                              </Text>
+                            </div>
+                          ),
+                        },
+                        {
+                          color: 'blue',
+                          children: (
+                            <div>
+                              <Text strong>QEMU x86_64 Environment Ready</Text>
+                              <br />
+                              <Text type="secondary" style={{ fontSize: '12px' }}>
+                                10:00:12 - env-qemu-x86-1 allocated
+                              </Text>
+                            </div>
+                          ),
+                        },
+                        {
+                          color: 'orange',
+                          children: (
+                            <div>
+                              <Text strong>QEMU ARM64 Environment Allocating</Text>
+                              <br />
+                              <Text type="secondary" style={{ fontSize: '12px' }}>
+                                10:00:15 - env-qemu-arm-1 in progress
+                              </Text>
+                            </div>
+                          ),
+                        },
+                      ]}
+                    />
+                  </Card>
+
+                  {/* Current Stage Details */}
+                  <Card
+                    title={
+                      <Space>
+                        <CodeOutlined />
+                        Current Stage Details
+                      </Space>
+                    }
+                  >
+                    <div style={{ textAlign: 'center', padding: '20px' }}>
+                      {getStageIcon(currentStage.status)}
+                      <Title level={4} style={{ marginTop: 16, marginBottom: 8 }}>
+                        {currentStage.name}
+                      </Title>
+                      <Text type="secondary">
+                        {currentStage.status === 'running' ? 'In Progress' : 
+                         currentStage.status === 'completed' ? 'Completed' : 'Waiting'}
+                      </Text>
+                      
+                      {currentStage.status === 'running' && currentStage.progress !== undefined && (
+                        <div style={{ marginTop: 16 }}>
+                          <Progress
+                            type="circle"
+                            percent={Math.round(currentStage.progress)}
+                            width={80}
+                          />
+                        </div>
+                      )}
+
+                      <Divider />
+                      
+                      <div style={{ textAlign: 'left' }}>
+                        <Text strong>Stage Details:</Text>
+                        <div style={{ marginTop: 8 }}>
+                          {currentStage.id === 'environment' && (
+                            <div>
+                              <Text>• Provisioning virtual environments</Text><br />
+                              <Text>• Configuring network interfaces</Text><br />
+                              <Text>• Installing test dependencies</Text><br />
+                              <Text>• Validating environment readiness</Text>
+                            </div>
+                          )}
+                          {currentStage.id === 'execution' && (
+                            <div>
+                              <Text>• Deploying test scripts</Text><br />
+                              <Text>• Starting test processes</Text><br />
+                              <Text>• Monitoring test progress</Text><br />
+                              <Text>• Collecting real-time logs</Text>
+                            </div>
+                          )}
+                          {currentStage.id === 'validation' && (
+                            <div>
+                              <Text>• Validating test case syntax</Text><br />
+                              <Text>• Checking resource requirements</Text><br />
+                              <Text>• Verifying dependencies</Text><br />
+                              <Text>• Creating execution schedule</Text>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </Col>
+              </Row>
+            ),
+          },
+          {
+            key: 'environments',
+            label: (
               <Space>
                 <CloudServerOutlined />
                 Environment Allocation
-                <Badge count={environments.length} style={{ backgroundColor: '#52c41a' }} />
               </Space>
-            }
-          >
-            <Table
-              columns={environmentColumns}
-              dataSource={environments}
-              rowKey="id"
-              size="small"
-              pagination={false}
-            />
-          </Card>
-        </Col>
-
-        {/* Real-time Activity Feed */}
-        <Col span={8}>
-          <Card
-            title={
-              <Space>
-                <ClockCircleOutlined />
-                Activity Timeline
-              </Space>
-            }
-            style={{ marginBottom: 24 }}
-          >
-            <Timeline
-              items={[
-                {
-                  color: 'green',
-                  children: (
-                    <div>
-                      <Text strong>Plan Validation Completed</Text>
-                      <br />
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        10:00:05 - All test cases validated successfully
-                      </Text>
-                    </div>
-                  ),
-                },
-                {
-                  color: 'blue',
-                  children: (
-                    <div>
-                      <Text strong>Environment Allocation Started</Text>
-                      <br />
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        10:00:05 - Allocating 2 environments
-                      </Text>
-                    </div>
-                  ),
-                },
-                {
-                  color: 'blue',
-                  children: (
-                    <div>
-                      <Text strong>QEMU x86_64 Environment Ready</Text>
-                      <br />
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        10:00:12 - env-qemu-x86-1 allocated
-                      </Text>
-                    </div>
-                  ),
-                },
-                {
-                  color: 'orange',
-                  children: (
-                    <div>
-                      <Text strong>QEMU ARM64 Environment Allocating</Text>
-                      <br />
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        10:00:15 - env-qemu-arm-1 in progress
-                      </Text>
-                    </div>
-                  ),
-                },
-              ]}
-            />
-          </Card>
-
-          {/* Current Stage Details */}
-          <Card
-            title={
-              <Space>
-                <CodeOutlined />
-                Current Stage Details
-              </Space>
-            }
-          >
-            <div style={{ textAlign: 'center', padding: '20px' }}>
-              {getStageIcon(currentStage.status)}
-              <Title level={4} style={{ marginTop: 16, marginBottom: 8 }}>
-                {currentStage.name}
-              </Title>
-              <Text type="secondary">
-                {currentStage.status === 'running' ? 'In Progress' : 
-                 currentStage.status === 'completed' ? 'Completed' : 'Waiting'}
-              </Text>
-              
-              {currentStage.status === 'running' && currentStage.progress !== undefined && (
-                <div style={{ marginTop: 16 }}>
-                  <Progress
-                    type="circle"
-                    percent={Math.round(currentStage.progress)}
-                    width={80}
-                  />
-                </div>
-              )}
-
-              <Divider />
-              
-              <div style={{ textAlign: 'left' }}>
-                <Text strong>Stage Details:</Text>
-                <div style={{ marginTop: 8 }}>
-                  {currentStage.id === 'environment' && (
-                    <div>
-                      <Text>• Provisioning virtual environments</Text><br />
-                      <Text>• Configuring network interfaces</Text><br />
-                      <Text>• Installing test dependencies</Text><br />
-                      <Text>• Validating environment readiness</Text>
-                    </div>
-                  )}
-                  {currentStage.id === 'execution' && (
-                    <div>
-                      <Text>• Deploying test scripts</Text><br />
-                      <Text>• Starting test processes</Text><br />
-                      <Text>• Monitoring test progress</Text><br />
-                      <Text>• Collecting real-time logs</Text>
-                    </div>
-                  )}
-                  {currentStage.id === 'validation' && (
-                    <div>
-                      <Text>• Validating test case syntax</Text><br />
-                      <Text>• Checking resource requirements</Text><br />
-                      <Text>• Verifying dependencies</Text><br />
-                      <Text>• Creating execution schedule</Text>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </Card>
-        </Col>
-      </Row>
+            ),
+            children: (
+              <EnvironmentAllocationDashboard
+                planId={planId || undefined}
+                autoRefresh={autoRefresh}
+                refreshInterval={2000}
+              />
+            ),
+          },
+        ]}
+      />
     </div>
   )
 }
