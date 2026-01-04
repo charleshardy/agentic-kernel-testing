@@ -11,7 +11,7 @@ import TestExecutionSimple from './pages/TestExecutionSimple'
 import TestExecutionDebug from './pages/TestExecutionDebug'
 import ExecutionDebug from './pages/ExecutionDebug'
 import ExecutionMonitor from './pages/ExecutionMonitor'
-import EnvironmentManagement from './pages/EnvironmentManagement'
+import TestEnvironment from './pages/TestEnvironment'
 import TestResults from './pages/TestResults'
 import Coverage from './pages/Coverage'
 import Performance from './pages/Performance'
@@ -63,7 +63,9 @@ function App() {
       <Route path="/tests" element={<DashboardLayout><TestExecutionDebug /></DashboardLayout>} />
       <Route path="/execution-debug" element={<DashboardLayout><ExecutionDebug /></DashboardLayout>} />
       <Route path="/execution-monitor" element={<DashboardLayout><ExecutionMonitor /></DashboardLayout>} />
-      <Route path="/environment-management" element={<DashboardLayout><EnvironmentManagement /></DashboardLayout>} />
+      <Route path="/test-environment" element={<DashboardLayout><TestEnvironment /></DashboardLayout>} />
+      {/* Backward compatibility redirect */}
+      <Route path="/environment-management" element={<Navigate to="/test-environment" replace />} />
       <Route path="/results" element={<DashboardLayout><TestResults /></DashboardLayout>} />
       <Route path="/coverage" element={<DashboardLayout><Coverage /></DashboardLayout>} />
       <Route path="/performance" element={<DashboardLayout><Performance /></DashboardLayout>} />

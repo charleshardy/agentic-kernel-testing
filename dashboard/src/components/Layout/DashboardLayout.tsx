@@ -77,9 +77,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       label: 'Test Plans',
     },
     {
-      key: '/environment-management',
+      key: '/test-environment',
       icon: <CloudServerOutlined />,
-      label: 'Environment Management',
+      label: 'Test Environment',
     },
     {
       key: '/tests',

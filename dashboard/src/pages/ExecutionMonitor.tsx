@@ -369,7 +369,7 @@ const ExecutionMonitor: React.FC = () => {
 
   // Navigation helper functions
   const navigateToEnvironmentManagement = () => {
-    const url = planId ? `/environment-management?planId=${planId}` : '/environment-management'
+    const url = planId ? `/test-environment?planId=${planId}` : '/test-environment'
     navigate(url)
   }
 

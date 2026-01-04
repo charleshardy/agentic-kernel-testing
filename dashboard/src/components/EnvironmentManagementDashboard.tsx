@@ -40,8 +40,8 @@ import { ErrorCategory } from '../types/errors'
 const { Title, Text } = Typography
 
 /**
- * Main container component for Environment Management UI
- * Orchestrates all environment management views and provides real-time updates
+ * Main container component for Test Environment UI
+ * Orchestrates all test environment views and provides real-time updates
  */
 const EnvironmentManagementDashboard: React.FC<EnvironmentManagementDashboardProps> = ({
   planId,
@@ -76,7 +76,7 @@ const EnvironmentManagementDashboard: React.FC<EnvironmentManagementDashboardPro
     lastError
   } = useErrorHandling({
     onError: (error) => {
-      console.error('Environment Management Dashboard Error:', error)
+      console.error('Test Environment Dashboard Error:', error)
     },
     autoRetry: true,
     fallbackData: {
@@ -127,7 +127,7 @@ const EnvironmentManagementDashboard: React.FC<EnvironmentManagementDashboardPro
     onConnectionHealthChange: undefined // Disabled since WebSocket/SSE are disabled
   })
 
-  // Fetch environment management data with real-time updates and error handling
+  // Fetch test environment data with real-time updates and error handling
   const { 
     data: allocationData, 
     isLoading, 
@@ -326,7 +326,7 @@ const EnvironmentManagementDashboard: React.FC<EnvironmentManagementDashboardPro
         
         notification.success({
           message: 'Data Refreshed',
-          description: 'Environment management data has been updated',
+          description: 'Test environment data has been updated',
           duration: 2
         })
       },
@@ -358,7 +358,7 @@ const EnvironmentManagementDashboard: React.FC<EnvironmentManagementDashboardPro
           message="Failed to Load Environment Data"
           description={
             <div>
-              <p>Unable to fetch environment management information.</p>
+              <p>Unable to fetch test environment information.</p>
               {errorDetails.suggestedActions && errorDetails.suggestedActions.length > 0 && (
                 <div style={{ marginTop: 8 }}>
                   <strong>Suggested actions:</strong>
@@ -404,7 +404,7 @@ const EnvironmentManagementDashboard: React.FC<EnvironmentManagementDashboardPro
         <div>
           <Title level={2}>
             <CloudServerOutlined style={{ marginRight: 8 }} />
-            Environment Management
+            Test Environment
           </Title>
           <Text type="secondary">
             Real-time monitoring and management of test execution environments
@@ -473,7 +473,7 @@ const EnvironmentManagementDashboard: React.FC<EnvironmentManagementDashboardPro
         <div style={{ textAlign: 'center', padding: '60px' }}>
           <Spin size="large" />
           <div style={{ marginTop: 16 }}>
-            <Text>Loading environment management data...</Text>
+            <Text>Loading test environment data...</Text>
           </div>
         </div>
       )}
@@ -491,7 +491,7 @@ const EnvironmentManagementDashboard: React.FC<EnvironmentManagementDashboardPro
           </Col>
         )}
 
-        {/* Environment Management Controls */}
+        {/* Test Environment Controls */}
         <Col span={24}>
           <EnvironmentManagementControls
             selectedEnvironments={selectedEnvironments}

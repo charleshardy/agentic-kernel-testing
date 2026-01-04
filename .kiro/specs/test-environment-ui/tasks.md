@@ -1,15 +1,15 @@
-# Environment Allocation UI Implementation Plan
+# Test Environment UI Implementation Plan
 
 ## Overview
 
-This implementation plan converts the Environment Allocation UI design into a series of discrete, manageable coding tasks. Each task builds incrementally on previous work, starting with core data structures and API endpoints, then building the UI components, and finally integrating real-time features and advanced functionality.
+This implementation plan converts the Test Environment UI design into a series of discrete, manageable coding tasks. Each task builds incrementally on previous work, starting with core data structures and API endpoints, then building the UI components, and finally integrating real-time features and advanced functionality.
 
 ## Implementation Tasks
 
 - [x] 1. Set up core data structures and API foundation
-  - Create TypeScript interfaces for environment allocation data models
-  - Extend existing API models to support allocation tracking
-  - Set up database schema extensions for allocation history
+  - Create TypeScript interfaces for test environment data models
+  - Extend existing API models to support environment tracking
+  - Set up database schema extensions for environment history
   - _Requirements: 1.1, 2.1, 5.1_
 
 - [x] 1.1 Write property test for environment data model validation
@@ -17,21 +17,21 @@ This implementation plan converts the Environment Allocation UI design into a se
   - **Validates: Requirements 1.1, 1.4, 3.1, 3.3**
 
 - [x] 2. Implement enhanced environment API endpoints
-  - Extend `/api/environments` endpoints with allocation tracking
-  - Create `/api/environments/allocation/*` endpoints for queue management
-  - Add real-time allocation event streaming via Server-Sent Events
+  - Extend `/api/environments` endpoints with environment tracking
+  - Create `/api/environments/management/*` endpoints for queue management
+  - Add real-time management event streaming via Server-Sent Events
   - Implement WebSocket endpoint for live environment updates
   - _Requirements: 8.1, 8.2, 8.3_
 
 - [x] 2.1 Write property test for API endpoint data consistency
-  - **Property 7: Allocation Queue Management Accuracy**
+  - **Property 7: Environment Queue Management Accuracy**
   - **Validates: Requirements 8.1, 8.2, 8.3, 8.4, 8.5**
 
 - [x] 3. Create core UI components structure
-  - Implement `EnvironmentAllocationDashboard` main container component
+  - Implement `EnvironmentManagementDashboard` main container component
   - Create `EnvironmentTable` component with basic environment display
   - Set up React Query integration for API data management
-  - Implement basic routing and navigation for environment allocation views
+  - Implement basic routing and navigation for environment management views
   - _Requirements: 1.1, 1.2_
 
 - [x] 3.1 Write property test for component rendering accuracy
@@ -61,7 +61,7 @@ This implementation plan converts the Environment Allocation UI design into a se
   - **Validates: Requirements 2.1, 2.2, 2.3, 7.1, 7.3**
 
 - [x] 6. Implement environment management controls
-  - Create environment action buttons (reset, maintenance, offline)
+  - Create environment action buttons (reset, maintenance, offline, cleanup)
   - Add environment creation form with hardware configuration options
   - Implement confirmation dialogs for destructive actions
   - Add manual cleanup triggers and progress indicators
@@ -71,15 +71,15 @@ This implementation plan converts the Environment Allocation UI design into a se
   - **Property 4: Environment Management Controls Functionality**
   - **Validates: Requirements 4.1, 4.2, 4.3, 4.4, 4.5**
 
-- [x] 7. Build allocation queue viewer and management
-  - Create `AllocationQueueViewer` component showing pending requests
+- [x] 7. Build environment queue viewer and management
+  - Create `EnvironmentQueueViewer` component showing pending requests
   - Implement queue position and estimated wait time calculations
   - Add priority management controls for queue reordering
   - Create visual indicators for queue status and progress
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
 - [x] 7.1 Write property test for queue management accuracy
-  - **Property 7: Allocation Queue Management Accuracy**
+  - **Property 7: Environment Queue Management Accuracy**
   - **Validates: Requirements 8.1, 8.2, 8.3, 8.4, 8.5**
 
 - [x] 8. Implement environment preference and requirements system
@@ -93,20 +93,20 @@ This implementation plan converts the Environment Allocation UI design into a se
   - **Property 6: Environment Preference Management Consistency**
   - **Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5**
 
-- [x] 9. Build allocation history and logging system
-  - Create allocation event logging and storage system
-  - Implement timeline view for allocation history
+- [x] 9. Build environment history and logging system
+  - Create environment event logging and storage system
+  - Implement timeline view for environment history
   - Add filtering and search capabilities for historical data
   - Create correlation display between issues and test executions
   - Add data export functionality (CSV/JSON)
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
 - [x] 9.1 Write property test for history and logging accuracy
-  - **Property 5: Allocation History and Logging Accuracy**
+  - **Property 5: Environment History and Logging Accuracy**
   - **Validates: Requirements 5.1, 5.2, 5.3, 5.4, 5.5**
 
 - [x] 10. Implement error handling and user feedback systems
-  - Create comprehensive error handling for allocation failures
+  - Create comprehensive error handling for management failures
   - Add clear error messages with suggested actions
   - Implement diagnostic access for troubleshooting
   - Create toast notifications and error banners
@@ -133,7 +133,7 @@ This implementation plan converts the Environment Allocation UI design into a se
   - **Validates: Requirements 2.5, 3.4, 3.5**
 
 - [x] 12. Integrate with existing ExecutionMonitor component
-  - Modify existing ExecutionMonitor to include environment allocation views
+  - Modify existing ExecutionMonitor to include environment management views
   - Add navigation between execution monitoring and environment management
   - Ensure consistent styling and user experience across components
   - Update routing and state management for integrated workflows
@@ -172,7 +172,7 @@ This implementation plan converts the Environment Allocation UI design into a se
 - [x] 15. Final integration and deployment preparation
   - Ensure all tests pass and code quality standards are met
   - Perform cross-browser compatibility testing
-  - Add monitoring and analytics for environment allocation usage
+  - Add monitoring and analytics for environment management usage
   - Prepare deployment configurations and documentation
   - _Requirements: All_
 

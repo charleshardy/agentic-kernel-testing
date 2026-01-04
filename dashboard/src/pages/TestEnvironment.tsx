@@ -3,10 +3,10 @@ import { useSearchParams } from 'react-router-dom'
 import EnvironmentManagementDashboard from '../components/EnvironmentManagementDashboard'
 
 /**
- * Environment Management page component
- * Provides a dedicated page for environment management monitoring and operations
+ * Test Environment page component
+ * Provides a dedicated page for test environment monitoring and operations
  */
-const EnvironmentManagement: React.FC = () => {
+const TestEnvironment: React.FC = () => {
   const [searchParams] = useSearchParams()
   const planId = searchParams.get('planId')
 
@@ -19,4 +19,4 @@ const EnvironmentManagement: React.FC = () => {
   )
 }
 
-export default EnvironmentManagement
+export default TestEnvironment
