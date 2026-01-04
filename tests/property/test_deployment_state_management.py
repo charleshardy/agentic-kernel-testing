@@ -419,3 +419,41 @@ if __name__ == "__main__":
     
     # Run the simple test
     run_simple_test()
+
+
+# Synchronous test runners for pytest
+def test_deployment_failure_handling_sync():
+    """Synchronous wrapper for the async property test"""
+    test_instance = TestDeploymentStateManagement()
+    
+    # Create a test deployment step with failure
+    step = DeploymentStep(
+        step_id="test_fail_step",
+        name="Test Failure Step",
+        status=DeploymentStatus.FAILED,
+        start_time=datetime.now(),
+        end_time=datetime.now(),
+        error_message="Test failure",
+        retry_count=2
+    )
+    
+    test_instance.test_deployment_step_state_consistency(step)
+
+
+def test_deployment_state_transitions_sync():
+    """Synchronous wrapper for the async property test"""
+    test_instance = TestDeploymentStateManagement()
+    
+    # Create a test deployment result
+    result = DeploymentResult(
+        deployment_id="test_state_deployment",
+        plan_id="test_plan",
+        environment_id="test_env",
+        status=DeploymentStatus.COMPLETED,
+        start_time=datetime.now(),
+        end_time=datetime.now(),
+        artifacts_deployed=3,
+        dependencies_installed=2
+    )
+    
+    test_instance.test_deployment_result_consistency(result)

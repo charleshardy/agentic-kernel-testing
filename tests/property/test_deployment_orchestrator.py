@@ -353,3 +353,48 @@ if __name__ == "__main__":
     
     # Run the simple test
     asyncio.run(run_simple_test())
+
+
+# Synchronous test runners for pytest
+def test_automatic_script_transfer_completeness_sync():
+    """Synchronous wrapper for the async property test"""
+    import asyncio
+    
+    async def run_test():
+        test_instance = TestDeploymentOrchestrator()
+        deployment_scenario = {
+            'plan_id': 'test_plan_123',
+            'env_id': 'test_env_456',
+            'artifacts': [
+                {
+                    'name': 'test_script.sh',
+                    'content': b'#!/bin/bash\necho "test"',
+                    'type': ArtifactType.SCRIPT
+                }
+            ]
+        }
+        await test_instance.test_automatic_script_transfer_completeness(deployment_scenario)
+    
+    asyncio.run(run_test())
+
+
+def test_deployment_failure_handling_sync():
+    """Synchronous wrapper for the async property test"""
+    import asyncio
+    
+    async def run_test():
+        test_instance = TestDeploymentOrchestrator()
+        deployment_scenario = {
+            'plan_id': 'test_plan_fail',
+            'env_id': 'test_env_fail',
+            'artifacts': [
+                {
+                    'name': 'fail_script.sh',
+                    'content': b'#!/bin/bash\nexit 1',
+                    'type': ArtifactType.SCRIPT
+                }
+            ]
+        }
+        await test_instance.test_deployment_failure_handling(deployment_scenario)
+    
+    asyncio.run(run_test())

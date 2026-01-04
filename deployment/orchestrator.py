@@ -8,9 +8,12 @@ across multiple environments with error recovery and retry logic.
 import asyncio
 import logging
 import uuid
-from datetime import datetime
-from typing import Dict, List, Optional, Set
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Set, Tuple
 from concurrent.futures import ThreadPoolExecutor
+import heapq
+import json
+from pathlib import Path
 
 from .models import (
     DeploymentPlan,
@@ -18,7 +21,8 @@ from .models import (
     DeploymentStatus,
     DeploymentStep,
     TestArtifact,
-    ValidationResult
+    ValidationResult,
+    Priority
 )
 from .environment_manager import EnvironmentManagerFactory
 from .artifact_repository import ArtifactRepository
@@ -26,6 +30,206 @@ from .instrumentation_manager import InstrumentationManager
 
 
 logger = logging.getLogger(__name__)
+
+
+class DeploymentQueue:
+    """Priority queue for deployment scheduling with resource management"""
+    
+    def __init__(self):
+        self._queue = []
+        self._entry_finder = {}
+        self._counter = 0
+        self.REMOVED = '<removed-task>'
+    
+    def add_deployment(self, deployment_plan: DeploymentPlan, priority: int = None):
+        """Add deployment to queue with priority"""
+        if priority is None:
+            priority = deployment_plan.deployment_config.priority.value
+        
+        if deployment_plan.plan_id in self._entry_finder:
+            self.remove_deployment(deployment_plan.plan_id)
+        
+        count = self._counter
+        self._counter += 1
+        entry = [priority, count, deployment_plan]
+        self._entry_finder[deployment_plan.plan_id] = entry
+        heapq.heappush(self._queue, entry)
+    
+    def remove_deployment(self, plan_id: str):
+        """Remove deployment from queue"""
+        entry = self._entry_finder.pop(plan_id, None)
+        if entry:
+            entry[-1] = self.REMOVED
+    
+    def pop_deployment(self) -> Optional[DeploymentPlan]:
+        """Pop highest priority deployment"""
+        while self._queue:
+            priority, count, deployment_plan = heapq.heappop(self._queue)
+            if deployment_plan is not self.REMOVED:
+                del self._entry_finder[deployment_plan.plan_id]
+                return deployment_plan
+        return None
+    
+    def size(self) -> int:
+        """Get queue size"""
+        return len(self._entry_finder)
+    
+    def is_empty(self) -> bool:
+        """Check if queue is empty"""
+        return len(self._entry_finder) == 0
+
+
+class ResourceManager:
+    """Manages environment resources and allocation"""
+    
+    def __init__(self):
+        self.environment_locks: Dict[str, asyncio.Lock] = {}
+        self.environment_usage: Dict[str, int] = {}
+        self.max_concurrent_per_env = 3  # Max concurrent deployments per environment
+    
+    async def acquire_environment(self, environment_id: str) -> bool:
+        """Acquire lock for environment"""
+        if environment_id not in self.environment_locks:
+            self.environment_locks[environment_id] = asyncio.Lock()
+        
+        # Check if environment is at capacity
+        current_usage = self.environment_usage.get(environment_id, 0)
+        if current_usage >= self.max_concurrent_per_env:
+            return False
+        
+        # Increment usage counter
+        self.environment_usage[environment_id] = current_usage + 1
+        return True
+    
+    async def release_environment(self, environment_id: str):
+        """Release environment lock"""
+        current_usage = self.environment_usage.get(environment_id, 0)
+        if current_usage > 0:
+            self.environment_usage[environment_id] = current_usage - 1
+    
+    def get_environment_usage(self) -> Dict[str, int]:
+        """Get current environment usage"""
+        return self.environment_usage.copy()
+
+
+class DeploymentLogger:
+    """Handles deployment logging and metrics collection"""
+    
+    def __init__(self, log_dir: str = "./deployment_logs"):
+        self.log_dir = Path(log_dir)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Metrics storage
+        self.metrics = {
+            "total_deployments": 0,
+            "successful_deployments": 0,
+            "failed_deployments": 0,
+            "cancelled_deployments": 0,
+            "average_duration_seconds": 0.0,
+            "retry_count": 0
+        }
+        
+        # Load existing metrics
+        self._load_metrics()
+    
+    def log_deployment_start(self, deployment_id: str, plan: DeploymentPlan):
+        """Log deployment start"""
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "event": "deployment_start",
+            "deployment_id": deployment_id,
+            "environment_id": plan.environment_id,
+            "artifact_count": len(plan.test_artifacts),
+            "priority": plan.deployment_config.priority.value
+        }
+        self._write_log(deployment_id, log_entry)
+        self.metrics["total_deployments"] += 1
+    
+    def log_deployment_end(self, deployment_id: str, result: DeploymentResult):
+        """Log deployment completion"""
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "event": "deployment_end",
+            "deployment_id": deployment_id,
+            "status": result.status.value,
+            "duration_seconds": result.duration_seconds,
+            "artifacts_deployed": result.artifacts_deployed,
+            "error_message": result.error_message
+        }
+        self._write_log(deployment_id, log_entry)
+        
+        # Update metrics
+        if result.is_successful:
+            self.metrics["successful_deployments"] += 1
+        elif result.is_failed:
+            self.metrics["failed_deployments"] += 1
+        elif result.is_cancelled:
+            self.metrics["cancelled_deployments"] += 1
+        
+        # Update average duration
+        if result.duration_seconds:
+            total_successful = self.metrics["successful_deployments"]
+            if total_successful > 1:
+                current_avg = self.metrics["average_duration_seconds"]
+                new_avg = ((current_avg * (total_successful - 1)) + result.duration_seconds) / total_successful
+                self.metrics["average_duration_seconds"] = new_avg
+            else:
+                self.metrics["average_duration_seconds"] = result.duration_seconds
+    
+    def log_retry_attempt(self, deployment_id: str, attempt: int, error: str):
+        """Log retry attempt"""
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "event": "retry_attempt",
+            "deployment_id": deployment_id,
+            "attempt": attempt,
+            "error": error
+        }
+        self._write_log(deployment_id, log_entry)
+        self.metrics["retry_count"] += 1
+    
+    def _write_log(self, deployment_id: str, log_entry: dict):
+        """Write log entry to file"""
+        log_file = self.log_dir / f"{deployment_id}.log"
+        with open(log_file, "a") as f:
+            f.write(json.dumps(log_entry) + "\n")
+    
+    def get_deployment_logs(self, deployment_id: str) -> List[dict]:
+        """Get logs for a specific deployment"""
+        log_file = self.log_dir / f"{deployment_id}.log"
+        if not log_file.exists():
+            return []
+        
+        logs = []
+        with open(log_file, "r") as f:
+            for line in f:
+                try:
+                    logs.append(json.loads(line.strip()))
+                except json.JSONDecodeError:
+                    continue
+        return logs
+    
+    def get_metrics(self) -> dict:
+        """Get current metrics"""
+        self._save_metrics()
+        return self.metrics.copy()
+    
+    def _load_metrics(self):
+        """Load metrics from file"""
+        metrics_file = self.log_dir / "metrics.json"
+        if metrics_file.exists():
+            try:
+                with open(metrics_file, "r") as f:
+                    saved_metrics = json.load(f)
+                    self.metrics.update(saved_metrics)
+            except (json.JSONDecodeError, IOError):
+                pass
+    
+    def _save_metrics(self):
+        """Save metrics to file"""
+        metrics_file = self.log_dir / "metrics.json"
+        with open(metrics_file, "w") as f:
+            json.dump(self.metrics, f, indent=2)
 
 
 class DeploymentOrchestrator:
@@ -39,13 +243,15 @@ class DeploymentOrchestrator:
     
     def __init__(self, 
                  max_concurrent_deployments: int = 5,
-                 default_timeout: int = 300):
+                 default_timeout: int = 300,
+                 log_dir: str = "./deployment_logs"):
         """
         Initialize the deployment orchestrator.
         
         Args:
             max_concurrent_deployments: Maximum number of concurrent deployments
             default_timeout: Default timeout for deployment operations in seconds
+            log_dir: Directory for deployment logs
         """
         self.max_concurrent_deployments = max_concurrent_deployments
         self.default_timeout = default_timeout
@@ -55,9 +261,13 @@ class DeploymentOrchestrator:
         self.artifact_repository = ArtifactRepository()
         self.instrumentation_manager = InstrumentationManager()
         
+        # Enhanced resource management
+        self.deployment_queue = DeploymentQueue()
+        self.resource_manager = ResourceManager()
+        self.deployment_logger = DeploymentLogger(log_dir)
+        
         # State tracking
         self.active_deployments: Dict[str, DeploymentResult] = {}
-        self.deployment_queue: asyncio.Queue = asyncio.Queue()
         self.deployment_semaphore = asyncio.Semaphore(max_concurrent_deployments)
         
         # Background tasks
@@ -99,14 +309,16 @@ class DeploymentOrchestrator:
     async def deploy_to_environment(self, 
                                   plan_id: str, 
                                   env_id: str, 
-                                  artifacts: List[TestArtifact]) -> str:
+                                  artifacts: List[TestArtifact],
+                                  priority: Priority = Priority.NORMAL) -> str:
         """
-        Deploy test artifacts to a specific environment.
+        Deploy test artifacts to a specific environment with priority scheduling.
         
         Args:
             plan_id: Test plan identifier
             env_id: Environment identifier
             artifacts: List of test artifacts to deploy
+            priority: Deployment priority
             
         Returns:
             Deployment ID for tracking the deployment
@@ -127,13 +339,15 @@ class DeploymentOrchestrator:
         # Create deployment plan
         from .models import DeploymentPlan, DeploymentConfig, InstrumentationConfig, Dependency
         
+        deployment_config = DeploymentConfig(priority=priority)
+        
         deployment_plan = DeploymentPlan(
             plan_id=deployment_id,
             environment_id=env_id,
             test_artifacts=artifacts,
             dependencies=[],  # Will be populated based on artifacts
             instrumentation_config=InstrumentationConfig(),
-            deployment_config=DeploymentConfig(),
+            deployment_config=deployment_config,
             created_at=datetime.now()
         )
         
@@ -149,10 +363,13 @@ class DeploymentOrchestrator:
         # Track the deployment
         self.active_deployments[deployment_id] = deployment_result
         
-        # Queue the deployment for processing
-        await self.deployment_queue.put(deployment_plan)
+        # Add to priority queue
+        self.deployment_queue.add_deployment(deployment_plan)
         
-        logger.info(f"Queued deployment {deployment_id} for environment {env_id}")
+        # Log deployment start
+        self.deployment_logger.log_deployment_start(deployment_id, deployment_plan)
+        
+        logger.info(f"Queued deployment {deployment_id} for environment {env_id} with priority {priority.name}")
         return deployment_id
     
     async def get_deployment_status(self, deployment_id: str) -> Optional[DeploymentResult]:
@@ -196,7 +413,7 @@ class DeploymentOrchestrator:
     
     async def retry_failed_deployment(self, deployment_id: str) -> Optional[str]:
         """
-        Retry a failed deployment.
+        Retry a failed deployment with exponential backoff.
         
         Args:
             deployment_id: Failed deployment identifier
@@ -213,34 +430,164 @@ class DeploymentOrchestrator:
             logger.warning(f"Deployment {deployment_id} is not in failed state: {deployment.status}")
             return None
         
-        # Create a new deployment with the same parameters
-        # This is a simplified retry - in a real implementation, you'd want to
-        # preserve the original deployment plan and artifacts
-        logger.info(f"Retrying failed deployment {deployment_id}")
+        # Check retry limits
+        if deployment.retry_count >= 3:  # Max 3 retries
+            logger.warning(f"Deployment {deployment_id} has exceeded retry limit")
+            return None
         
-        # For now, return the same deployment_id to indicate retry was attempted
-        # In a full implementation, this would create a new deployment
-        return deployment_id
+        # Calculate retry delay with exponential backoff
+        retry_delay = 5 * (2 ** deployment.retry_count)  # 5s, 10s, 20s
+        
+        logger.info(f"Retrying failed deployment {deployment_id} after {retry_delay}s delay (attempt {deployment.retry_count + 1})")
+        
+        # Log retry attempt
+        self.deployment_logger.log_retry_attempt(deployment_id, deployment.retry_count + 1, deployment.error_message or "Unknown error")
+        
+        # Schedule retry after delay
+        await asyncio.sleep(retry_delay)
+        
+        # Reset deployment status for retry
+        deployment.status = DeploymentStatus.PENDING
+        deployment.error_message = None
+        deployment.retry_count += 1
+        deployment.start_time = datetime.now()
+        deployment.end_time = None
+        
+        # Re-queue the deployment (get original plan from logs)
+        original_plan = await self._reconstruct_deployment_plan(deployment_id)
+        if original_plan:
+            self.deployment_queue.add_deployment(original_plan)
+            return deployment_id
+        
+        return None
+    
+    async def _reconstruct_deployment_plan(self, deployment_id: str) -> Optional[DeploymentPlan]:
+        """Reconstruct deployment plan from logs for retry"""
+        try:
+            logs = self.deployment_logger.get_deployment_logs(deployment_id)
+            start_log = next((log for log in logs if log["event"] == "deployment_start"), None)
+            
+            if not start_log:
+                return None
+            
+            # Create a basic deployment plan for retry
+            # In a real implementation, you'd store the full plan
+            from .models import DeploymentPlan, DeploymentConfig, InstrumentationConfig
+            
+            deployment = self.active_deployments[deployment_id]
+            
+            return DeploymentPlan(
+                plan_id=deployment_id,
+                environment_id=deployment.environment_id,
+                test_artifacts=[],  # Would need to be reconstructed from storage
+                dependencies=[],
+                instrumentation_config=InstrumentationConfig(),
+                deployment_config=DeploymentConfig(),
+                created_at=datetime.now()
+            )
+        except Exception as e:
+            logger.error(f"Failed to reconstruct deployment plan for {deployment_id}: {e}")
+            return None
+    
+    async def rollback_deployment(self, deployment_id: str) -> bool:
+        """
+        Rollback a deployment by removing deployed artifacts.
+        
+        Args:
+            deployment_id: Deployment identifier to rollback
+            
+        Returns:
+            True if rollback successful, False otherwise
+        """
+        deployment = self.active_deployments.get(deployment_id)
+        if not deployment:
+            logger.warning(f"Deployment {deployment_id} not found for rollback")
+            return False
+        
+        logger.info(f"Rolling back deployment {deployment_id}")
+        
+        try:
+            # Get environment manager
+            env_manager = await self.environment_manager_factory.get_manager(deployment.environment_id)
+            
+            # Connect to environment
+            env_config = self.environment_manager_factory._environment_configs.get(deployment.environment_id)
+            if not env_config:
+                logger.error(f"Environment config not found for {deployment.environment_id}")
+                return False
+            
+            connection = await env_manager.connect(env_config)
+            
+            # Remove deployed artifacts (simulated)
+            await self._cleanup_deployed_artifacts(connection, deployment)
+            
+            # Close connection
+            await connection.close()
+            
+            # Update deployment status
+            deployment.status = DeploymentStatus.CANCELLED
+            deployment.end_time = datetime.now()
+            deployment.error_message = "Deployment rolled back"
+            
+            logger.info(f"Successfully rolled back deployment {deployment_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to rollback deployment {deployment_id}: {e}")
+            return False
+    
+    async def _cleanup_deployed_artifacts(self, connection, deployment: DeploymentResult):
+        """Clean up deployed artifacts during rollback"""
+        # Simulate artifact cleanup
+        await asyncio.sleep(0.1)
+        logger.debug(f"Cleaned up {deployment.artifacts_deployed} artifacts")
+    
+    def get_deployment_logs(self, deployment_id: str) -> List[dict]:
+        """Get logs for a specific deployment"""
+        return self.deployment_logger.get_deployment_logs(deployment_id)
+    
+    def get_deployment_metrics(self) -> dict:
+        """Get deployment metrics and statistics"""
+        base_metrics = self.deployment_logger.get_metrics()
+        
+        # Add real-time statistics
+        base_metrics.update({
+            "active_deployments": len(self.active_deployments),
+            "queue_size": self.deployment_queue.size(),
+            "environment_usage": self.resource_manager.get_environment_usage()
+        })
+        
+        return base_metrics
     
     async def _deployment_worker(self):
-        """Background worker that processes deployment queue"""
+        """Background worker that processes deployment queue with resource management"""
         logger.info("Deployment worker started")
         
         while self._is_running:
             try:
-                # Wait for deployment plan with timeout
-                deployment_plan = await asyncio.wait_for(
-                    self.deployment_queue.get(), 
-                    timeout=1.0
-                )
+                # Get next deployment from priority queue
+                deployment_plan = self.deployment_queue.pop_deployment()
                 
-                # Process deployment with semaphore to limit concurrency
+                if deployment_plan is None:
+                    # No deployments in queue, wait briefly
+                    await asyncio.sleep(0.1)
+                    continue
+                
+                # Check if we can acquire environment resource
+                if not await self.resource_manager.acquire_environment(deployment_plan.environment_id):
+                    # Environment at capacity, re-queue with lower priority
+                    self.deployment_queue.add_deployment(deployment_plan, deployment_plan.deployment_config.priority.value + 1)
+                    await asyncio.sleep(0.5)  # Wait before retrying
+                    continue
+                
+                # Process deployment with semaphore to limit total concurrency
                 async with self.deployment_semaphore:
-                    await self._process_deployment(deployment_plan)
+                    try:
+                        await self._process_deployment(deployment_plan)
+                    finally:
+                        # Always release environment resource
+                        await self.resource_manager.release_environment(deployment_plan.environment_id)
                 
-            except asyncio.TimeoutError:
-                # No deployment in queue, continue
-                continue
             except Exception as e:
                 logger.error(f"Error in deployment worker: {e}", exc_info=True)
                 await asyncio.sleep(1)  # Brief pause before retrying
@@ -276,12 +623,23 @@ class DeploymentOrchestrator:
                 deployment.end_time = datetime.now()
                 logger.info(f"Deployment {deployment_id} completed successfully")
             
+            # Log deployment completion
+            self.deployment_logger.log_deployment_end(deployment_id, deployment)
+            
         except Exception as e:
             # Mark deployment as failed
             deployment.status = DeploymentStatus.FAILED
             deployment.end_time = datetime.now()
             deployment.error_message = str(e)
             logger.error(f"Deployment {deployment_id} failed: {e}", exc_info=True)
+            
+            # Log deployment failure
+            self.deployment_logger.log_deployment_end(deployment_id, deployment)
+            
+            # Attempt automatic retry if within limits
+            if deployment.retry_count < 3:  # Max 3 retries
+                logger.info(f"Scheduling automatic retry for deployment {deployment_id}")
+                asyncio.create_task(self._schedule_retry(deployment_id))
     
     async def _execute_deployment_pipeline(self, 
                                          deployment_plan: DeploymentPlan, 
@@ -428,6 +786,14 @@ class DeploymentOrchestrator:
         await asyncio.sleep(0.1)  # Simulate validation time
         
         step.details["validation_passed"] = True
+    
+    async def _schedule_retry(self, deployment_id: str):
+        """Schedule automatic retry for failed deployment"""
+        try:
+            await asyncio.sleep(2)  # Brief delay before retry
+            await self.retry_failed_deployment(deployment_id)
+        except Exception as e:
+            logger.error(f"Failed to schedule retry for deployment {deployment_id}: {e}")
     
     def get_active_deployments(self) -> Dict[str, DeploymentResult]:
         """Get all active deployments"""

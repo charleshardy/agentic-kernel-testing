@@ -701,3 +701,8 @@ class ValidationResult:
         failed_count = len(self.failed_checks)
         total_count = len(self.checks_performed)
         return ((total_count - failed_count) / total_count) * 100.0
+    
+    @property
+    def has_failures(self) -> bool:
+        """Check if there are any failed checks"""
+        return len(self.failed_checks) > 0
