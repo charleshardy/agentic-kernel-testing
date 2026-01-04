@@ -18,7 +18,6 @@ import {
   CloudServerOutlined,
 } from '@ant-design/icons'
 import { useDashboardStore } from '../../store'
-import webSocketService from '../../services/websocket'
 
 const { Header, Sider, Content } = Layout
 const { Text } = Typography
@@ -78,19 +77,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       label: 'Test Plans',
     },
     {
-      key: '/tests',
-      icon: <ExperimentOutlined />,
-      label: 'Test Execution',
-    },
-    {
-      key: '/execution-monitor',
-      icon: <BarChartOutlined />,
-      label: 'Execution Monitor',
-    },
-    {
       key: '/environment-management',
       icon: <CloudServerOutlined />,
       label: 'Environment Management',
+    },
+    {
+      key: '/tests',
+      icon: <ExperimentOutlined />,
+      label: 'Test Execution',
     },
     {
       key: '/results',
