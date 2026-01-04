@@ -63,7 +63,7 @@ export const useRealTimeUpdates = (options: UseRealTimeUpdatesOptions = {}) => {
           onEnvironmentUpdate?.(message.data.environment)
           
           // Invalidate and refetch environment data
-          queryClient.invalidateQueries(['environmentAllocation'])
+          queryClient.invalidateQueries(['environmentManagement'])
         }
         break
 
@@ -75,14 +75,14 @@ export const useRealTimeUpdates = (options: UseRealTimeUpdatesOptions = {}) => {
           onAllocationUpdate?.(message.data)
           
           // Invalidate allocation queue data
-          queryClient.invalidateQueries(['environmentAllocation'])
+          queryClient.invalidateQueries(['environmentManagement'])
         }
         break
 
       case 'resource_update':
         if (message.environment_id) {
           // Update specific environment resource data
-          queryClient.setQueryData(['environmentAllocation'], (oldData: any) => {
+          queryClient.setQueryData(['environmentManagement'], (oldData: any) => {
             if (!oldData?.environments) return oldData
             
             return {
@@ -120,7 +120,7 @@ export const useRealTimeUpdates = (options: UseRealTimeUpdatesOptions = {}) => {
       case 'queue_status':
         // Update queue status without full refetch
         if (message.data) {
-          queryClient.setQueryData(['environmentAllocation'], (oldData: any) => {
+          queryClient.setQueryData(['environmentManagement'], (oldData: any) => {
             if (!oldData) return oldData
             
             return {
@@ -140,7 +140,7 @@ export const useRealTimeUpdates = (options: UseRealTimeUpdatesOptions = {}) => {
           onAllocationEvent?.(message.data)
           
           // Add to allocation history
-          queryClient.setQueryData(['environmentAllocation'], (oldData: any) => {
+          queryClient.setQueryData(['environmentManagement'], (oldData: any) => {
             if (!oldData?.history) return oldData
             
             return {

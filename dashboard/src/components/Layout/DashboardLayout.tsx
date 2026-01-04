@@ -88,9 +88,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       label: 'Execution Monitor',
     },
     {
-      key: '/environment-allocation',
+      key: '/environment-management',
       icon: <CloudServerOutlined />,
-      label: 'Environment Allocation',
+      label: 'Environment Management',
     },
     {
       key: '/results',

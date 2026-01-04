@@ -2,13 +2,13 @@
  * TypeScript interfaces for Environment Allocation UI
  */
 
-export interface EnvironmentAllocationDashboardProps {
+export interface EnvironmentManagementDashboardProps {
   planId?: string
   autoRefresh?: boolean
   refreshInterval?: number
 }
 
-export interface EnvironmentAllocationState {
+export interface EnvironmentManagementState {
   environments: Environment[]
   allocationQueue: AllocationRequest[]
   resourceUtilization: ResourceMetrics[]
@@ -175,7 +175,7 @@ export interface ResourceMetric {
 }
 
 // API Response Types
-export interface EnvironmentAllocationResponse {
+export interface EnvironmentManagementResponse {
   environments: Environment[]
   queue: AllocationRequest[]
   resourceUtilization: ResourceMetrics[]

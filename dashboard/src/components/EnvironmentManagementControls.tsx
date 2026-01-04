@@ -111,6 +111,16 @@ const EnvironmentManagementControls: React.FC<EnvironmentManagementControlsProps
           >
             Take Offline
           </Button>
+          
+          <Button
+            icon={<DeleteOutlined />}
+            onClick={() => handleBulkAction('cleanup')}
+            disabled={selectedEnvironments.length === 0}
+            loading={isLoading}
+            type="default"
+          >
+            Cleanup Selected ({selectedEnvironments.length})
+          </Button>
         </Space>
       </Card>
 

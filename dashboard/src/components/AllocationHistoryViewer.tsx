@@ -54,7 +54,7 @@ const { RangePicker } = DatePicker
 const { Search } = Input
 const { Text, Title } = Typography
 
-interface AllocationHistoryViewerProps {
+interface EnvironmentHistoryViewerProps {
   autoRefresh?: boolean
   refreshInterval?: number
   planId?: string
@@ -86,7 +86,7 @@ interface AllocationAnalytics {
   queueWaitTimes: number[]
 }
 
-const AllocationHistoryViewer: React.FC<AllocationHistoryViewerProps> = ({
+const EnvironmentHistoryViewer: React.FC<EnvironmentHistoryViewerProps> = ({
   autoRefresh = true,
   refreshInterval = 5000,
   planId,
@@ -484,7 +484,7 @@ const AllocationHistoryViewer: React.FC<AllocationHistoryViewerProps> = ({
         title={
           <Space>
             <ClockCircleOutlined />
-            Allocation History
+            Environment History
             <Badge count={filteredHistory.length} showZero color="blue" />
             {autoRefresh && realTimeUpdates.isConnected && (
               <Tag color="green">Live Updates</Tag>
@@ -737,4 +737,4 @@ const AllocationHistoryViewer: React.FC<AllocationHistoryViewerProps> = ({
   )
 }
 
-export default AllocationHistoryViewer
+export default EnvironmentHistoryViewer

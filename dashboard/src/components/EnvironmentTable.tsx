@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { Table, Tag, Badge, Space, Progress, Tooltip, Button, Skeleton } from 'antd'
+import { Table, Tag, Badge, Space, Progress, Tooltip, Button, Skeleton, Dropdown, Menu } from 'antd'
 import { FixedSizeList as List } from 'react-window'
 import { 
   EyeOutlined, 
   SettingOutlined, 
   ReloadOutlined,
   ThunderboltOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  DeleteOutlined,
+  ToolOutlined,
+  ClearOutlined
 } from '@ant-design/icons'
 import { Environment, EnvironmentAction, EnvironmentFilter } from '../types/environment'
 import StatusChangeIndicator from './StatusChangeIndicator'
@@ -311,14 +314,34 @@ const EnvironmentTable: React.FC<EnvironmentTableProps> = ({
             />
           </Tooltip>
           <Tooltip title="Quick Actions">
-            <Button 
-              size="small" 
-              icon={<SettingOutlined />} 
-              onClick={(e) => {
-                e.stopPropagation()
-                // Show quick actions menu
-              }}
-            />
+            <Dropdown
+              overlay={
+                <Menu onClick={({ key }) => {
+                  onEnvironmentAction(env.id, { type: key as any })
+                }}>
+                  <Menu.Item key="reset" icon={<ReloadOutlined />}>
+                    Reset Environment
+                  </Menu.Item>
+                  <Menu.Item key="cleanup" icon={<ClearOutlined />}>
+                    Cleanup Environment
+                  </Menu.Item>
+                  <Menu.Item key="maintenance" icon={<ToolOutlined />}>
+                    Maintenance Mode
+                  </Menu.Item>
+                  <Menu.Divider />
+                  <Menu.Item key="offline" icon={<DeleteOutlined />} danger>
+                    Take Offline
+                  </Menu.Item>
+                </Menu>
+              }
+              trigger={['click']}
+            >
+              <Button 
+                size="small" 
+                icon={<SettingOutlined />} 
+                onClick={(e) => e.stopPropagation()}
+              />
+            </Dropdown>
           </Tooltip>
         </Space>
       )

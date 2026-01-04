@@ -12,7 +12,7 @@ import { QueryClient, QueryClientProvider } from 'react-query'
 import { BrowserRouter } from 'react-router-dom'
 import '@testing-library/jest-dom'
 
-import EnvironmentAllocationDashboard from '../EnvironmentAllocationDashboard'
+import EnvironmentManagementDashboard from '../EnvironmentManagementDashboard'
 import { 
   Environment, 
   EnvironmentType, 
@@ -170,7 +170,7 @@ const mockAllocationData = {
   }
 }
 
-describe('EnvironmentAllocationDashboard Component', () => {
+describe('EnvironmentManagementDashboard Component', () => {
   let apiService: any
 
   beforeEach(() => {

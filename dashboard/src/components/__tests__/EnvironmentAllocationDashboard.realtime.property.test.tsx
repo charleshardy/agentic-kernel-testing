@@ -12,7 +12,7 @@ import { BrowserRouter } from 'react-router-dom'
 import fc from 'fast-check'
 import '@testing-library/jest-dom'
 
-import EnvironmentAllocationDashboard from '../EnvironmentAllocationDashboard'
+import EnvironmentManagementDashboard from '../EnvironmentManagementDashboard'
 import { 
   Environment, 
   EnvironmentType, 
@@ -225,7 +225,7 @@ describe('Real-time Environment Status Update Consistency', () => {
           // Render the dashboard
           const { rerender } = render(
             <TestWrapper>
-              <EnvironmentAllocationDashboard autoRefresh={true} refreshInterval={1000} />
+              <EnvironmentManagementDashboard autoRefresh={true} refreshInterval={1000} />
             </TestWrapper>
           )
 
@@ -301,7 +301,7 @@ describe('Real-time Environment Status Update Consistency', () => {
 
           render(
             <TestWrapper>
-              <EnvironmentAllocationDashboard autoRefresh={true} refreshInterval={500} />
+              <EnvironmentManagementDashboard autoRefresh={true} refreshInterval={500} />
             </TestWrapper>
           )
 
@@ -371,7 +371,7 @@ describe('Real-time Environment Status Update Consistency', () => {
 
           render(
             <TestWrapper>
-              <EnvironmentAllocationDashboard autoRefresh={true} refreshInterval={1000} />
+              <EnvironmentManagementDashboard autoRefresh={true} refreshInterval={1000} />
             </TestWrapper>
           )
 
@@ -419,7 +419,7 @@ describe('Real-time Environment Status Update Consistency', () => {
 
           render(
             <TestWrapper>
-              <EnvironmentAllocationDashboard autoRefresh={true} refreshInterval={1000} />
+              <EnvironmentManagementDashboard autoRefresh={true} refreshInterval={1000} />
             </TestWrapper>
           )
 

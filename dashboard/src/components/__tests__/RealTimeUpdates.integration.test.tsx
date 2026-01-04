@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from 'react-query'
 import { BrowserRouter } from 'react-router-dom'
 import '@testing-library/jest-dom'
 
-import EnvironmentAllocationDashboard from '../EnvironmentAllocationDashboard'
+import EnvironmentManagementDashboard from '../EnvironmentManagementDashboard'
 import { EnvironmentStatus, EnvironmentType, EnvironmentHealth } from '../../types/environment'
 
 // Mock the API service

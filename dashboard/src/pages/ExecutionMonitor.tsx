@@ -34,7 +34,7 @@ import {
 import { useQuery } from 'react-query'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
-import EnvironmentAllocationDashboard from '../components/EnvironmentAllocationDashboard'
+import EnvironmentManagementDashboard from '../components/EnvironmentManagementDashboard'
 
 const { Title, Text } = Typography
 
@@ -368,8 +368,8 @@ const ExecutionMonitor: React.FC = () => {
   const overallProgress = (completedStages / totalStages) * 100
 
   // Navigation helper functions
-  const navigateToEnvironmentAllocation = () => {
-    const url = planId ? `/environment-allocation?planId=${planId}` : '/environment-allocation'
+  const navigateToEnvironmentManagement = () => {
+    const url = planId ? `/environment-management?planId=${planId}` : '/environment-management'
     navigate(url)
   }
 
@@ -417,7 +417,7 @@ const ExecutionMonitor: React.FC = () => {
         <Space>
           <Button
             icon={<SwapOutlined />}
-            onClick={navigateToEnvironmentAllocation}
+            onClick={navigateToEnvironmentManagement}
             type="default"
           >
             Environment View
@@ -703,7 +703,7 @@ const ExecutionMonitor: React.FC = () => {
               </Space>
             ),
             children: (
-              <EnvironmentAllocationDashboard
+              <EnvironmentManagementDashboard
                 planId={planId || undefined}
                 autoRefresh={autoRefresh}
                 refreshInterval={2000}

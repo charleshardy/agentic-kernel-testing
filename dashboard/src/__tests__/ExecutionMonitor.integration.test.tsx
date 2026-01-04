@@ -13,9 +13,9 @@ jest.useFakeTimers()
 jest.mock('../services/api')
 const mockApiService = apiService as jest.Mocked<typeof apiService>
 
-// Mock the EnvironmentAllocationDashboard component with proper cleanup
-jest.mock('../components/EnvironmentAllocationDashboard', () => {
-  return function MockEnvironmentAllocationDashboard({ planId, autoRefresh }: any) {
+// Mock the EnvironmentManagementDashboard component with proper cleanup
+jest.mock('../components/EnvironmentManagementDashboard', () => {
+  return function MockEnvironmentManagementDashboard({ planId, autoRefresh }: any) {
     const [mounted, setMounted] = React.useState(true)
     
     React.useEffect(() => {

@@ -12,7 +12,7 @@ import { BrowserRouter } from 'react-router-dom'
 import fc from 'fast-check'
 import '@testing-library/jest-dom'
 
-import EnvironmentAllocationDashboard from '../EnvironmentAllocationDashboard'
+import EnvironmentManagementDashboard from '../EnvironmentManagementDashboard'
 import EnvironmentTable from '../EnvironmentTable'
 import { 
   Environment, 
@@ -106,7 +106,7 @@ describe('Environment Allocation UI Component Rendering Accuracy', () => {
         // Render the dashboard component
         const { container } = render(
           <TestWrapper>
-            <EnvironmentAllocationDashboard />
+            <EnvironmentManagementDashboard />
           </TestWrapper>
         )
 

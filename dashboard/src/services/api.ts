@@ -598,8 +598,8 @@ class APIService {
     return response.data.data!
   }
 
-  // Environment Allocation API endpoints
-  async getEnvironmentAllocation(): Promise<any> {
+  // Environment Management API endpoints
+  async getEnvironmentManagement(): Promise<any> {
     try {
       const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/allocation')
       return response.data.data!
@@ -759,7 +759,7 @@ class APIService {
     }
   }
 
-  async getEnvironmentAllocationQueue(): Promise<any> {
+  async getEnvironmentQueue(): Promise<any> {
     try {
       const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/allocation/queue')
       return response.data.data!
@@ -853,7 +853,7 @@ class APIService {
     return { events: events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) }
   }
 
-  async getEnvironmentAllocationHistory(params?: {
+  async getEnvironmentHistory(params?: {
     page?: number
     page_size?: number
     event_type?: string

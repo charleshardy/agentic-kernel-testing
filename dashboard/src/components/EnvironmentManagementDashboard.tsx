@@ -15,8 +15,8 @@ import { useNavigate } from 'react-router-dom'
 import EnvironmentTable from './EnvironmentTable'
 import ResourceUtilizationCharts from './ResourceUtilizationCharts'
 import EnvironmentManagementControls, { EnvironmentCreationConfig } from './EnvironmentManagementControls'
-import AllocationQueueViewer from './AllocationQueueViewer'
-import AllocationHistoryViewer from './AllocationHistoryViewer'
+import EnvironmentQueueViewer from './AllocationQueueViewer'
+import EnvironmentHistoryViewer from './AllocationHistoryViewer'
 import EnvironmentPreferenceModal from './EnvironmentPreferenceModal'
 import ConnectionStatus from './ConnectionStatus'
 import DiagnosticPanel from './DiagnosticPanel'
@@ -25,8 +25,8 @@ import apiService from '../services/api'
 import useRealTimeUpdates from '../hooks/useRealTimeUpdates'
 import useErrorHandling from '../hooks/useErrorHandling'
 import { 
-  EnvironmentAllocationDashboardProps, 
-  EnvironmentAllocationState,
+  EnvironmentManagementDashboardProps, 
+  EnvironmentManagementState,
   Environment,
   AllocationRequest,
   EnvironmentAction,
@@ -40,16 +40,16 @@ import { ErrorCategory } from '../types/errors'
 const { Title, Text } = Typography
 
 /**
- * Main container component for Environment Allocation UI
- * Orchestrates all environment allocation views and provides real-time updates
+ * Main container component for Environment Management UI
+ * Orchestrates all environment management views and provides real-time updates
  */
-const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardProps> = ({
+const EnvironmentManagementDashboard: React.FC<EnvironmentManagementDashboardProps> = ({
   planId,
   autoRefresh = true,
   refreshInterval = 2000
 }) => {
   const navigate = useNavigate()
-  const [state, setState] = useState<EnvironmentAllocationState>({
+  const [state, setState] = useState<EnvironmentManagementState>({
     environments: [],
     allocationQueue: [],
     resourceUtilization: [],
@@ -76,7 +76,7 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
     lastError
   } = useErrorHandling({
     onError: (error) => {
-      console.error('Environment Allocation Dashboard Error:', error)
+      console.error('Environment Management Dashboard Error:', error)
     },
     autoRetry: true,
     fallbackData: {
@@ -127,20 +127,20 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
     onConnectionHealthChange: undefined // Disabled since WebSocket/SSE are disabled
   })
 
-  // Fetch environment allocation data with real-time updates and error handling
+  // Fetch environment management data with real-time updates and error handling
   const { 
     data: allocationData, 
     isLoading, 
     error, 
     refetch 
   } = useQuery(
-    ['environmentAllocation', planId],
+    ['environmentManagement', planId],
     () => withErrorHandling(
-      () => apiService.getEnvironmentAllocation(),
+      () => apiService.getEnvironmentManagement(),
       { 
-        operation: 'fetch_environment_allocation',
+        operation: 'fetch_environment_management',
         planId,
-        endpoint: '/api/environments/allocation'
+        endpoint: '/api/environments/management'
       }
     ),
     {
@@ -159,7 +159,7 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
         }
       },
       onError: (error: any) => {
-        handleApiError(error, '/api/environments/allocation')
+        handleApiError(error, '/api/environments/management')
       }
     }
   )
@@ -326,13 +326,13 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
         
         notification.success({
           message: 'Data Refreshed',
-          description: 'Environment allocation data has been updated',
+          description: 'Environment management data has been updated',
           duration: 2
         })
       },
       {
         operation: 'manual_refresh',
-        endpoint: '/api/environments/allocation'
+        endpoint: '/api/environments/management'
       }
     )
   }, [refetch, realTimeUpdates, withErrorHandling])
@@ -350,7 +350,7 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
 
   if (error && !hasErrors) {
     // Handle query errors that weren't caught by our error handling
-    const errorDetails = handleApiError(error, '/api/environments/allocation')
+    const errorDetails = handleApiError(error, '/api/environments/management')
     
     return (
       <div style={{ padding: '24px' }}>
@@ -358,7 +358,7 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
           message="Failed to Load Environment Data"
           description={
             <div>
-              <p>Unable to fetch environment allocation information.</p>
+              <p>Unable to fetch environment management information.</p>
               {errorDetails.suggestedActions && errorDetails.suggestedActions.length > 0 && (
                 <div style={{ marginTop: 8 }}>
                   <strong>Suggested actions:</strong>
@@ -404,7 +404,7 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
         <div>
           <Title level={2}>
             <CloudServerOutlined style={{ marginRight: 8 }} />
-            Environment Allocation
+            Environment Management
           </Title>
           <Text type="secondary">
             Real-time monitoring and management of test execution environments
@@ -473,7 +473,7 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
         <div style={{ textAlign: 'center', padding: '60px' }}>
           <Spin size="large" />
           <div style={{ marginTop: 16 }}>
-            <Text>Loading environment allocation data...</Text>
+            <Text>Loading environment management data...</Text>
           </div>
         </div>
       )}
@@ -560,7 +560,6 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
           </Card>
         </Col>
 
-        {/* Additional components will be added in future tasks */}
         {/* Resource Utilization Charts */}
         <Col span={24}>
           <ResourceUtilizationCharts
@@ -579,9 +578,9 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
           />
         </Col>
 
-        {/* Allocation Queue Viewer */}
+        {/* Environment Queue Viewer */}
         <Col span={24}>
-          <AllocationQueueViewer
+          <EnvironmentQueueViewer
             queue={state.allocationQueue}
             estimatedWaitTimes={new Map(
               state.allocationQueue.map(req => [
@@ -614,7 +613,7 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
               refetch()
               notification.info({
                 message: 'Queue Refreshed',
-                description: 'Allocation queue data has been updated',
+                description: 'Environment queue data has been updated',
                 duration: 2
               })
             }}
@@ -627,10 +626,10 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
         </Col>
       </Row>
 
-      {/* Allocation History */}
+      {/* Environment History */}
       <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
         <Col span={24}>
-          <AllocationHistoryViewer
+          <EnvironmentHistoryViewer
             autoRefresh={autoRefresh}
             refreshInterval={refreshInterval}
           />
@@ -718,4 +717,4 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
   )
 }
 
-export default EnvironmentAllocationDashboard
+export default EnvironmentManagementDashboard

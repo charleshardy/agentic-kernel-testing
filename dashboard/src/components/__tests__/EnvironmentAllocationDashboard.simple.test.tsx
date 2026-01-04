@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from 'react-query'
 import { BrowserRouter } from 'react-router-dom'
 import '@testing-library/jest-dom'
 
-import EnvironmentAllocationDashboard from '../EnvironmentAllocationDashboard'
+import EnvironmentManagementDashboard from '../EnvironmentManagementDashboard'
 import EnvironmentTable from '../EnvironmentTable'
 import { EnvironmentType, EnvironmentStatus, EnvironmentHealth } from '../../types/environment'
 
@@ -41,10 +41,10 @@ const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 }
 
 describe('Environment Allocation Components', () => {
-  test('EnvironmentAllocationDashboard renders without crashing', () => {
+  test('EnvironmentManagementDashboard renders without crashing', () => {
     render(
       <TestWrapper>
-        <EnvironmentAllocationDashboard />
+        <EnvironmentManagementDashboard />
       </TestWrapper>
     )
   })

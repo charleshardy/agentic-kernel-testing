@@ -46,7 +46,7 @@ import { AllocationRequest, AllocationStatus, EnvironmentType } from '../types/e
 const { Search } = Input
 const { Text, Title } = Typography
 
-interface AllocationQueueViewerProps {
+interface EnvironmentQueueViewerProps {
   queue: AllocationRequest[]
   estimatedWaitTimes: Map<string, number>
   onPriorityChange: (requestId: string, priority: number) => void
@@ -60,7 +60,7 @@ interface AllocationQueueViewerProps {
   showQueueAnalytics?: boolean
 }
 
-const AllocationQueueViewer: React.FC<AllocationQueueViewerProps> = ({
+const EnvironmentQueueViewer: React.FC<EnvironmentQueueViewerProps> = ({
   queue,
   estimatedWaitTimes,
   onPriorityChange,
@@ -540,7 +540,7 @@ const AllocationQueueViewer: React.FC<AllocationQueueViewerProps> = ({
       title={
         <Space>
           <ClockCircleOutlined />
-          <Title level={4} style={{ margin: 0 }}>Allocation Queue</Title>
+          <Title level={4} style={{ margin: 0 }}>Environment Queue</Title>
           <Badge count={queueAnalytics.totalRequests} showZero color="blue" />
           {realTimeUpdates && (
             <Tooltip title="Live updates enabled">
@@ -888,4 +888,4 @@ const AllocationQueueViewer: React.FC<AllocationQueueViewerProps> = ({
   )
 }
 
-export default AllocationQueueViewer
+export default EnvironmentQueueViewer
