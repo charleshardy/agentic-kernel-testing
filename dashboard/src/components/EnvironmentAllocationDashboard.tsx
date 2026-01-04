@@ -5,7 +5,8 @@ import {
   ReloadOutlined, 
   EyeOutlined,
   SettingOutlined,
-  WifiOutlined
+  WifiOutlined,
+  BugOutlined
 } from '@ant-design/icons'
 import { useQuery } from 'react-query'
 import EnvironmentTable from './EnvironmentTable'
@@ -15,8 +16,11 @@ import AllocationQueueViewer from './AllocationQueueViewer'
 import AllocationHistoryViewer from './AllocationHistoryViewer'
 import EnvironmentPreferenceModal from './EnvironmentPreferenceModal'
 import ConnectionStatus from './ConnectionStatus'
+import DiagnosticPanel from './DiagnosticPanel'
+import CapacityIndicator from './CapacityIndicator'
 import apiService from '../services/api'
 import useRealTimeUpdates from '../hooks/useRealTimeUpdates'
+import useErrorHandling from '../hooks/useErrorHandling'
 import { 
   EnvironmentAllocationDashboardProps, 
   EnvironmentAllocationState,
@@ -28,6 +32,7 @@ import {
   HardwareRequirements,
   AllocationPreferences
 } from '../types/environment'
+import { ErrorCategory } from '../types/errors'
 
 const { Title, Text } = Typography
 
@@ -53,6 +58,30 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
   const [lastStatusUpdate, setLastStatusUpdate] = useState<Date | null>(null)
   const [selectedEnvironments, setSelectedEnvironments] = useState<Environment[]>([])
   const [preferenceModalVisible, setPreferenceModalVisible] = useState(false)
+  const [diagnosticPanelVisible, setDiagnosticPanelVisible] = useState(false)
+
+  // Error handling hook
+  const {
+    handleApiError,
+    handleWebSocketError,
+    withErrorHandling,
+    createAllocationError,
+    createEnvironmentError,
+    createNetworkError,
+    hasErrors,
+    lastError
+  } = useErrorHandling({
+    onError: (error) => {
+      console.error('Environment Allocation Dashboard Error:', error)
+    },
+    autoRetry: true,
+    fallbackData: {
+      environments: [],
+      queue: [],
+      resourceUtilization: [],
+      history: []
+    }
+  })
 
   // Real-time updates hook
   const realTimeUpdates = useRealTimeUpdates({
@@ -95,6 +124,15 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
       console.log('🔄 Connection health changed:', health)
       
       if (health === 'disconnected') {
+        const error = createNetworkError(
+          'WEBSOCKET_DISCONNECTED',
+          'Real-time connection lost',
+          undefined,
+          undefined,
+          { connectionType: 'websocket', health }
+        )
+        // Error will be handled by the notification system
+        
         notification.warning({
           message: 'Real-time Connection Lost',
           description: 'Live updates are unavailable. Data will be refreshed periodically.',
@@ -109,10 +147,10 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
           placement: 'topRight'
         })
       }
-    }, [])
+    }, [createNetworkError])
   })
 
-  // Fetch environment allocation data with real-time updates
+  // Fetch environment allocation data with real-time updates and error handling
   const { 
     data: allocationData, 
     isLoading, 
@@ -120,18 +158,31 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
     refetch 
   } = useQuery(
     ['environmentAllocation', planId],
-    () => apiService.getEnvironmentAllocation(),
+    () => withErrorHandling(
+      () => apiService.getEnvironmentAllocation(),
+      { 
+        operation: 'fetch_environment_allocation',
+        planId,
+        endpoint: '/api/environments/allocation'
+      }
+    ),
     {
       refetchInterval: isAutoRefresh && realTimeUpdates.connectionHealth !== 'healthy' ? refreshInterval : false,
       refetchOnWindowFocus: true,
       onSuccess: (data) => {
-        setState(prev => ({
-          ...prev,
-          environments: data?.environments || [],
-          allocationQueue: data?.queue || [],
-          resourceUtilization: data?.resourceUtilization || [],
-          allocationHistory: data?.history || []
-        }))
+        if (data) {
+          setState(prev => ({
+            ...prev,
+            environments: data.environments || [],
+            allocationQueue: data.queue || [],
+            resourceUtilization: data.resourceUtilization || [],
+            allocationHistory: data.history || [],
+            capacityMetrics: data.capacityMetrics
+          }))
+        }
+      },
+      onError: (error: any) => {
+        handleApiError(error, '/api/environments/allocation')
       }
     }
   )
@@ -157,82 +208,151 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
     }
   }
 
-  // Handle environment actions (reset, maintenance, etc.)
+  // Handle environment actions (reset, maintenance, etc.) with error handling
   const handleEnvironmentAction = async (envId: string, action: EnvironmentAction) => {
-    try {
-      await apiService.performEnvironmentAction(envId, action)
-      // Refresh data after action
-      refetch()
-    } catch (error) {
-      console.error('Failed to perform environment action:', error)
-      throw error // Re-throw to let the management controls handle the error
-    }
+    return withErrorHandling(
+      async () => {
+        await apiService.performEnvironmentAction(envId, action)
+        // Refresh data after action
+        refetch()
+        
+        notification.success({
+          message: 'Environment Action Completed',
+          description: `Successfully performed ${action.type} on environment ${envId.slice(0, 8)}...`,
+          duration: 3
+        })
+      },
+      {
+        operation: 'environment_action',
+        environmentId: envId,
+        actionType: action.type,
+        endpoint: `/api/environments/${envId}/actions/${action.type}`
+      }
+    )
   }
 
-  // Handle bulk environment actions
+  // Handle bulk environment actions with error handling
   const handleBulkEnvironmentAction = async (envIds: string[], action: EnvironmentAction) => {
-    try {
-      await apiService.performBulkEnvironmentAction(envIds, action)
-      // Refresh data after action
-      refetch()
-      // Clear selection after successful bulk action
-      setSelectedEnvironments([])
-    } catch (error) {
-      console.error('Failed to perform bulk environment action:', error)
-      throw error // Re-throw to let the management controls handle the error
-    }
+    return withErrorHandling(
+      async () => {
+        await apiService.performBulkEnvironmentAction(envIds, action)
+        // Refresh data after action
+        refetch()
+        // Clear selection after successful bulk action
+        setSelectedEnvironments([])
+        
+        notification.success({
+          message: 'Bulk Environment Action Completed',
+          description: `Successfully performed ${action.type} on ${envIds.length} environments`,
+          duration: 3
+        })
+      },
+      {
+        operation: 'bulk_environment_action',
+        environmentIds: envIds,
+        actionType: action.type,
+        endpoint: `/api/environments/bulk-actions/${action.type}`
+      }
+    )
   }
 
-  // Handle environment creation
+  // Handle environment creation with error handling
   const handleCreateEnvironment = async (config: EnvironmentCreationConfig) => {
-    try {
-      await apiService.createEnvironment(config)
-      // Refresh data after creation
-      refetch()
-    } catch (error) {
-      console.error('Failed to create environment:', error)
-      throw error // Re-throw to let the management controls handle the error
-    }
+    return withErrorHandling(
+      async () => {
+        const result = await apiService.createEnvironment(config)
+        // Refresh data after creation
+        refetch()
+        
+        notification.success({
+          message: 'Environment Created',
+          description: `Successfully created ${config.type} environment with ${config.cpuCores} cores and ${config.memoryMB}MB memory`,
+          duration: 4
+        })
+        
+        return result
+      },
+      {
+        operation: 'create_environment',
+        environmentConfig: config,
+        endpoint: '/api/environments'
+      }
+    )
   }
 
-  // Handle allocation request priority change
+  // Handle allocation request priority change with error handling
   const handleAllocationPriorityChange = useCallback(async (requestId: string, priority: number) => {
-    try {
-      await apiService.updateAllocationRequestPriority(requestId, priority)
-      // Refresh data after priority change
-      refetch()
-    } catch (error) {
-      console.error('Failed to update allocation request priority:', error)
-      throw error
-    }
-  }, [refetch])
+    return withErrorHandling(
+      async () => {
+        await apiService.updateAllocationRequestPriority(requestId, priority)
+        // Refresh data after priority change
+        refetch()
+        
+        notification.success({
+          message: 'Priority Updated',
+          description: `Allocation request priority updated to ${priority}`,
+          duration: 3
+        })
+      },
+      {
+        operation: 'update_allocation_priority',
+        requestId,
+        priority,
+        endpoint: `/api/environments/allocation/request/${requestId}`
+      }
+    )
+  }, [refetch, withErrorHandling])
 
-  // Handle bulk allocation request cancellation
+  // Handle bulk allocation request cancellation with error handling
   const handleBulkAllocationCancel = useCallback(async (requestIds: string[]) => {
-    try {
-      await apiService.bulkCancelAllocationRequests(requestIds)
-      // Refresh data after cancellation
-      refetch()
-    } catch (error) {
-      console.error('Failed to cancel allocation requests:', error)
-      throw error
-    }
-  }, [refetch])
+    return withErrorHandling(
+      async () => {
+        await apiService.bulkCancelAllocationRequests(requestIds)
+        // Refresh data after cancellation
+        refetch()
+        
+        notification.success({
+          message: 'Allocation Requests Cancelled',
+          description: `Successfully cancelled ${requestIds.length} allocation requests`,
+          duration: 3
+        })
+      },
+      {
+        operation: 'bulk_cancel_allocation',
+        requestIds,
+        endpoint: '/api/environments/allocation/bulk-cancel'
+      }
+    )
+  }, [refetch, withErrorHandling])
 
   // Toggle auto-refresh
   const toggleAutoRefresh = () => {
     setIsAutoRefresh(!isAutoRefresh)
   }
 
-  // Manual refresh with real-time connection check
+  // Manual refresh with real-time connection check and error handling
   const handleManualRefresh = useCallback(() => {
-    refetch()
-    
-    // Also reconnect real-time connections if they're not healthy
-    if (realTimeUpdates.connectionHealth !== 'healthy') {
-      realTimeUpdates.reconnectAll()
-    }
-  }, [refetch, realTimeUpdates])
+    withErrorHandling(
+      async () => {
+        await refetch()
+        
+        // Also reconnect real-time connections if they're not healthy
+        if (realTimeUpdates.connectionHealth !== 'healthy') {
+          realTimeUpdates.reconnectAll()
+        }
+        
+        notification.success({
+          message: 'Data Refreshed',
+          description: 'Environment allocation data has been updated',
+          duration: 2
+        })
+      },
+      {
+        operation: 'manual_refresh',
+        endpoint: '/api/environments/allocation'
+      }
+    )
+  }, [refetch, realTimeUpdates, withErrorHandling])
 
   // Get connection status for display
   const getConnectionStatusText = () => {
@@ -245,18 +365,44 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
     }
   }
 
-  if (error) {
+  if (error && !hasErrors) {
+    // Handle query errors that weren't caught by our error handling
+    const errorDetails = handleApiError(error, '/api/environments/allocation')
+    
     return (
       <div style={{ padding: '24px' }}>
         <Alert
           message="Failed to Load Environment Data"
-          description="Unable to fetch environment allocation information. Please check your connection and try again."
+          description={
+            <div>
+              <p>Unable to fetch environment allocation information.</p>
+              {errorDetails.suggestedActions && errorDetails.suggestedActions.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <strong>Suggested actions:</strong>
+                  <ul style={{ marginTop: 4, marginBottom: 0 }}>
+                    {errorDetails.suggestedActions.map(action => (
+                      <li key={action.id}>{action.description}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          }
           type="error"
           showIcon
           action={
-            <Button size="small" onClick={() => refetch()}>
-              Retry
-            </Button>
+            <Space>
+              <Button size="small" onClick={() => refetch()}>
+                Retry
+              </Button>
+              <Button 
+                size="small" 
+                icon={<BugOutlined />}
+                onClick={() => setDiagnosticPanelVisible(true)}
+              >
+                Diagnostics
+              </Button>
+            </Space>
           }
         />
       </div>
@@ -318,6 +464,14 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
           >
             Environment Preferences
           </Button>
+          <Button
+            icon={<BugOutlined />}
+            onClick={() => setDiagnosticPanelVisible(true)}
+            type={hasErrors ? 'primary' : 'default'}
+            danger={hasErrors}
+          >
+            Diagnostics {hasErrors && `(${lastError?.severity})`}
+          </Button>
         </Space>
       </div>
 
@@ -333,6 +487,17 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
 
       {/* Main Content */}
       <Row gutter={[24, 24]}>
+        {/* System Capacity Overview */}
+        {state.capacityMetrics && (
+          <Col span={24}>
+            <CapacityIndicator
+              capacityMetrics={state.capacityMetrics}
+              showDetails={true}
+              size="default"
+            />
+          </Col>
+        )}
+
         {/* Environment Management Controls */}
         <Col span={24}>
           <EnvironmentManagementControls
@@ -466,14 +631,55 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
         testId={planId}
         availableEnvironments={state.environments}
         onApplyPreferences={(requirements, preferences) => {
-          // Handle preference application
-          console.log('Applied preferences:', { requirements, preferences })
-          notification.success({
-            message: 'Preferences Applied',
-            description: 'Environment preferences have been saved and will be used for future allocations.'
-          })
+          // Handle preference application with error handling
+          withErrorHandling(
+            async () => {
+              // This would typically save preferences via API
+              console.log('Applied preferences:', { requirements, preferences })
+              
+              notification.success({
+                message: 'Preferences Applied',
+                description: 'Environment preferences have been saved and will be used for future allocations.'
+              })
+            },
+            {
+              operation: 'apply_preferences',
+              requirements,
+              preferences
+            }
+          )
         }}
       />
+
+      {/* Diagnostic Panel */}
+      {diagnosticPanelVisible && (
+        <div style={{ 
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          right: 0, 
+          bottom: 0, 
+          backgroundColor: 'rgba(0,0,0,0.5)', 
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{ 
+            backgroundColor: 'white', 
+            borderRadius: '8px', 
+            width: '90%', 
+            height: '90%', 
+            overflow: 'auto' 
+          }}>
+            <DiagnosticPanel
+              visible={diagnosticPanelVisible}
+              onClose={() => setDiagnosticPanelVisible(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -36,6 +36,18 @@ export enum AllocationStatus {
   CANCELLED = 'cancelled'
 }
 
+export enum ProvisioningStage {
+  INITIALIZING = 'initializing',
+  ALLOCATING_RESOURCES = 'allocating_resources',
+  CREATING_ENVIRONMENT = 'creating_environment',
+  CONFIGURING_NETWORK = 'configuring_network',
+  INSTALLING_SOFTWARE = 'installing_software',
+  RUNNING_HEALTH_CHECKS = 'running_health_checks',
+  FINALIZING = 'finalizing',
+  COMPLETED = 'completed',
+  FAILED = 'failed'
+}
+
 export interface ResourceUsage {
   cpu: number;        // Percentage 0-100
   memory: number;     // Percentage 0-100
@@ -70,6 +82,7 @@ export interface Environment {
   metadata: EnvironmentMetadata;
   createdAt: string;
   updatedAt: string;
+  provisioningProgress?: ProvisioningProgress;
 }
 
 export interface HardwareRequirements {
@@ -118,6 +131,45 @@ export interface AllocationMetrics {
   utilizationRate: number;
 }
 
+export interface ProvisioningProgress {
+  currentStage: ProvisioningStage;
+  progressPercentage: number;
+  estimatedCompletion?: Date;
+  remainingTimeSeconds?: number;
+  stageDetails: {
+    stageName: string;
+    stageDescription: string;
+    stageIndex: number;
+    totalStages: number;
+  };
+  startedAt: Date;
+  lastUpdated: Date;
+}
+
+export interface CapacityMetrics {
+  totalEnvironments: number;
+  readyEnvironments: number;
+  idleEnvironments: number;
+  runningEnvironments: number;
+  offlineEnvironments: number;
+  errorEnvironments: number;
+  averageCpuUtilization: number;
+  averageMemoryUtilization: number;
+  averageDiskUtilization: number;
+  pendingRequestsCount: number;
+  allocationLikelihood: Record<string, number>;
+  capacityPercentage: number;
+  utilizationPercentage: number;
+}
+
+export interface AllocationLikelihood {
+  requestId: string;
+  likelihood: number;
+  reasoning: string[];
+  compatibleEnvironments: number;
+  estimatedWaitTime: number;
+}
+
 export interface ResourceMetrics {
   timestamp: Date;
   environmentId: string;
@@ -157,6 +209,7 @@ export interface EnvironmentAllocationState {
   resourceUtilization: ResourceMetrics[];
   allocationHistory: AllocationEvent[];
   selectedEnvironment?: string;
+  capacityMetrics?: CapacityMetrics;
 }
 
 export interface EnvironmentTableProps {
@@ -209,6 +262,7 @@ export interface EnvironmentAllocationResponse {
   queue: AllocationRequest[];
   metrics: AllocationMetrics;
   history: AllocationEvent[];
+  capacityMetrics: CapacityMetrics;
 }
 
 export interface AllocationQueueResponse {

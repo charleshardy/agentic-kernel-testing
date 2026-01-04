@@ -20,17 +20,20 @@ import {
   ToolOutlined,
   StopOutlined,
   InfoCircleOutlined,
-  CloudServerOutlined
+  CloudServerOutlined,
+  LoadingOutlined
 } from '@ant-design/icons'
 import { ColumnsType } from 'antd/es/table'
 import StatusChangeIndicator from './StatusChangeIndicator'
+import ProvisioningProgressIndicator from './ProvisioningProgressIndicator'
 import { 
   Environment, 
   EnvironmentTableProps, 
   EnvironmentStatus, 
   EnvironmentType, 
   EnvironmentHealth,
-  EnvironmentAction
+  EnvironmentAction,
+  ProvisioningStage
 } from '../types/environment'
 
 const { Text } = Typography
@@ -209,16 +212,27 @@ const EnvironmentTable: React.FC<EnvironmentTableProps> = ({
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 120,
+      width: 200,
       render: (status: EnvironmentStatus, record: Environment) => (
-        <StatusChangeIndicator
-          status={status}
-          previousStatus={previousStatuses[record.id]}
-          showAnimation={true}
-          size="default"
-          showText={true}
-          lastUpdated={new Date(record.updatedAt)}
-        />
+        <Space direction="vertical" size="small">
+          <StatusChangeIndicator
+            status={status}
+            previousStatus={previousStatuses[record.id]}
+            showAnimation={true}
+            size="default"
+            showText={true}
+            lastUpdated={new Date(record.updatedAt)}
+          />
+          {/* Show provisioning progress for allocating environments */}
+          {status === EnvironmentStatus.ALLOCATING && record.provisioningProgress && (
+            <ProvisioningProgressIndicator
+              progress={record.provisioningProgress}
+              environmentId={record.id}
+              showDetails={false}
+              size="small"
+            />
+          )}
+        </Space>
       )
     },
     {

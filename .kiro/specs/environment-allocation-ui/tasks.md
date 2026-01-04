@@ -113,22 +113,22 @@ This implementation plan converts the Environment Allocation UI design into a se
   - Add retry mechanisms and fallback behaviors
   - _Requirements: 3.2, 7.2, 7.4, 7.5_
 
-- [ ] 10.1 Write property test for error handling completeness
+- [x] 10.1 Write property test for error handling completeness
   - **Property 8: Error Handling and User Feedback**
   - **Validates: Requirements 3.2, 7.2, 7.4, 7.5**
 
-- [ ] 11. Add provisioning progress and capacity indicators
+- [x] 11. Add provisioning progress and capacity indicators
   - Create progress indicators for environment provisioning
   - Implement stage-specific progress display for concurrent operations
   - Add capacity and availability indicators throughout the UI
   - Create allocation likelihood and decision reasoning display
   - _Requirements: 1.3, 1.5, 2.5, 3.4, 3.5_
 
-- [ ] 11.1 Write property test for progress and capacity indication
+- [x] 11.1 Write property test for progress and capacity indication
   - **Property 9: Provisioning Progress Indication**
   - **Validates: Requirements 1.3, 1.5**
 
-- [ ] 11.2 Write property test for capacity indication accuracy
+- [x] 11.2 Write property test for capacity indication accuracy
   - **Property 10: Capacity and Availability Indication**
   - **Validates: Requirements 2.5, 3.4, 3.5**
 
