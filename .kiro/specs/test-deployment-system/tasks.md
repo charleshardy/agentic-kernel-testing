@@ -69,7 +69,7 @@
     - Add artifact dependency tracking
     - _Requirements: 1.4, 6.1_
 
-  - [ ] 3.4 Write property test for sensitive data encryption
+  - [x] 3.4 Write property test for sensitive data encryption
     - **Property 26: Sensitive data encryption**
     - **Validates: Requirements 6.1**
 
@@ -80,39 +80,39 @@
     - Add performance monitoring tools (perf, ftrace)
     - _Requirements: 2.1, 2.2, 2.3_
 
-  - [ ] 4.2 Write property test for kernel debugging features
+  - [x] 4.2 Write property test for kernel debugging features
     - **Property 6: Kernel debugging feature enablement**
     - **Validates: Requirements 2.1**
 
-  - [ ] 4.3 Add security testing tool configuration
+  - [x] 4.3 Add security testing tool configuration
     - Implement fuzzing tool setup (Syzkaller)
     - Add static analysis tool configuration (Coccinelle)
     - Configure vulnerability scanning tools
     - _Requirements: 2.4_
 
-  - [ ] 4.4 Write property test for security tool configuration
+  - [x] 4.4 Write property test for security tool configuration
     - **Property 9: Security tool configuration**
     - **Validates: Requirements 2.4**
 
-  - [ ] 4.5 Implement instrumentation validation
+  - [x] 4.5 Implement instrumentation validation
     - Add tool functionality verification
     - Implement monitoring tool health checks
     - Create instrumentation readiness validation
     - _Requirements: 2.5_
 
-  - [ ] 4.6 Write property test for instrumentation validation
+  - [x] 4.6 Write property test for instrumentation validation
     - **Property 10: Instrumentation validation**
     - **Validates: Requirements 2.5**
 
 - [ ] 5. Create deployment pipeline execution engine
-  - [ ] 5.1 Implement deployment pipeline stages
+  - [x] 5.1 Implement deployment pipeline stages
     - Create artifact preparation stage
     - Add environment connection stage
     - Implement dependency installation stage
     - Add script deployment stage with permission setting
     - _Requirements: 1.1, 1.2, 1.3_
 
-  - [ ] 5.2 Write property test for coverage tool configuration
+  - [x] 5.2 Write property test for coverage tool configuration
     - **Property 7: Coverage tool configuration**
     - **Validates: Requirements 2.2**
 
