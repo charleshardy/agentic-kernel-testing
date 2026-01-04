@@ -154,12 +154,8 @@ const ResourceUtilizationCharts: React.FC<ResourceUtilizationChartsProps> = ({
       setDataError(null)
       
       try {
-        // Simulate potential network delay and errors
-        if (Math.random() < 0.1) { // 10% chance of simulated error
-          throw new Error('Failed to fetch resource utilization data')
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, 500)) // Simulate network delay
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 500))
         
         const data: ResourceDataPoint[] = []
         const now = new Date()
@@ -186,7 +182,7 @@ const ResourceUtilizationCharts: React.FC<ResourceUtilizationChartsProps> = ({
         }
         
         setHistoricalData(data)
-        toast.success('Resource data updated', 'Successfully loaded latest resource utilization data')
+        // Removed continuous toast notification for better UX
       } catch (error) {
         setDataError(error as Error)
         handleError(error, {

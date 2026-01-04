@@ -89,8 +89,8 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
 
   // Real-time updates hook
   const realTimeUpdates = useRealTimeUpdates({
-    enableWebSocket: true,
-    enableSSE: true,
+    enableWebSocket: false, // Disabled to prevent connection errors
+    enableSSE: false, // Disabled to prevent connection errors
     onEnvironmentUpdate: useCallback((environment: Environment) => {
       console.log('🔄 Environment update received:', environment)
       setLastStatusUpdate(new Date())
@@ -124,34 +124,7 @@ const EnvironmentAllocationDashboard: React.FC<EnvironmentAllocationDashboardPro
         })
       }
     }, []),
-    onConnectionHealthChange: useCallback((health: 'healthy' | 'degraded' | 'disconnected') => {
-      console.log('🔄 Connection health changed:', health)
-      
-      if (health === 'disconnected') {
-        const error = createNetworkError(
-          'WEBSOCKET_DISCONNECTED',
-          'Real-time connection lost',
-          undefined,
-          undefined,
-          { connectionType: 'websocket', health }
-        )
-        // Error will be handled by the notification system
-        
-        notification.warning({
-          message: 'Real-time Connection Lost',
-          description: 'Live updates are unavailable. Data will be refreshed periodically.',
-          duration: 5,
-          placement: 'topRight'
-        })
-      } else if (health === 'healthy') {
-        notification.success({
-          message: 'Real-time Connection Restored',
-          description: 'Live updates are now available.',
-          duration: 3,
-          placement: 'topRight'
-        })
-      }
-    }, [createNetworkError])
+    onConnectionHealthChange: undefined // Disabled since WebSocket/SSE are disabled
   })
 
   // Fetch environment allocation data with real-time updates and error handling

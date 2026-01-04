@@ -35,7 +35,6 @@ export interface UseWebSocketReturn {
 
 export const useWebSocket = (options: UseWebSocketOptions = {}): UseWebSocketReturn => {
   const {
-    url = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/environments/allocation`,
     autoReconnect = true,
     maxReconnectAttempts = 5,
     reconnectInterval = 3000,
@@ -44,6 +43,10 @@ export const useWebSocket = (options: UseWebSocketOptions = {}): UseWebSocketRet
     onDisconnect,
     onError
   } = options
+
+  // Build WebSocket URL with authentication token
+  const token = localStorage.getItem('auth_token')
+  const url = `ws://localhost:8000/api/v1/environments/ws/allocation`
 
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
@@ -61,6 +64,12 @@ export const useWebSocket = (options: UseWebSocketOptions = {}): UseWebSocketRet
 
   // Connect to WebSocket
   const connect = useCallback(() => {
+    // Don't connect if URL indicates disabled
+    if (url.startsWith('disabled://')) {
+      console.log('🔌 WebSocket connection disabled')
+      return
+    }
+    
     if (wsRef.current?.readyState === WebSocket.CONNECTING || 
         wsRef.current?.readyState === WebSocket.OPEN) {
       return

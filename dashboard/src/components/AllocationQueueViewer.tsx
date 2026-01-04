@@ -316,13 +316,13 @@ const AllocationQueueViewer: React.FC<AllocationQueueViewerProps> = ({
       key: 'testId',
       width: 150,
       render: (testId: string, record: AllocationRequest) => (
-        <Tooltip title={`Full ID: ${testId}`}>
+        <Tooltip title={`Full ID: ${testId || 'N/A'}`}>
           <div>
             <Text code style={{ fontSize: '12px' }}>
-              {testId.slice(0, 12)}...
+              {testId ? testId.slice(0, 12) + '...' : 'N/A'}
             </Text>
             <div style={{ fontSize: '10px', color: '#666' }}>
-              {record.id.slice(0, 8)}...
+              {record.id ? record.id.slice(0, 8) + '...' : 'N/A'}
             </div>
           </div>
         </Tooltip>
@@ -379,17 +379,17 @@ const AllocationQueueViewer: React.FC<AllocationQueueViewerProps> = ({
       render: (requirements: any) => (
         <Space direction="vertical" size="small">
           <Space wrap size="small">
-            <Tag color="blue">{requirements.architecture}</Tag>
-            {requirements.preferredEnvironmentType && (
+            <Tag color="blue">{requirements?.architecture || 'N/A'}</Tag>
+            {requirements?.preferredEnvironmentType && (
               <Tag color="green">{requirements.preferredEnvironmentType}</Tag>
             )}
           </Space>
           <div style={{ fontSize: '11px', color: '#666' }}>
-            <div>{requirements.minCpuCores} cores, {requirements.minMemoryMB}MB RAM</div>
-            {requirements.requiredFeatures.length > 0 && (
+            <div>{requirements?.minCpuCores || 0} cores, {requirements?.minMemoryMB || 0}MB RAM</div>
+            {requirements?.requiredFeatures?.length > 0 && (
               <div>Features: {requirements.requiredFeatures.join(', ')}</div>
             )}
-            <div>Isolation: {requirements.isolationLevel}</div>
+            <div>Isolation: {requirements?.isolationLevel || 'N/A'}</div>
           </div>
         </Space>
       )

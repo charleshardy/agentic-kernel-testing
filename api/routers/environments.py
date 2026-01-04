@@ -281,6 +281,123 @@ async def list_environments(
         )
 
 
+# ============================================================================
+# ENHANCED ALLOCATION TRACKING ENDPOINTS
+# ============================================================================
+
+@router.get("/environments/allocation", response_model=APIResponse)
+async def get_environment_allocation_data(
+    current_user: Dict[str, Any] = Depends(require_permission("status:read"))
+):
+    """Get comprehensive environment allocation data including queue, metrics, and history."""
+    try:
+        # Convert environments to response format
+        env_responses = []
+        for env_id, env in environments.items():
+            usage_stats = environment_usage.get(env_id, {})
+            
+            # Create mock resource usage
+            resource_usage = ResourceUsage(
+                cpu=25.3 if env.status == EnvironmentStatus.BUSY else 2.1,
+                memory=45.2 if env.status == EnvironmentStatus.BUSY else 8.5,
+                disk=67.8,
+                network=NetworkMetrics(
+                    bytes_in=1024000,
+                    bytes_out=2048000,
+                    packets_in=5000,
+                    packets_out=7500
+                )
+            )
+            
+            # Create environment metadata
+            metadata = EnvironmentMetadata(
+                kernel_version=env.kernel_version,
+                ip_address=env.ip_address,
+                provisioned_at=env.created_at,
+                last_health_check=datetime.utcnow() - timedelta(minutes=1),
+                additional_metadata={
+                    "is_virtual": env.config.is_virtual,
+                    "emulator": env.config.emulator,
+                    "total_tests_run": usage_stats.get("total_tests_run", 0)
+                }
+            )
+            
+            # Determine assigned tests (mock data)
+            assigned_tests = []
+            if env.status == EnvironmentStatus.BUSY:
+                assigned_tests = [f"test-{env_id[-3:]}-001"]
+            
+            env_response = EnvironmentResponse(
+                id=env.id,
+                type=EnvironmentTypeEnum.QEMU_X86 if "x86" in env.id else EnvironmentTypeEnum.QEMU_ARM if "arm" in env.id else EnvironmentTypeEnum.PHYSICAL,
+                status=EnvironmentStatusEnum.READY if env.status == EnvironmentStatus.IDLE else EnvironmentStatusEnum.RUNNING if env.status == EnvironmentStatus.BUSY else EnvironmentStatusEnum.ERROR,
+                architecture=env.config.architecture,
+                assigned_tests=assigned_tests,
+                resources=resource_usage,
+                health=EnvironmentHealthEnum.HEALTHY if env.status != EnvironmentStatus.ERROR else EnvironmentHealthEnum.UNHEALTHY,
+                metadata=metadata,
+                created_at=env.created_at,
+                updated_at=env.last_used
+            )
+            env_responses.append(env_response)
+        
+        # Get allocation queue and transform to frontend format
+        queue_requests_raw = [allocation_requests[req_id] for req_id in allocation_queue if req_id in allocation_requests]
+        queue_requests = []
+        
+        for req in queue_requests_raw:
+            # Transform to camelCase format expected by frontend
+            transformed_req = {
+                "id": req.id,
+                "testId": req.test_id,  # snake_case to camelCase
+                "requirements": {
+                    "architecture": req.requirements.architecture,
+                    "minMemoryMB": req.requirements.min_memory_mb,  # snake_case to camelCase
+                    "minCpuCores": req.requirements.min_cpu_cores,  # snake_case to camelCase
+                    "requiredFeatures": req.requirements.required_features,  # snake_case to camelCase
+                    "isolationLevel": req.requirements.isolation_level,  # snake_case to camelCase
+                    "preferredEnvironmentType": getattr(req.requirements, 'preferred_environment_type', None)
+                },
+                "priority": req.priority,
+                "submittedAt": req.submitted_at.isoformat(),  # snake_case to camelCase
+                "estimatedStartTime": getattr(req, 'estimated_start_time', None),  # snake_case to camelCase
+                "status": req.status.value
+            }
+            queue_requests.append(transformed_req)
+        
+        # Create allocation metrics
+        metrics = AllocationMetrics(
+            total_allocations=allocation_metrics["total_allocations"],
+            successful_allocations=allocation_metrics["successful_allocations"],
+            failed_allocations=allocation_metrics["failed_allocations"],
+            average_allocation_time=allocation_metrics["average_allocation_time"],
+            queue_length=len(allocation_queue),
+            utilization_rate=allocation_metrics["utilization_rate"]
+        )
+        
+        # Get recent allocation history
+        recent_history = allocation_history[-20:] if allocation_history else []
+        
+        allocation_data = {
+            "environments": [env.dict() for env in env_responses],
+            "queue": queue_requests,  # Already transformed to camelCase
+            "metrics": metrics.dict(),
+            "history": [event.dict() for event in recent_history]
+        }
+        
+        return APIResponse(
+            success=True,
+            message="Environment allocation data retrieved successfully",
+            data=allocation_data
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve allocation data: {str(e)}"
+        )
+
+
 @router.get("/environments/{env_id}", response_model=APIResponse)
 async def get_environment(
     env_id: str,
@@ -763,172 +880,125 @@ async def get_environment_statistics(
 
 
 # ============================================================================
-# ENHANCED ALLOCATION TRACKING ENDPOINTS
+# WEBSOCKET AND REAL-TIME ENDPOINTS
 # ============================================================================
 
-@router.get("/environments/allocation", response_model=APIResponse)
-async def get_environment_allocation_data(
-    current_user: Dict[str, Any] = Depends(require_permission("status:read"))
-):
-    """Get comprehensive environment allocation data including queue, metrics, and history."""
+@router.websocket("/ws/allocation")
+async def websocket_allocation_updates(websocket: WebSocket):
+    """WebSocket endpoint for real-time allocation updates."""
+    await allocation_manager.connect(websocket)
     try:
-        # Convert environments to response format
-        env_responses = []
-        for env_id, env in environments.items():
-            usage_stats = environment_usage.get(env_id, {})
-            
-            # Create mock resource usage
-            resource_usage = ResourceUsage(
-                cpu=25.3 if env.status == EnvironmentStatus.BUSY else 2.1,
-                memory=45.2 if env.status == EnvironmentStatus.BUSY else 8.5,
-                disk=67.8,
-                network=NetworkMetrics(
-                    bytes_in=1024000,
-                    bytes_out=2048000,
-                    packets_in=5000,
-                    packets_out=7500
-                )
-            )
-            
-            # Create environment metadata
-            metadata = EnvironmentMetadata(
-                kernel_version=env.kernel_version,
-                ip_address=env.ip_address,
-                provisioned_at=env.created_at,
-                last_health_check=datetime.utcnow() - timedelta(minutes=1),
-                additional_metadata={
-                    "is_virtual": env.config.is_virtual,
-                    "emulator": env.config.emulator,
-                    "total_tests_run": usage_stats.get("total_tests_run", 0)
+        while True:
+            # Keep connection alive and listen for messages
+            data = await websocket.receive_text()
+            # Echo back for connection health check
+            await websocket.send_text(f"pong: {data}")
+    except WebSocketDisconnect:
+        allocation_manager.disconnect(websocket)
+
+
+@router.get("/environments/allocation/events")
+async def get_allocation_events(
+    token: Optional[str] = Query(None, description="Authentication token")
+):
+    """Server-Sent Events endpoint for allocation updates."""
+    # Authenticate via query parameter
+    if token:
+        try:
+            from ..auth import verify_token
+            payload = verify_token(token)
+            if not payload:
+                raise HTTPException(status_code=401, detail="Invalid token")
+        except Exception:
+            raise HTTPException(status_code=401, detail="Authentication failed")
+    else:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    async def event_stream():
+        while True:
+            # Send current allocation status
+            try:
+                # Get current queue status
+                queue_data = [allocation_requests[req_id] for req_id in allocation_queue if req_id in allocation_requests]
+                
+                # Convert to dict for JSON serialization
+                queue_dict = []
+                for req in queue_data:
+                    queue_dict.append({
+                        "id": req.id,
+                        "test_id": req.test_id,
+                        "priority": req.priority,
+                        "status": req.status.value,
+                        "submitted_at": req.submitted_at.isoformat(),
+                        "requirements": {
+                            "architecture": req.requirements.architecture,
+                            "min_memory_mb": req.requirements.min_memory_mb,
+                            "min_cpu_cores": req.requirements.min_cpu_cores,
+                            "required_features": req.requirements.required_features,
+                            "isolation_level": req.requirements.isolation_level
+                        }
+                    })
+                
+                event_data = {
+                    "type": "allocation_update",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "data": {
+                        "queue": queue_dict,
+                        "queue_length": len(allocation_queue),
+                        "metrics": allocation_metrics
+                    }
                 }
-            )
+                
+                yield f"data: {json.dumps(event_data)}\n\n"
+                
+            except Exception as e:
+                error_data = {
+                    "type": "error",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "error": str(e)
+                }
+                yield f"data: {json.dumps(error_data)}\n\n"
             
-            # Determine assigned tests (mock data)
-            assigned_tests = []
-            if env.status == EnvironmentStatus.BUSY:
-                assigned_tests = [f"test-{env_id[-3:]}-001"]
-            
-            env_response = EnvironmentResponse(
-                id=env.id,
-                type=EnvironmentTypeEnum.QEMU_X86 if "x86" in env.id else EnvironmentTypeEnum.QEMU_ARM if "arm" in env.id else EnvironmentTypeEnum.PHYSICAL,
-                status=EnvironmentStatusEnum.READY if env.status == EnvironmentStatus.IDLE else EnvironmentStatusEnum.RUNNING if env.status == EnvironmentStatus.BUSY else EnvironmentStatusEnum.ERROR,
-                architecture=env.config.architecture,
-                assigned_tests=assigned_tests,
-                resources=resource_usage,
-                health=EnvironmentHealthEnum.HEALTHY if env.status != EnvironmentStatus.ERROR else EnvironmentHealthEnum.UNHEALTHY,
-                metadata=metadata,
-                created_at=env.created_at,
-                updated_at=env.last_used
-            )
-            env_responses.append(env_response)
-        
-        # Get allocation queue
-        queue_requests = [allocation_requests[req_id] for req_id in allocation_queue if req_id in allocation_requests]
-        
-        # Create allocation metrics
-        metrics = AllocationMetrics(
-            total_allocations=allocation_metrics["total_allocations"],
-            successful_allocations=allocation_metrics["successful_allocations"],
-            failed_allocations=allocation_metrics["failed_allocations"],
-            average_allocation_time=allocation_metrics["average_allocation_time"],
-            queue_length=len(allocation_queue),
-            utilization_rate=allocation_metrics["utilization_rate"]
-        )
-        
-        # Get recent allocation history
-        recent_history = allocation_history[-20:] if allocation_history else []
-        
-        allocation_data = EnvironmentAllocationResponse(
-            environments=env_responses,
-            queue=queue_requests,
-            metrics=metrics,
-            history=recent_history
-        )
-        
-        return APIResponse(
-            success=True,
-            message="Environment allocation data retrieved successfully",
-            data=allocation_data.dict()
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve allocation data: {str(e)}"
-        )
+            # Wait 5 seconds before next update
+            await asyncio.sleep(5)
+    
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control"
+        }
+    )
 
 
-@router.get("/environments/allocation/queue", response_model=APIResponse)
-async def get_allocation_queue(
-    current_user: Dict[str, Any] = Depends(require_permission("status:read"))
-):
-    """Get current allocation queue with estimated wait times."""
-    try:
-        # Get queue requests sorted by priority and submission time
-        queue_requests = []
-        for req_id in allocation_queue:
-            if req_id in allocation_requests:
-                queue_requests.append(allocation_requests[req_id])
-        
-        # Sort by priority (lower number = higher priority) and submission time
-        queue_requests.sort(key=lambda r: (r.priority, r.submitted_at))
-        
-        # Calculate estimated wait times
-        estimated_wait_times = {}
-        avg_allocation_time = allocation_metrics["average_allocation_time"]
-        available_environments = len([e for e in environments.values() if e.status == EnvironmentStatus.IDLE])
-        
-        for i, request in enumerate(queue_requests):
-            # Calculate wait time based on position and available environments
-            if available_environments > 0:
-                batch_number = i // available_environments
-                wait_time_seconds = batch_number * avg_allocation_time
-            else:
-                wait_time_seconds = i * avg_allocation_time
-            
-            estimated_wait_times[request.id] = int(wait_time_seconds)
-        
-        total_wait_time = max(estimated_wait_times.values()) if estimated_wait_times else 0
-        
-        queue_response = AllocationQueueResponse(
-            queue=queue_requests,
-            estimated_wait_times=estimated_wait_times,
-            total_wait_time=total_wait_time
-        )
-        
-        return APIResponse(
-            success=True,
-            message=f"Retrieved allocation queue with {len(queue_requests)} requests",
-            data=queue_response.dict()
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve allocation queue: {str(e)}"
-        )
-
-
-@router.post("/environments/allocation/request", response_model=APIResponse)
+@router.post("/environments/allocation/requests", response_model=APIResponse)
 async def create_allocation_request(
-    test_id: str,
-    requirements: HardwareRequirements,
-    preferences: Optional[AllocationPreferences] = None,
-    priority: int = 5,
+    request_data: Dict[str, Any],
     current_user: Dict[str, Any] = Depends(require_permission("test:submit"))
 ):
-    """Create a new environment allocation request."""
+    """Create a new allocation request."""
     try:
         # Generate request ID
         request_id = f"alloc-req-{str(uuid.uuid4())[:8]}"
         
+        # Create hardware requirements
+        requirements = HardwareRequirements(
+            architecture=request_data.get("architecture", "x86_64"),
+            min_memory_mb=request_data.get("min_memory_mb", 1024),
+            min_cpu_cores=request_data.get("min_cpu_cores", 1),
+            required_features=request_data.get("required_features", []),
+            isolation_level=request_data.get("isolation_level", "container")
+        )
+        
         # Create allocation request
         allocation_request = AllocationRequest(
             id=request_id,
-            test_id=test_id,
+            test_id=request_data.get("test_id", f"test-{str(uuid.uuid4())[:8]}"),
             requirements=requirements,
-            preferences=preferences,
-            priority=priority,
+            priority=request_data.get("priority", 5),
             submitted_at=datetime.utcnow(),
             status=AllocationStatusEnum.QUEUED
         )
@@ -944,46 +1014,25 @@ async def create_allocation_request(
         event = AllocationEvent(
             id=f"event-{str(uuid.uuid4())[:8]}",
             type="queued",
-            environment_id="",  # No environment assigned yet
-            test_id=test_id,
+            environment_id="",  # Will be set when allocated
+            test_id=allocation_request.test_id,
             timestamp=datetime.utcnow(),
             metadata={
                 "request_id": request_id,
-                "priority": priority,
-                "requirements": requirements.dict()
+                "submitted_by": current_user["username"],
+                "priority": allocation_request.priority
             }
         )
         allocation_history.append(event)
         
-        # Also log to database using the allocation history service
-        try:
-            from api.services.allocation_history import AllocationHistoryService
-            from database.connection import get_db_session
-            
-            with get_db_session() as db:
-                history_service = AllocationHistoryService(db)
-                history_service.log_allocation_event(
-                    event_type="queued",
-                    environment_id="",  # No environment assigned yet
-                    test_id=test_id,
-                    metadata={
-                        "request_id": request_id,
-                        "priority": priority,
-                        "requirements": requirements.dict()
-                    }
-                )
-        except Exception as e:
-            # Log error but don't fail the request
-            print(f"Failed to log allocation event to database: {e}")
-        
-        
         # Broadcast to WebSocket clients
         await allocation_manager.broadcast(json.dumps({
-            "type": "allocation_queued",
+            "type": "allocation_request_created",
             "request_id": request_id,
-            "test_id": test_id,
-            "priority": priority,
+            "test_id": allocation_request.test_id,
+            "priority": allocation_request.priority,
             "queue_position": len(allocation_queue),
+            "submitted_by": current_user["username"],
             "timestamp": datetime.utcnow().isoformat()
         }))
         
@@ -992,9 +1041,8 @@ async def create_allocation_request(
             message="Allocation request created successfully",
             data={
                 "request_id": request_id,
-                "status": "queued",
                 "queue_position": len(allocation_queue),
-                "estimated_wait_time": len(allocation_queue) * allocation_metrics["average_allocation_time"]
+                "estimated_wait_time": len(allocation_queue) * 60  # Mock: 1 minute per request in queue
             }
         )
         
@@ -1005,28 +1053,28 @@ async def create_allocation_request(
         )
 
 
-@router.delete("/environments/allocation/request/{request_id}", response_model=APIResponse)
+@router.delete("/environments/allocation/requests/{request_id}", response_model=APIResponse)
 async def cancel_allocation_request(
     request_id: str,
     current_user: Dict[str, Any] = Depends(require_permission("test:submit"))
 ):
     """Cancel an allocation request."""
+    if request_id not in allocation_requests:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Allocation request not found"
+        )
+    
+    request = allocation_requests[request_id]
+    
+    # Can only cancel pending requests
+    if request.status != AllocationStatusEnum.QUEUED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Can only cancel queued requests"
+        )
+    
     try:
-        if request_id not in allocation_requests:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Allocation request not found"
-            )
-        
-        request = allocation_requests[request_id]
-        
-        # Check if request can be cancelled
-        if request.status not in [AllocationStatusEnum.QUEUED, AllocationStatusEnum.ALLOCATING]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot cancel request with status: {request.status}"
-            )
-        
         # Update request status
         request.status = AllocationStatusEnum.CANCELLED
         
@@ -1051,30 +1099,9 @@ async def cancel_allocation_request(
         )
         allocation_history.append(event)
         
-        # Also log to database using the allocation history service
-        try:
-            from api.services.allocation_history import AllocationHistoryService
-            from database.connection import get_db_session
-            
-            with get_db_session() as db:
-                history_service = AllocationHistoryService(db)
-                history_service.log_allocation_event(
-                    event_type="cancelled",
-                    environment_id="",
-                    test_id=request.test_id,
-                    metadata={
-                        "request_id": request_id,
-                        "cancelled_by": current_user["username"]
-                    }
-                )
-        except Exception as e:
-            # Log error but don't fail the request
-            print(f"Failed to log allocation event to database: {e}")
-        
-        
         # Broadcast to WebSocket clients
         await allocation_manager.broadcast(json.dumps({
-            "type": "allocation_cancelled",
+            "type": "allocation_request_cancelled",
             "request_id": request_id,
             "test_id": request.test_id,
             "cancelled_by": current_user["username"],
@@ -1086,684 +1113,12 @@ async def cancel_allocation_request(
             message="Allocation request cancelled successfully",
             data={
                 "request_id": request_id,
-                "cancelled_by": current_user["username"],
-                "cancelled_at": datetime.utcnow().isoformat()
+                "status": "cancelled"
             }
         )
         
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to cancel allocation request: {str(e)}"
-        )
-
-
-@router.get("/environments/allocation/history", response_model=APIResponse)
-async def get_allocation_history(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    event_type: Optional[str] = Query(None, description="Filter by event type"),
-    test_id: Optional[str] = Query(None, description="Filter by test ID"),
-    environment_id: Optional[str] = Query(None, description="Filter by environment ID"),
-    start_time: Optional[str] = Query(None, description="Filter events after this time (ISO format)"),
-    end_time: Optional[str] = Query(None, description="Filter events before this time (ISO format)"),
-    sort_order: str = Query("desc", regex="^(asc|desc)$", description="Sort order"),
-    current_user: Dict[str, Any] = Depends(require_permission("status:read"))
-):
-    """Get allocation history with filtering and pagination."""
-    try:
-        from api.services.allocation_history import AllocationHistoryService
-        from database.connection import get_db_session
-        
-        # Parse time filters
-        start_datetime = None
-        end_datetime = None
-        
-        if start_time:
-            try:
-                start_datetime = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-            except ValueError:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid start_time format. Use ISO format."
-                )
-        
-        if end_time:
-            try:
-                end_datetime = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
-            except ValueError:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid end_time format. Use ISO format."
-                )
-        
-        # Use the allocation history service
-        with get_db_session() as db:
-            history_service = AllocationHistoryService(db)
-            events, pagination_info = history_service.get_allocation_history(
-                page=page,
-                page_size=page_size,
-                event_type=event_type,
-                environment_id=environment_id,
-                test_id=test_id,
-                start_time=start_datetime,
-                end_time=end_datetime,
-                sort_order=sort_order
-            )
-        
-        history_response = AllocationHistoryResponse(
-            events=events,
-            pagination=pagination_info
-        )
-        
-        return APIResponse(
-            success=True,
-            message=f"Retrieved {len(events)} allocation events",
-            data=history_response.dict()
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve allocation history: {str(e)}"
-        )
-
-
-@router.get("/environments/allocation/statistics", response_model=APIResponse)
-async def get_allocation_statistics(
-    start_time: Optional[str] = Query(None, description="Start time for statistics (ISO format)"),
-    end_time: Optional[str] = Query(None, description="End time for statistics (ISO format)"),
-    current_user: Dict[str, Any] = Depends(require_permission("status:read"))
-):
-    """Get allocation statistics for the specified time period."""
-    try:
-        from api.services.allocation_history import AllocationHistoryService
-        from database.connection import get_db_session
-        
-        # Parse time filters
-        start_datetime = None
-        end_datetime = None
-        
-        if start_time:
-            try:
-                start_datetime = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-            except ValueError:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid start_time format. Use ISO format."
-                )
-        
-        if end_time:
-            try:
-                end_datetime = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
-            except ValueError:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid end_time format. Use ISO format."
-                )
-        
-        # Get statistics
-        with get_db_session() as db:
-            history_service = AllocationHistoryService(db)
-            statistics = history_service.get_allocation_statistics(
-                start_time=start_datetime,
-                end_time=end_datetime
-            )
-        
-        return APIResponse(
-            success=True,
-            message="Retrieved allocation statistics",
-            data=statistics
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve allocation statistics: {str(e)}"
-        )
-
-
-@router.get("/environments/allocation/correlations/{environment_id}", response_model=APIResponse)
-async def get_allocation_correlations(
-    environment_id: str,
-    start_time: Optional[str] = Query(None, description="Start time for correlation analysis (ISO format)"),
-    end_time: Optional[str] = Query(None, description="End time for correlation analysis (ISO format)"),
-    current_user: Dict[str, Any] = Depends(require_permission("status:read"))
-):
-    """Get correlation between allocation events and test execution results."""
-    try:
-        from api.services.allocation_history import AllocationHistoryService
-        from database.connection import get_db_session
-        
-        # Parse time filters
-        start_datetime = None
-        end_datetime = None
-        
-        if start_time:
-            try:
-                start_datetime = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-            except ValueError:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid start_time format. Use ISO format."
-                )
-        
-        if end_time:
-            try:
-                end_datetime = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
-            except ValueError:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid end_time format. Use ISO format."
-                )
-        
-        # Get correlations
-        with get_db_session() as db:
-            history_service = AllocationHistoryService(db)
-            correlations = history_service.correlate_with_test_results(
-                environment_id=environment_id,
-                start_time=start_datetime,
-                end_time=end_datetime
-            )
-        
-        return APIResponse(
-            success=True,
-            message=f"Retrieved {len(correlations)} correlation entries",
-            data={"correlations": correlations}
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve allocation correlations: {str(e)}"
-        )
-
-
-@router.get("/environments/allocation/export")
-async def export_allocation_data(
-    format: str = Query("csv", regex="^(csv|json)$", description="Export format"),
-    start_time: Optional[str] = Query(None, description="Start time for export (ISO format)"),
-    end_time: Optional[str] = Query(None, description="End time for export (ISO format)"),
-    event_type: Optional[str] = Query(None, description="Filter by event type"),
-    current_user: Dict[str, Any] = Depends(require_permission("status:read"))
-):
-    """Export allocation data in CSV or JSON format."""
-    try:
-        from api.services.allocation_history import AllocationHistoryService
-        from database.connection import get_db_session
-        from fastapi.responses import Response
-        
-        # Parse time filters
-        start_datetime = None
-        end_datetime = None
-        
-        if start_time:
-            try:
-                start_datetime = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-            except ValueError:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid start_time format. Use ISO format."
-                )
-        
-        if end_time:
-            try:
-                end_datetime = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
-            except ValueError:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid end_time format. Use ISO format."
-                )
-        
-        # Export data
-        with get_db_session() as db:
-            history_service = AllocationHistoryService(db)
-            exported_data = history_service.export_allocation_data(
-                format_type=format,
-                start_time=start_datetime,
-                end_time=end_datetime,
-                event_type=event_type
-            )
-        
-        # Set appropriate content type and filename
-        if format == "csv":
-            media_type = "text/csv"
-            filename = f"allocation_history_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
-        else:
-            media_type = "application/json"
-            filename = f"allocation_history_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
-        
-        return Response(
-            content=exported_data,
-            media_type=media_type,
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to export allocation data: {str(e)}"
-        )
-
-
-@router.get("/environments/allocation/events")
-async def allocation_events_stream(
-    current_user: Dict[str, Any] = Depends(require_permission("status:read"))
-):
-    """Server-Sent Events stream for real-time allocation updates."""
-    async def event_generator():
-        try:
-            # Send initial connection event
-            yield f"data: {json.dumps({'type': 'connected', 'timestamp': datetime.utcnow().isoformat()})}\n\n"
-            
-            # Send periodic updates
-            while True:
-                # Send current queue status
-                queue_status = {
-                    "type": "queue_status",
-                    "queue_length": len(allocation_queue),
-                    "available_environments": len([e for e in environments.values() if e.status == EnvironmentStatus.IDLE]),
-                    "busy_environments": len([e for e in environments.values() if e.status == EnvironmentStatus.BUSY]),
-                    "timestamp": datetime.utcnow().isoformat()
-                }
-                yield f"data: {json.dumps(queue_status)}\n\n"
-                
-                # Wait before next update
-                await asyncio.sleep(5)  # Update every 5 seconds
-                
-        except asyncio.CancelledError:
-            # Client disconnected
-            pass
-        except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e), 'timestamp': datetime.utcnow().isoformat()})}\n\n"
-    
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/plain",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Content-Type": "text/event-stream"
-        }
-    )
-
-
-@router.websocket("/environments/allocation/ws")
-async def allocation_websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for real-time allocation updates."""
-    await allocation_manager.connect(websocket)
-    try:
-        while True:
-            # Send periodic updates
-            try:
-                # Get current allocation status
-                status_data = {
-                    "type": "allocation_status",
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "data": {
-                        "queue_length": len(allocation_queue),
-                        "available_environments": len([e for e in environments.values() if e.status == EnvironmentStatus.IDLE]),
-                        "busy_environments": len([e for e in environments.values() if e.status == EnvironmentStatus.BUSY]),
-                        "total_environments": len(environments),
-                        "utilization_rate": allocation_metrics["utilization_rate"]
-                    }
-                }
-                await allocation_manager.send_personal_message(json.dumps(status_data), websocket)
-            except Exception as e:
-                print(f"Error sending WebSocket update: {e}")
-            
-            # Wait before next update
-            await asyncio.sleep(3)  # Update every 3 seconds
-            
-    except WebSocketDisconnect:
-        allocation_manager.disconnect(websocket)
-
-
-# ============================================================================
-# ENVIRONMENT PREFERENCE MANAGEMENT ENDPOINTS
-# ============================================================================
-
-# Mock preference profiles storage (in production, this would be in database)
-preference_profiles = {}
-
-@router.post("/environments/validate-compatibility", response_model=APIResponse)
-async def validate_environment_compatibility(
-    requirements: HardwareRequirements,
-    preferences: Optional[AllocationPreferences] = None,
-    current_user: Dict[str, Any] = Depends(require_permission("status:read"))
-):
-    """Validate hardware requirements and preferences against available environments."""
-    try:
-        compatible_environments = []
-        issues = []
-        suggestions = []
-        
-        # Check each environment for compatibility
-        for env_id, env in environments.items():
-            is_compatible = True
-            env_issues = []
-            
-            # Architecture compatibility
-            if env.config.architecture != requirements.architecture:
-                is_compatible = False
-                env_issues.append(f"Architecture mismatch: {env.config.architecture} != {requirements.architecture}")
-            
-            # Memory requirements
-            if env.config.memory_mb < requirements.min_memory_mb:
-                is_compatible = False
-                env_issues.append(f"Insufficient memory: {env.config.memory_mb}MB < {requirements.min_memory_mb}MB")
-            
-            # CPU requirements (mock - assume 1 core per 1GB memory for simplicity)
-            estimated_cores = max(1, env.config.memory_mb // 1024)
-            if estimated_cores < requirements.min_cpu_cores:
-                is_compatible = False
-                env_issues.append(f"Insufficient CPU cores: {estimated_cores} < {requirements.min_cpu_cores}")
-            
-            # Environment type preference
-            if preferences and preferences.environment_type:
-                env_type_mapping = {
-                    "qemu-x86": EnvironmentTypeEnum.QEMU_X86,
-                    "qemu-arm": EnvironmentTypeEnum.QEMU_ARM,
-                    "docker": EnvironmentTypeEnum.DOCKER,
-                    "physical": EnvironmentTypeEnum.PHYSICAL,
-                    "container": EnvironmentTypeEnum.CONTAINER
-                }
-                
-                # Determine environment type from ID (mock logic)
-                if "qemu" in env_id and "x86" in env_id:
-                    env_type = EnvironmentTypeEnum.QEMU_X86
-                elif "qemu" in env_id and "arm" in env_id:
-                    env_type = EnvironmentTypeEnum.QEMU_ARM
-                elif "physical" in env_id:
-                    env_type = EnvironmentTypeEnum.PHYSICAL
-                else:
-                    env_type = EnvironmentTypeEnum.DOCKER
-                
-                if preferences.environment_type != env_type:
-                    is_compatible = False
-                    env_issues.append(f"Environment type mismatch: {env_type} != {preferences.environment_type}")
-            
-            # Required features check (mock - assume KVM available on x86 virtual environments)
-            for feature in requirements.required_features:
-                if feature == "kvm" and (not env.config.is_virtual or env.config.architecture != "x86_64"):
-                    is_compatible = False
-                    env_issues.append(f"Required feature '{feature}' not available")
-            
-            # Isolation level check
-            if requirements.isolation_level == "vm" and not env.config.is_virtual:
-                is_compatible = False
-                env_issues.append("VM isolation required but environment is physical")
-            
-            # Environment availability
-            if env.status != EnvironmentStatus.IDLE:
-                is_compatible = False
-                env_issues.append(f"Environment not available (status: {env.status.value})")
-            
-            if is_compatible:
-                compatible_environments.append({
-                    "environment_id": env_id,
-                    "architecture": env.config.architecture,
-                    "memory_mb": env.config.memory_mb,
-                    "is_virtual": env.config.is_virtual,
-                    "status": env.status.value,
-                    "compatibility_score": 1.0  # Perfect match
-                })
-            else:
-                issues.extend(env_issues)
-        
-        # Generate suggestions based on compatibility results
-        if not compatible_environments:
-            suggestions.append("No compatible environments found")
-            
-            # Analyze common issues and suggest solutions
-            memory_issues = [issue for issue in issues if "memory" in issue.lower()]
-            if memory_issues:
-                suggestions.append("Consider reducing memory requirements")
-            
-            arch_issues = [issue for issue in issues if "architecture" in issue.lower()]
-            if arch_issues:
-                available_archs = list(set(env.config.architecture for env in environments.values()))
-                suggestions.append(f"Available architectures: {', '.join(available_archs)}")
-            
-            type_issues = [issue for issue in issues if "type mismatch" in issue.lower()]
-            if type_issues:
-                suggestions.append("Consider allowing any compatible environment type")
-        
-        elif len(compatible_environments) < len(environments) * 0.3:  # Less than 30% compatible
-            suggestions.append("Low compatibility rate - consider more flexible requirements")
-        
-        # Calculate allocation likelihood
-        total_environments = len(environments)
-        allocation_likelihood = (len(compatible_environments) / total_environments * 100) if total_environments > 0 else 0
-        
-        # Adjust likelihood based on current queue and environment availability
-        if allocation_likelihood > 0:
-            queue_factor = max(0.1, 1.0 - (len(allocation_queue) * 0.1))  # Reduce likelihood based on queue length
-            allocation_likelihood *= queue_factor
-        
-        compatibility_result = {
-            "compatible": len(compatible_environments) > 0,
-            "compatible_environments": compatible_environments,
-            "allocation_likelihood": round(allocation_likelihood, 1),
-            "issues": list(set(issues)),  # Remove duplicates
-            "suggestions": suggestions,
-            "total_environments": total_environments,
-            "queue_length": len(allocation_queue),
-            "validation_timestamp": datetime.utcnow().isoformat()
-        }
-        
-        return APIResponse(
-            success=True,
-            message=f"Compatibility validation completed. {len(compatible_environments)} of {total_environments} environments compatible.",
-            data=compatibility_result
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to validate compatibility: {str(e)}"
-        )
-
-
-@router.get("/environments/capabilities", response_model=APIResponse)
-async def get_environment_capabilities(
-    current_user: Dict[str, Any] = Depends(require_permission("status:read"))
-):
-    """Get available environment capabilities and constraints."""
-    try:
-        # Analyze available environments to determine capabilities
-        architectures = set()
-        environment_types = set()
-        memory_ranges = {"min": float('inf'), "max": 0}
-        available_features = set()
-        
-        for env in environments.values():
-            architectures.add(env.config.architecture)
-            memory_ranges["min"] = min(memory_ranges["min"], env.config.memory_mb)
-            memory_ranges["max"] = max(memory_ranges["max"], env.config.memory_mb)
-            
-            # Determine environment type from configuration
-            if env.config.is_virtual:
-                if env.config.emulator == "qemu":
-                    if env.config.architecture == "x86_64":
-                        environment_types.add("qemu-x86")
-                        available_features.add("kvm")  # Assume KVM available on x86 QEMU
-                    else:
-                        environment_types.add("qemu-arm")
-                else:
-                    environment_types.add("docker")
-            else:
-                environment_types.add("physical")
-            
-            # Add other mock features
-            available_features.add("networking")
-            available_features.add("storage")
-            if env.config.is_virtual:
-                available_features.add("snapshots")
-        
-        # Fix memory ranges if no environments
-        if memory_ranges["min"] == float('inf'):
-            memory_ranges = {"min": 0, "max": 0}
-        
-        capabilities = {
-            "supported_architectures": list(architectures),
-            "supported_environment_types": list(environment_types),
-            "memory_constraints": {
-                "min_available_mb": memory_ranges["min"],
-                "max_available_mb": memory_ranges["max"],
-                "recommended_min_mb": 512,
-                "recommended_max_mb": 8192
-            },
-            "cpu_constraints": {
-                "min_cores": 1,
-                "max_cores": 16,
-                "recommended_cores": 2
-            },
-            "available_features": list(available_features),
-            "isolation_levels": ["none", "process", "container", "vm"],
-            "environment_limits": {
-                "total_environments": len(environments),
-                "max_concurrent_allocations": len(environments),
-                "current_queue_length": len(allocation_queue)
-            }
-        }
-        
-        return APIResponse(
-            success=True,
-            message="Environment capabilities retrieved successfully",
-            data=capabilities
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve capabilities: {str(e)}"
-        )
-
-
-@router.post("/environments/preference-profiles", response_model=APIResponse)
-async def save_preference_profile(
-    profile_data: Dict[str, Any],
-    current_user: Dict[str, Any] = Depends(require_permission("test:submit"))
-):
-    """Save an environment preference profile."""
-    try:
-        # Generate profile ID
-        profile_id = f"profile-{str(uuid.uuid4())[:8]}"
-        
-        # Validate required fields
-        required_fields = ["name", "requirements", "preferences"]
-        for field in required_fields:
-            if field not in profile_data:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Missing required field: {field}"
-                )
-        
-        # Create profile
-        profile = {
-            "id": profile_id,
-            "name": profile_data["name"],
-            "description": profile_data.get("description"),
-            "requirements": profile_data["requirements"],
-            "preferences": profile_data["preferences"],
-            "created_by": current_user["username"],
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat()
-        }
-        
-        # Store profile (in production, this would be in database)
-        user_profiles = preference_profiles.setdefault(current_user["username"], {})
-        user_profiles[profile_id] = profile
-        
-        return APIResponse(
-            success=True,
-            message="Preference profile saved successfully",
-            data={
-                "profile_id": profile_id,
-                "name": profile["name"],
-                "created_at": profile["created_at"]
-            }
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save preference profile: {str(e)}"
-        )
-
-
-@router.get("/environments/preference-profiles", response_model=APIResponse)
-async def get_preference_profiles(
-    current_user: Dict[str, Any] = Depends(require_permission("status:read"))
-):
-    """Get saved preference profiles for the current user."""
-    try:
-        user_profiles = preference_profiles.get(current_user["username"], {})
-        profiles_list = list(user_profiles.values())
-        
-        # Sort by creation date (most recent first)
-        profiles_list.sort(key=lambda p: p["created_at"], reverse=True)
-        
-        return APIResponse(
-            success=True,
-            message=f"Retrieved {len(profiles_list)} preference profiles",
-            data={
-                "profiles": profiles_list,
-                "total_count": len(profiles_list)
-            }
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve preference profiles: {str(e)}"
-        )
-
-
-@router.delete("/environments/preference-profiles/{profile_id}", response_model=APIResponse)
-async def delete_preference_profile(
-    profile_id: str,
-    current_user: Dict[str, Any] = Depends(require_permission("test:submit"))
-):
-    """Delete a preference profile."""
-    try:
-        user_profiles = preference_profiles.get(current_user["username"], {})
-        
-        if profile_id not in user_profiles:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Preference profile not found"
-            )
-        
-        profile_name = user_profiles[profile_id]["name"]
-        del user_profiles[profile_id]
-        
-        return APIResponse(
-            success=True,
-            message=f"Preference profile '{profile_name}' deleted successfully",
-            data={
-                "deleted_profile_id": profile_id,
-                "deleted_profile_name": profile_name
-            }
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete preference profile: {str(e)}"
         )

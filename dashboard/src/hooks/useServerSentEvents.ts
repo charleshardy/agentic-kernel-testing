@@ -34,7 +34,6 @@ export interface UseServerSentEventsReturn {
 
 export const useServerSentEvents = (options: UseServerSentEventsOptions = {}): UseServerSentEventsReturn => {
   const {
-    url = `${window.location.protocol}//${window.location.host}/api/environments/allocation/events`,
     autoReconnect = true,
     maxReconnectAttempts = 5,
     reconnectInterval = 3000,
@@ -43,6 +42,10 @@ export const useServerSentEvents = (options: UseServerSentEventsOptions = {}): U
     onDisconnect,
     onError
   } = options
+
+  // Build URL with authentication token
+  const token = localStorage.getItem('auth_token')
+  const url = `http://localhost:8000/api/v1/environments/allocation/events${token ? `?token=${token}` : ''}`
 
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
@@ -60,6 +63,12 @@ export const useServerSentEvents = (options: UseServerSentEventsOptions = {}): U
 
   // Connect to Server-Sent Events
   const connect = useCallback(() => {
+    // Don't connect if URL indicates disabled
+    if (url.startsWith('disabled://')) {
+      console.log('📡 SSE connection disabled')
+      return
+    }
+    
     if (eventSourceRef.current?.readyState === EventSource.CONNECTING || 
         eventSourceRef.current?.readyState === EventSource.OPEN) {
       return

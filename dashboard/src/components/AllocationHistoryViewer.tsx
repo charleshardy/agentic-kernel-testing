@@ -112,8 +112,8 @@ const AllocationHistoryViewer: React.FC<AllocationHistoryViewerProps> = ({
 
   // Real-time updates for allocation events
   const realTimeUpdates = useRealTimeUpdates({
-    enableWebSocket: true,
-    enableSSE: true,
+    enableWebSocket: false, // Disabled to prevent connection errors
+    enableSSE: false, // Disabled to prevent connection errors
     onAllocationEvent: useCallback((event: AllocationEvent) => {
       console.log('📊 New allocation event received:', event)
       // The query will automatically refetch due to real-time updates

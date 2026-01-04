@@ -138,7 +138,7 @@ const EnvironmentTable: React.FC<EnvironmentTableProps> = ({
 
   // Enhanced assigned tests display
   const renderAssignedTests = useCallback((tests: string[]) => {
-    if (tests.length === 0) {
+    if (!tests || tests.length === 0) {
       return <span style={{ color: '#999', fontSize: '12px' }} aria-label="No tests assigned">No tests</span>
     }
     

@@ -28,8 +28,8 @@ export interface UseRealTimeUpdatesOptions {
 
 export const useRealTimeUpdates = (options: UseRealTimeUpdatesOptions = {}) => {
   const {
-    enableWebSocket = true,
-    enableSSE = true,
+    enableWebSocket = false, // Disabled by default to prevent connection errors
+    enableSSE = false, // Disabled by default to prevent connection errors
     onEnvironmentUpdate,
     onAllocationUpdate,
     onAllocationEvent,
@@ -156,8 +156,8 @@ export const useRealTimeUpdates = (options: UseRealTimeUpdatesOptions = {}) => {
     }
   }, [queryClient, onAllocationEvent])
 
-  // WebSocket connection
-  const webSocket = useWebSocket({
+  // WebSocket connection (only if enabled)
+  const webSocket = enableWebSocket ? useWebSocket({
     autoReconnect: true,
     maxReconnectAttempts: 5,
     reconnectInterval: 3000,
@@ -178,10 +178,24 @@ export const useRealTimeUpdates = (options: UseRealTimeUpdatesOptions = {}) => {
       }))
       updateConnectionHealth()
     }
-  })
+  }) : {
+    isConnected: false,
+    isConnecting: false,
+    connectionAttempts: 0,
+    lastError: null,
+    sendMessage: () => {
+      console.warn('WebSocket is disabled')
+    },
+    reconnect: () => {
+      console.warn('WebSocket is disabled')
+    },
+    disconnect: () => {
+      console.warn('WebSocket is disabled')
+    }
+  }
 
-  // Server-Sent Events connection
-  const sse = useServerSentEvents({
+  // Server-Sent Events connection (only if enabled)
+  const sse = enableSSE ? useServerSentEvents({
     autoReconnect: true,
     maxReconnectAttempts: 5,
     reconnectInterval: 3000,
@@ -202,7 +216,18 @@ export const useRealTimeUpdates = (options: UseRealTimeUpdatesOptions = {}) => {
       }))
       updateConnectionHealth()
     }
-  })
+  }) : {
+    isConnected: false,
+    isConnecting: false,
+    connectionAttempts: 0,
+    lastError: null,
+    reconnect: () => {
+      console.warn('SSE is disabled')
+    },
+    disconnect: () => {
+      console.warn('SSE is disabled')
+    }
+  }
 
   // Update connection health based on WebSocket and SSE status
   const updateConnectionHealth = useCallback(() => {
