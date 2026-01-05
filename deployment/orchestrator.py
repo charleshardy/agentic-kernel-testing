@@ -9,7 +9,7 @@ import asyncio
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Any
 from concurrent.futures import ThreadPoolExecutor
 import heapq
 import json
@@ -27,6 +27,13 @@ from .models import (
 from .environment_manager import EnvironmentManagerFactory
 from .artifact_repository import ArtifactRepository
 from .instrumentation_manager import InstrumentationManager
+from .security import (
+    EncryptionManager,
+    CredentialManager,
+    AccessControlManager,
+    SecureArtifactHandler,
+    SecurityLevel
+)
 
 
 logger = logging.getLogger(__name__)
@@ -244,7 +251,8 @@ class DeploymentOrchestrator:
     def __init__(self, 
                  max_concurrent_deployments: int = 5,
                  default_timeout: int = 300,
-                 log_dir: str = "./deployment_logs"):
+                 log_dir: str = "./deployment_logs",
+                 enable_security: bool = True):
         """
         Initialize the deployment orchestrator.
         
@@ -252,14 +260,32 @@ class DeploymentOrchestrator:
             max_concurrent_deployments: Maximum number of concurrent deployments
             default_timeout: Default timeout for deployment operations in seconds
             log_dir: Directory for deployment logs
+            enable_security: Enable security features (encryption, access control)
         """
         self.max_concurrent_deployments = max_concurrent_deployments
         self.default_timeout = default_timeout
+        self.enable_security = enable_security
         
         # Core components
         self.environment_manager_factory = EnvironmentManagerFactory()
         self.artifact_repository = ArtifactRepository()
         self.instrumentation_manager = InstrumentationManager()
+        
+        # Security components
+        if enable_security:
+            self.encryption_manager = EncryptionManager()
+            self.credential_manager = CredentialManager(self.encryption_manager)
+            self.access_control_manager = AccessControlManager()
+            self.secure_artifact_handler = SecureArtifactHandler(
+                self.encryption_manager,
+                self.credential_manager,
+                self.access_control_manager
+            )
+        else:
+            self.encryption_manager = None
+            self.credential_manager = None
+            self.access_control_manager = None
+            self.secure_artifact_handler = None
         
         # Enhanced resource management
         self.deployment_queue = DeploymentQueue()
@@ -274,7 +300,7 @@ class DeploymentOrchestrator:
         self._deployment_worker_task: Optional[asyncio.Task] = None
         self._is_running = False
         
-        logger.info(f"DeploymentOrchestrator initialized with max_concurrent_deployments={max_concurrent_deployments}")
+        logger.info(f"DeploymentOrchestrator initialized with max_concurrent_deployments={max_concurrent_deployments}, security_enabled={enable_security}")
     
     async def start(self):
         """Start the deployment orchestrator background tasks"""
@@ -825,3 +851,159 @@ class DeploymentOrchestrator:
                 stats["cancelled"] += 1
         
         return stats
+    
+    # Security-related methods
+    
+    def store_environment_credential(self, 
+                                   environment_id: str,
+                                   credential_type: str,
+                                   credential_data: Dict[str, Any],
+                                   expires_in_hours: Optional[int] = None) -> Optional[str]:
+        """
+        Store secure credentials for environment access.
+        
+        Args:
+            environment_id: Environment identifier
+            credential_type: Type of credential (password, ssh_key, etc.)
+            credential_data: Credential data to encrypt and store
+            expires_in_hours: Hours until credential expires
+            
+        Returns:
+            Credential ID for retrieval or None if security disabled
+        """
+        if not self.enable_security or not self.credential_manager:
+            logger.warning("Security is disabled, cannot store credentials")
+            return None
+        
+        return self.credential_manager.store_credential(
+            environment_id, credential_type, credential_data, expires_in_hours
+        )
+    
+    def retrieve_environment_credential(self, credential_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve and decrypt environment credentials.
+        
+        Args:
+            credential_id: Credential identifier
+            
+        Returns:
+            Decrypted credential data or None if not found/security disabled
+        """
+        if not self.enable_security or not self.credential_manager:
+            logger.warning("Security is disabled, cannot retrieve credentials")
+            return None
+        
+        return self.credential_manager.retrieve_credential(credential_id)
+    
+    def secure_artifact(self, 
+                       artifact: TestArtifact, 
+                       user_id: str,
+                       security_level: str = SecurityLevel.INTERNAL) -> TestArtifact:
+        """
+        Apply security measures to an artifact.
+        
+        Args:
+            artifact: Test artifact to secure
+            user_id: User requesting the operation
+            security_level: Security level to apply
+            
+        Returns:
+            Secured test artifact
+        """
+        if not self.enable_security or not self.secure_artifact_handler:
+            logger.warning("Security is disabled, returning artifact unchanged")
+            return artifact
+        
+        return self.secure_artifact_handler.secure_artifact(
+            artifact, security_level, user_id
+        )
+    
+    def decrypt_artifact(self, artifact: TestArtifact, user_id: str) -> Optional[TestArtifact]:
+        """
+        Decrypt a secured artifact.
+        
+        Args:
+            artifact: Encrypted test artifact
+            user_id: User requesting decryption
+            
+        Returns:
+            Decrypted artifact or None if access denied/security disabled
+        """
+        if not self.enable_security or not self.secure_artifact_handler:
+            logger.warning("Security is disabled, returning artifact unchanged")
+            return artifact
+        
+        return self.secure_artifact_handler.decrypt_artifact(artifact, user_id)
+    
+    def check_deployment_permission(self, 
+                                  artifact: TestArtifact, 
+                                  user_id: str, 
+                                  environment_id: str) -> bool:
+        """
+        Check if user has permission to deploy artifact to environment.
+        
+        Args:
+            artifact: Test artifact to deploy
+            user_id: User requesting deployment
+            environment_id: Target environment
+            
+        Returns:
+            True if deployment is allowed, False otherwise
+        """
+        if not self.enable_security or not self.secure_artifact_handler:
+            logger.warning("Security is disabled, allowing deployment")
+            return True
+        
+        return self.secure_artifact_handler.enforce_deployment_permissions(
+            artifact, user_id, environment_id
+        )
+    
+    def add_access_control_rule(self, 
+                               resource_id: str,
+                               user_id: str,
+                               permissions: List[str],
+                               environment_restrictions: Optional[List[str]] = None,
+                               expires_in_hours: Optional[int] = None):
+        """
+        Add access control rule for a resource.
+        
+        Args:
+            resource_id: Resource identifier
+            user_id: User identifier
+            permissions: List of permissions to grant
+            environment_restrictions: Optional environment restrictions
+            expires_in_hours: Hours until rule expires
+        """
+        if not self.enable_security or not self.access_control_manager:
+            logger.warning("Security is disabled, cannot add access control rule")
+            return
+        
+        from .security import AccessControlRule
+        from datetime import datetime, timedelta
+        
+        expires_at = None
+        if expires_in_hours:
+            expires_at = datetime.now() + timedelta(hours=expires_in_hours)
+        
+        rule = AccessControlRule(
+            resource_id=resource_id,
+            user_id=user_id,
+            permissions=permissions,
+            environment_restrictions=environment_restrictions or [],
+            expires_at=expires_at
+        )
+        
+        self.access_control_manager.add_access_rule(rule)
+    
+    def cleanup_security_resources(self):
+        """Clean up expired security resources"""
+        if not self.enable_security:
+            return
+        
+        if self.credential_manager:
+            self.credential_manager.cleanup_expired_credentials()
+        
+        if self.access_control_manager:
+            self.access_control_manager.cleanup_expired_rules()
+        
+        logger.info("Cleaned up expired security resources")

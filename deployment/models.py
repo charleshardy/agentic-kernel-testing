@@ -64,7 +64,7 @@ class TestArtifact:
     """
     Represents a test artifact to be deployed.
     
-    Enhanced with validation, metadata, and deployment tracking.
+    Enhanced with validation, metadata, deployment tracking, and security features.
     """
     artifact_id: str
     name: str
@@ -77,6 +77,11 @@ class TestArtifact:
     metadata: Dict[str, Any] = field(default_factory=dict)
     size_bytes: Optional[int] = None
     created_at: Optional[datetime] = None
+    
+    # Security-related fields
+    is_encrypted: bool = False
+    security_level: str = "internal"  # public, internal, confidential, secret
+    access_control_enabled: bool = False
     
     def __post_init__(self):
         """Validate and initialize artifact after creation"""
@@ -111,6 +116,13 @@ class TestArtifact:
         # Set default permissions if not provided
         if not self.permissions:
             self.permissions = "0755" if self.type == ArtifactType.SCRIPT else "0644"
+        
+        # Update metadata with security information
+        self.metadata.update({
+            "is_encrypted": self.is_encrypted,
+            "security_level": self.security_level,
+            "access_control_enabled": self.access_control_enabled
+        })
     
     def _is_valid_permissions(self, permissions: str) -> bool:
         """Validate Unix permissions format"""
@@ -144,7 +156,10 @@ class TestArtifact:
             "dependencies": self.dependencies,
             "metadata": self.metadata,
             "size_bytes": self.size_bytes,
-            "created_at": self.created_at.isoformat() if self.created_at else None
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "is_encrypted": self.is_encrypted,
+            "security_level": self.security_level,
+            "access_control_enabled": self.access_control_enabled
         }
     
     @classmethod
@@ -164,7 +179,10 @@ class TestArtifact:
             target_path=data["target_path"],
             dependencies=data.get("dependencies", []),
             metadata=data.get("metadata", {}),
-            created_at=created_at
+            created_at=created_at,
+            is_encrypted=data.get("is_encrypted", False),
+            security_level=data.get("security_level", "internal"),
+            access_control_enabled=data.get("access_control_enabled", False)
         )
 
 
@@ -411,7 +429,7 @@ class DeploymentConfig:
     """
     Configuration for deployment process.
     
-    Enhanced with comprehensive deployment options and validation.
+    Enhanced with comprehensive deployment options, validation, and security features.
     """
     timeout_seconds: int = 300
     retry_attempts: int = 3
@@ -431,6 +449,13 @@ class DeploymentConfig:
     compression_enabled: bool = True
     encryption_enabled: bool = False
     
+    # Security options
+    enforce_access_control: bool = True
+    require_secure_transfer: bool = True
+    sanitize_logs: bool = True
+    cleanup_sensitive_files: bool = True
+    credential_cache_ttl_minutes: int = 15
+    
     def __post_init__(self):
         """Validate configuration after creation"""
         if self.timeout_seconds <= 0:
@@ -444,6 +469,9 @@ class DeploymentConfig:
         
         if self.max_transfer_size_mb <= 0:
             raise ValueError("Max transfer size must be positive")
+        
+        if self.credential_cache_ttl_minutes <= 0:
+            raise ValueError("Credential cache TTL must be positive")
     
     def get_retry_delay(self, attempt: int) -> float:
         """Calculate retry delay with exponential backoff"""
