@@ -40,6 +40,7 @@ from .log_sanitizer import (
     SecureLogStorage,
     DeploymentCleanupManager
 )
+from .validation_manager import ValidationManager
 
 
 logger = logging.getLogger(__name__)
@@ -326,6 +327,9 @@ class DeploymentOrchestrator:
             self.temp_file_manager,
             self.secure_log_storage
         )
+        
+        # Validation management
+        self.validation_manager = ValidationManager()
         
         # Initialize deployment logger with sanitization components
         self.deployment_logger = DeploymentLogger(
@@ -859,13 +863,87 @@ class DeploymentOrchestrator:
                                 deployment_plan: DeploymentPlan, 
                                 deployment: DeploymentResult, 
                                 step: DeploymentStep):
-        """Validate environment readiness"""
+        """Validate environment readiness with comprehensive checks"""
         logger.info(f"Validating readiness for environment {deployment_plan.environment_id}")
         
-        # For now, simulate readiness validation
-        await asyncio.sleep(0.1)  # Simulate validation time
+        try:
+            # Perform comprehensive validation
+            validation_result = await self.validation_manager.validate_environment_readiness(
+                deployment_plan.environment_id,
+                deployment_config=deployment_plan.deployment_config.__dict__ if deployment_plan.deployment_config else None
+            )
+            
+            # Store validation result in step details
+            step.details["validation_result"] = validation_result
+            step.details["validation_passed"] = validation_result.is_ready
+            step.details["validation_success_rate"] = validation_result.success_rate
+            step.details["failed_checks"] = validation_result.failed_checks
+            step.details["warnings"] = validation_result.warnings
+            
+            # If validation failed, attempt recovery
+            if not validation_result.is_ready:
+                logger.warning(f"Environment {deployment_plan.environment_id} failed readiness validation. "
+                             f"Failed checks: {validation_result.failed_checks}")
+                
+                # Attempt failure recovery
+                recovery_result = await self.validation_manager.attempt_failure_recovery(
+                    deployment_plan.environment_id, validation_result
+                )
+                
+                step.details["recovery_attempted"] = True
+                step.details["recovery_results"] = recovery_result.details.get("recovery_attempts", {})
+                
+                # Check if recovery was successful
+                if recovery_result.is_ready:
+                    logger.info(f"Recovery successful for environment {deployment_plan.environment_id}")
+                    step.details["validation_passed"] = True
+                    step.details["recovery_successful"] = True
+                else:
+                    logger.error(f"Recovery failed for environment {deployment_plan.environment_id}")
+                    step.details["recovery_successful"] = False
+                    
+                    # Prevent test execution by raising an exception
+                    failure_details = self._format_validation_failure_message(validation_result)
+                    raise RuntimeError(f"Environment readiness validation failed: {failure_details}")
+            else:
+                logger.info(f"Environment {deployment_plan.environment_id} passed readiness validation "
+                           f"(success rate: {validation_result.success_rate:.1f}%)")
+                
+                # Log any warnings
+                if validation_result.warnings:
+                    for warning in validation_result.warnings:
+                        logger.warning(f"Validation warning: {warning}")
         
-        step.details["validation_passed"] = True
+        except Exception as e:
+            step.details["validation_passed"] = False
+            step.details["validation_error"] = str(e)
+            logger.error(f"Validation failed for environment {deployment_plan.environment_id}: {e}")
+            raise
+    
+    def _format_validation_failure_message(self, validation_result: ValidationResult) -> str:
+        """Format a comprehensive validation failure message"""
+        message_parts = []
+        
+        # Add basic failure info
+        message_parts.append(f"Environment {validation_result.environment_id} failed readiness validation")
+        message_parts.append(f"Success rate: {validation_result.success_rate:.1f}%")
+        
+        # Add failed checks
+        if validation_result.failed_checks:
+            message_parts.append(f"Failed checks: {', '.join(validation_result.failed_checks)}")
+        
+        # Add specific failure details with remediation suggestions
+        for failed_check in validation_result.failed_checks:
+            failure_key = f"{failed_check}_failure"
+            if failure_key in validation_result.details:
+                failure = validation_result.details[failure_key]
+                message_parts.append(f"  - {failed_check}: {failure.error_message}")
+                
+                if failure.remediation_suggestions:
+                    suggestions = "; ".join(failure.remediation_suggestions[:3])  # Limit to 3 suggestions
+                    message_parts.append(f"    Suggestions: {suggestions}")
+        
+        return ". ".join(message_parts)
     
     async def _schedule_retry(self, deployment_id: str):
         """Schedule automatic retry for failed deployment"""
@@ -1101,3 +1179,19 @@ class DeploymentOrchestrator:
         """Perform emergency cleanup of all sensitive resources"""
         await self.cleanup_manager.emergency_cleanup()
         logger.warning("Emergency cleanup completed for all sensitive resources")
+    
+    def get_validation_history(self, environment_id: str) -> List:
+        """Get validation history for an environment"""
+        return self.validation_manager.get_validation_history(environment_id)
+    
+    def get_validation_statistics(self) -> Dict[str, Any]:
+        """Get validation statistics across all environments"""
+        return self.validation_manager.get_validation_statistics()
+    
+    def add_custom_validation_check(self, check):
+        """Add a custom validation check"""
+        self.validation_manager.add_custom_validation_check(check)
+    
+    async def validate_environment_readiness(self, environment_id: str, deployment_config: Dict[str, Any] = None):
+        """Manually validate environment readiness"""
+        return await self.validation_manager.validate_environment_readiness(environment_id, deployment_config)
