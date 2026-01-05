@@ -225,13 +225,13 @@
     - **Validates: Requirements 3.2**
 
 - [ ] 10. Add security and access control features
-  - [ ] 10.1 Implement secure artifact handling
+  - [x] 10.1 Implement secure artifact handling
     - Add encryption for sensitive test data during transfer
     - Implement secure credential management for environment access
     - Create access control enforcement for deployed artifacts
     - _Requirements: 6.1, 6.2, 6.5_
 
-  - [ ] 10.2 Write property test for access control enforcement
+  - [x] 10.2 Write property test for access control enforcement
     - **Property 30: Access control enforcement**
     - **Validates: Requirements 6.5**
 

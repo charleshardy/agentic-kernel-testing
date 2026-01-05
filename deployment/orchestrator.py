@@ -34,6 +34,12 @@ from .security import (
     SecureArtifactHandler,
     SecurityLevel
 )
+from .log_sanitizer import (
+    LogSanitizer,
+    TemporaryFileManager,
+    SecureLogStorage,
+    DeploymentCleanupManager
+)
 
 
 logger = logging.getLogger(__name__)
@@ -120,11 +126,15 @@ class ResourceManager:
 
 
 class DeploymentLogger:
-    """Handles deployment logging and metrics collection"""
+    """Handles deployment logging and metrics collection with sanitization"""
     
-    def __init__(self, log_dir: str = "./deployment_logs"):
+    def __init__(self, log_dir: str = "./deployment_logs", log_sanitizer=None, secure_log_storage=None):
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Log sanitization components
+        self.log_sanitizer = log_sanitizer
+        self.secure_log_storage = secure_log_storage
         
         # Metrics storage
         self.metrics = {
@@ -140,7 +150,7 @@ class DeploymentLogger:
         self._load_metrics()
     
     def log_deployment_start(self, deployment_id: str, plan: DeploymentPlan):
-        """Log deployment start"""
+        """Log deployment start with sanitization"""
         log_entry = {
             "timestamp": datetime.now().isoformat(),
             "event": "deployment_start",
@@ -153,7 +163,7 @@ class DeploymentLogger:
         self.metrics["total_deployments"] += 1
     
     def log_deployment_end(self, deployment_id: str, result: DeploymentResult):
-        """Log deployment completion"""
+        """Log deployment completion with sanitization"""
         log_entry = {
             "timestamp": datetime.now().isoformat(),
             "event": "deployment_end",
@@ -184,7 +194,7 @@ class DeploymentLogger:
                 self.metrics["average_duration_seconds"] = result.duration_seconds
     
     def log_retry_attempt(self, deployment_id: str, attempt: int, error: str):
-        """Log retry attempt"""
+        """Log retry attempt with sanitization"""
         log_entry = {
             "timestamp": datetime.now().isoformat(),
             "event": "retry_attempt",
@@ -196,25 +206,41 @@ class DeploymentLogger:
         self.metrics["retry_count"] += 1
     
     def _write_log(self, deployment_id: str, log_entry: dict):
-        """Write log entry to file"""
-        log_file = self.log_dir / f"{deployment_id}.log"
-        with open(log_file, "a") as f:
-            f.write(json.dumps(log_entry) + "\n")
+        """Write log entry to file with sanitization"""
+        if self.secure_log_storage:
+            # Use secure log storage with sanitization
+            self.secure_log_storage.store_log_entry(deployment_id, log_entry, sanitize=True)
+        else:
+            # Fallback to regular file logging with sanitization if available
+            if self.log_sanitizer:
+                # Sanitize the log entry before writing
+                sanitized_entry = self.log_sanitizer.sanitize_json_log(log_entry)
+            else:
+                sanitized_entry = log_entry
+            
+            log_file = self.log_dir / f"{deployment_id}.log"
+            with open(log_file, "a") as f:
+                f.write(json.dumps(sanitized_entry) + "\n")
     
     def get_deployment_logs(self, deployment_id: str) -> List[dict]:
-        """Get logs for a specific deployment"""
-        log_file = self.log_dir / f"{deployment_id}.log"
-        if not log_file.exists():
-            return []
-        
-        logs = []
-        with open(log_file, "r") as f:
-            for line in f:
-                try:
-                    logs.append(json.loads(line.strip()))
-                except json.JSONDecodeError:
-                    continue
-        return logs
+        """Get logs for a specific deployment (sanitized by default)"""
+        if self.secure_log_storage:
+            # Use secure log storage to get sanitized logs
+            return self.secure_log_storage.get_log_entries(deployment_id, sanitized_only=True)
+        else:
+            # Fallback to file-based logs
+            log_file = self.log_dir / f"{deployment_id}.log"
+            if not log_file.exists():
+                return []
+            
+            logs = []
+            with open(log_file, "r") as f:
+                for line in f:
+                    try:
+                        logs.append(json.loads(line.strip()))
+                    except json.JSONDecodeError:
+                        continue
+            return logs
     
     def get_metrics(self) -> dict:
         """Get current metrics"""
@@ -290,7 +316,23 @@ class DeploymentOrchestrator:
         # Enhanced resource management
         self.deployment_queue = DeploymentQueue()
         self.resource_manager = ResourceManager()
-        self.deployment_logger = DeploymentLogger(log_dir)
+        
+        # Log sanitization and cleanup components
+        self.log_sanitizer = LogSanitizer()
+        self.temp_file_manager = TemporaryFileManager()
+        self.secure_log_storage = SecureLogStorage(log_dir, self.log_sanitizer)
+        self.cleanup_manager = DeploymentCleanupManager(
+            self.log_sanitizer,
+            self.temp_file_manager,
+            self.secure_log_storage
+        )
+        
+        # Initialize deployment logger with sanitization components
+        self.deployment_logger = DeploymentLogger(
+            log_dir, 
+            self.log_sanitizer, 
+            self.secure_log_storage
+        )
         
         # State tracking
         self.active_deployments: Dict[str, DeploymentResult] = {}
@@ -648,6 +690,12 @@ class DeploymentOrchestrator:
                 deployment.status = DeploymentStatus.COMPLETED
                 deployment.end_time = datetime.now()
                 logger.info(f"Deployment {deployment_id} completed successfully")
+                
+                # Clean up deployment resources
+                try:
+                    await self.cleanup_manager.cleanup_deployment_resources(deployment_id)
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to cleanup resources for deployment {deployment_id}: {cleanup_error}")
             
             # Log deployment completion
             self.deployment_logger.log_deployment_end(deployment_id, deployment)
@@ -658,6 +706,12 @@ class DeploymentOrchestrator:
             deployment.end_time = datetime.now()
             deployment.error_message = str(e)
             logger.error(f"Deployment {deployment_id} failed: {e}", exc_info=True)
+            
+            # Clean up deployment resources even on failure
+            try:
+                await self.cleanup_manager.cleanup_deployment_resources(deployment_id)
+            except Exception as cleanup_error:
+                logger.warning(f"Failed to cleanup resources for failed deployment {deployment_id}: {cleanup_error}")
             
             # Log deployment failure
             self.deployment_logger.log_deployment_end(deployment_id, deployment)
@@ -1007,3 +1061,43 @@ class DeploymentOrchestrator:
             self.access_control_manager.cleanup_expired_rules()
         
         logger.info("Cleaned up expired security resources")
+    
+    def create_temporary_file(self, 
+                            content: bytes, 
+                            suffix: str = ".tmp",
+                            contains_sensitive_data: bool = False,
+                            cleanup_priority: str = "normal") -> str:
+        """
+        Create a temporary file with tracking for cleanup.
+        
+        Args:
+            content: File content
+            suffix: File suffix
+            contains_sensitive_data: Whether file contains sensitive data
+            cleanup_priority: Cleanup priority (immediate, high, normal, low)
+            
+        Returns:
+            Path to created temporary file
+        """
+        return self.temp_file_manager.create_temporary_file(
+            content, suffix, contains_sensitive_data, cleanup_priority
+        )
+    
+    def mark_file_for_cleanup(self, file_path: str, priority: str = "normal"):
+        """
+        Mark an existing file for cleanup.
+        
+        Args:
+            file_path: Path to file to track
+            priority: Cleanup priority
+        """
+        self.temp_file_manager.mark_file_for_cleanup(file_path, priority)
+    
+    def get_cleanup_status(self) -> Dict[str, Any]:
+        """Get comprehensive cleanup status including sanitization stats"""
+        return self.cleanup_manager.get_cleanup_status()
+    
+    async def emergency_cleanup(self):
+        """Perform emergency cleanup of all sensitive resources"""
+        await self.cleanup_manager.emergency_cleanup()
+        logger.warning("Emergency cleanup completed for all sensitive resources")

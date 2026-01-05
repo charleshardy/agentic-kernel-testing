@@ -43,7 +43,7 @@ class TestLogManagement:
         temp_dir = tempfile.mkdtemp()
         
         try:
-            logger = DeploymentLogger(log_dir=temp_dir)
+            logger = DeploymentLogger(log_dir=temp_dir, log_sanitizer=None, secure_log_storage=None)
             
             deployment_ids = []
             expected_events = {}
@@ -121,7 +121,7 @@ class TestLogManagement:
                         f"Log timestamps not in chronological order: {timestamps[i-1]} > {timestamps[i]}"
             
             # Test log persistence by creating new logger instance
-            logger2 = DeploymentLogger(log_dir=temp_dir)
+            logger2 = DeploymentLogger(log_dir=temp_dir, log_sanitizer=None, secure_log_storage=None)
             
             # Verify logs are still accessible
             for deployment_id in deployment_ids:
@@ -158,7 +158,7 @@ class TestLogManagement:
         temp_dir = tempfile.mkdtemp()
         
         try:
-            logger = DeploymentLogger(log_dir=temp_dir)
+            logger = DeploymentLogger(log_dir=temp_dir, log_sanitizer=None, secure_log_storage=None)
             
             # Track expected metrics
             expected_total = total_deployments
@@ -253,7 +253,7 @@ class TestLogManagement:
                     f"Average duration: expected {expected_avg}, got {actual_avg}"
             
             # Test metrics persistence
-            logger2 = DeploymentLogger(log_dir=temp_dir)
+            logger2 = DeploymentLogger(log_dir=temp_dir, log_sanitizer=None, secure_log_storage=None)
             metrics2 = logger2.get_metrics()
             
             # Verify metrics are loaded correctly

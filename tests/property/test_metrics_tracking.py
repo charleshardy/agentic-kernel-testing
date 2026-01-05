@@ -307,7 +307,7 @@ class TestMetricsTracking:
         temp_dir = tempfile.mkdtemp()
         
         try:
-            logger = DeploymentLogger(log_dir=temp_dir)
+            logger = DeploymentLogger(log_dir=temp_dir, log_sanitizer=None, secure_log_storage=None)
             
             # Track expected aggregations
             all_durations = []
@@ -390,7 +390,7 @@ class TestMetricsTracking:
                     f"Failure rate: expected {expected_failure_rate}%, got {actual_failure_rate}%"
             
             # Verify metrics persistence
-            logger2 = DeploymentLogger(log_dir=temp_dir)
+            logger2 = DeploymentLogger(log_dir=temp_dir, log_sanitizer=None, secure_log_storage=None)
             persisted_metrics = logger2.get_metrics()
             
             assert persisted_metrics["total_deployments"] == total_deployments, \
