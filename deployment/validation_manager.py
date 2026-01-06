@@ -21,6 +21,7 @@ except ImportError:
     PSUTIL_AVAILABLE = False
 
 from .models import ValidationResult
+from .readiness_manager import ReadinessManager
 
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,9 @@ class ValidationManager:
         self.custom_checks: List[ValidationCheck] = []
         self.validation_history: Dict[str, List[ValidationResult]] = {}
         self.failure_recovery_strategies: Dict[str, callable] = {}
+        
+        # Initialize readiness manager
+        self.readiness_manager = ReadinessManager()
         
         # Register default recovery strategies
         self._register_recovery_strategies()
@@ -245,6 +249,11 @@ class ValidationManager:
         
         logger.info(f"Validation completed for {environment_id}: ready={validation_result.is_ready}, "
                    f"success_rate={validation_result.success_rate:.1f}%")
+        
+        # Update environment readiness state
+        await self.readiness_manager.update_environment_readiness(
+            environment_id, validation_result
+        )
         
         return validation_result
     
@@ -928,7 +937,7 @@ class ValidationManager:
         """Get validation history for an environment"""
         return self.validation_history.get(environment_id, [])
     
-    def get_validation_statistics(self) -> Dict[str, Any]:
+    def get_readiness_statistics(self) -> Dict[str, Any]:
         """Get validation statistics across all environments"""
         total_validations = sum(len(history) for history in self.validation_history.values())
         
@@ -963,3 +972,31 @@ class ValidationManager:
             "common_failures": common_failures[:5],  # Top 5 most common failures
             "environments_validated": len(self.validation_history)
         }
+    
+    def get_environment_readiness_state(self, environment_id: str):
+        """Get current readiness state for an environment"""
+        return self.readiness_manager.get_environment_readiness(environment_id)
+    
+    def get_all_environment_readiness_states(self):
+        """Get readiness states for all environments"""
+        return self.readiness_manager.get_all_environment_readiness()
+    
+    def get_ready_environments(self) -> List[str]:
+        """Get list of environment IDs that are ready for test execution"""
+        return self.readiness_manager.get_ready_environments()
+    
+    def get_not_ready_environments(self) -> List[str]:
+        """Get list of environment IDs that are not ready for test execution"""
+        return self.readiness_manager.get_not_ready_environments()
+    
+    async def mark_environment_maintenance(self, environment_id: str, maintenance_mode: bool, reason: str = None):
+        """Mark environment as in maintenance mode"""
+        await self.readiness_manager.mark_environment_maintenance(environment_id, maintenance_mode, reason)
+    
+    def subscribe_to_readiness_notifications(self, callback: callable):
+        """Subscribe to readiness notifications"""
+        self.readiness_manager.subscribe_to_notifications(callback)
+    
+    def get_recent_readiness_notifications(self, environment_id: str = None, hours: int = 24):
+        """Get recent readiness notifications"""
+        return self.readiness_manager.get_recent_notifications(environment_id, hours=hours)
