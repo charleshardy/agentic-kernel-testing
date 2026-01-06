@@ -7,6 +7,7 @@ and recovery mechanisms for deployment readiness validation.
 
 import asyncio
 import logging
+import os
 import socket
 import subprocess
 from datetime import datetime, timedelta
@@ -285,54 +286,165 @@ class ValidationManager:
             }
     
     async def _check_network_connectivity(self, environment_id: str, config: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Check network connectivity"""
+        """Check comprehensive network connectivity"""
         try:
-            # Test connectivity to common services
+            # Test connectivity to multiple services and protocols
             test_hosts = [
-                ("8.8.8.8", 53),  # Google DNS
-                ("1.1.1.1", 53),  # Cloudflare DNS
+                ("8.8.8.8", 53, "tcp", "Google DNS TCP"),
+                ("8.8.8.8", 53, "udp", "Google DNS UDP"),
+                ("1.1.1.1", 53, "tcp", "Cloudflare DNS TCP"),
+                ("1.1.1.1", 53, "udp", "Cloudflare DNS UDP"),
+                ("github.com", 443, "tcp", "GitHub HTTPS"),
+                ("pypi.org", 443, "tcp", "PyPI HTTPS"),
             ]
             
+            # Add custom hosts from config if provided
+            if config and "test_hosts" in config:
+                for host_config in config["test_hosts"]:
+                    test_hosts.append((
+                        host_config["host"],
+                        host_config["port"],
+                        host_config.get("protocol", "tcp"),
+                        host_config.get("description", f"{host_config['host']}:{host_config['port']}")
+                    ))
+            
             connectivity_results = []
-            for host, port in test_hosts:
+            dns_resolution_results = []
+            
+            # Test DNS resolution
+            dns_test_domains = ["google.com", "github.com", "pypi.org"]
+            for domain in dns_test_domains:
                 try:
-                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    sock.settimeout(5)
-                    result = sock.connect_ex((host, port))
-                    sock.close()
+                    import socket
+                    start_time = datetime.now()
+                    addr_info = socket.getaddrinfo(domain, None)
+                    resolution_time = (datetime.now() - start_time).total_seconds() * 1000
+                    
+                    dns_resolution_results.append({
+                        "domain": domain,
+                        "resolved": True,
+                        "addresses": [info[4][0] for info in addr_info[:3]],  # First 3 addresses
+                        "resolution_time_ms": resolution_time
+                    })
+                except Exception as e:
+                    dns_resolution_results.append({
+                        "domain": domain,
+                        "resolved": False,
+                        "error": str(e)
+                    })
+            
+            # Test network connectivity
+            for host, port, protocol, description in test_hosts:
+                try:
+                    start_time = datetime.now()
+                    
+                    if protocol.lower() == "tcp":
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        sock.settimeout(5)
+                        result = sock.connect_ex((host, port))
+                        sock.close()
+                        connected = result == 0
+                    elif protocol.lower() == "udp":
+                        # For UDP, we'll try to send a simple packet
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                        sock.settimeout(5)
+                        try:
+                            sock.sendto(b"test", (host, port))
+                            connected = True
+                        except Exception:
+                            connected = False
+                        finally:
+                            sock.close()
+                    else:
+                        connected = False
+                    
+                    connection_time = (datetime.now() - start_time).total_seconds() * 1000
+                    
                     connectivity_results.append({
                         "host": host,
                         "port": port,
-                        "connected": result == 0
+                        "protocol": protocol,
+                        "description": description,
+                        "connected": connected,
+                        "connection_time_ms": connection_time if connected else None
                     })
                 except Exception as e:
                     connectivity_results.append({
                         "host": host,
                         "port": port,
+                        "protocol": protocol,
+                        "description": description,
                         "connected": False,
                         "error": str(e)
                     })
             
-            # Check if at least one connection succeeded
+            # Analyze results
             successful_connections = [r for r in connectivity_results if r["connected"]]
+            successful_dns_resolutions = [r for r in dns_resolution_results if r["resolved"]]
             
-            if successful_connections:
+            # Check network interface information
+            network_interfaces = []
+            try:
+                if PSUTIL_AVAILABLE:
+                    for interface, addrs in psutil.net_if_addrs().items():
+                        interface_info = {
+                            "name": interface,
+                            "addresses": []
+                        }
+                        for addr in addrs:
+                            if addr.family == socket.AF_INET:  # IPv4
+                                interface_info["addresses"].append({
+                                    "type": "IPv4",
+                                    "address": addr.address,
+                                    "netmask": addr.netmask
+                                })
+                            elif addr.family == socket.AF_INET6:  # IPv6
+                                interface_info["addresses"].append({
+                                    "type": "IPv6",
+                                    "address": addr.address
+                                })
+                        if interface_info["addresses"]:
+                            network_interfaces.append(interface_info)
+            except Exception as e:
+                logger.warning(f"Could not get network interface information: {e}")
+            
+            # Determine overall success
+            dns_success_rate = len(successful_dns_resolutions) / len(dns_resolution_results) if dns_resolution_results else 0
+            connectivity_success_rate = len(successful_connections) / len(connectivity_results) if connectivity_results else 0
+            
+            # Require at least 50% success rate for both DNS and connectivity
+            overall_success = dns_success_rate >= 0.5 and connectivity_success_rate >= 0.5
+            
+            if overall_success:
                 return {
                     "success": True,
                     "details": {
                         "connectivity_results": connectivity_results,
-                        "successful_connections": len(successful_connections)
+                        "dns_resolution_results": dns_resolution_results,
+                        "network_interfaces": network_interfaces,
+                        "successful_connections": len(successful_connections),
+                        "total_connections_tested": len(connectivity_results),
+                        "connectivity_success_rate": connectivity_success_rate,
+                        "dns_success_rate": dns_success_rate
                     }
                 }
             else:
                 return {
                     "success": False,
-                    "error": "No network connectivity detected",
-                    "diagnostic_info": {"connectivity_results": connectivity_results},
+                    "error": f"Network connectivity insufficient: {connectivity_success_rate:.1%} connectivity, {dns_success_rate:.1%} DNS resolution",
+                    "diagnostic_info": {
+                        "connectivity_results": connectivity_results,
+                        "dns_resolution_results": dns_resolution_results,
+                        "network_interfaces": network_interfaces,
+                        "connectivity_success_rate": connectivity_success_rate,
+                        "dns_success_rate": dns_success_rate
+                    },
                     "remediation_suggestions": [
                         "Check network configuration",
                         "Verify firewall settings",
-                        "Test DNS resolution"
+                        "Test DNS resolution",
+                        "Check network interface status",
+                        "Verify routing configuration"
                     ],
                     "is_recoverable": True
                 }
@@ -347,7 +459,7 @@ class ValidationManager:
             }
     
     async def _check_disk_space(self, environment_id: str, config: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Check available disk space"""
+        """Check available disk space across multiple mount points"""
         try:
             if not PSUTIL_AVAILABLE:
                 return {
@@ -356,54 +468,136 @@ class ValidationManager:
                     "details": {"psutil_available": False}
                 }
             
-            # Check disk space on root filesystem
-            disk_usage = psutil.disk_usage('/')
-            
-            # Calculate percentages
-            used_percent = (disk_usage.used / disk_usage.total) * 100
-            free_gb = disk_usage.free / (1024**3)  # Convert to GB
+            # Get disk usage for all mount points
+            disk_usage_results = []
+            overall_critical = False
+            overall_warning = False
             
             # Define thresholds
             critical_threshold = 95  # 95% used
             warning_threshold = 85   # 85% used
             min_free_gb = 1.0       # Minimum 1GB free
             
-            if used_percent >= critical_threshold or free_gb < min_free_gb:
+            # Check specific paths if provided in config
+            paths_to_check = ['/']  # Always check root
+            if config and "disk_paths" in config:
+                paths_to_check.extend(config["disk_paths"])
+            
+            # Also check common deployment paths
+            common_paths = ['/tmp', '/var', '/home']
+            for path in common_paths:
+                if os.path.exists(path) and path not in paths_to_check:
+                    paths_to_check.append(path)
+            
+            for path in paths_to_check:
+                try:
+                    if not os.path.exists(path):
+                        continue
+                        
+                    disk_usage = psutil.disk_usage(path)
+                    
+                    # Calculate percentages
+                    used_percent = (disk_usage.used / disk_usage.total) * 100
+                    free_gb = disk_usage.free / (1024**3)  # Convert to GB
+                    total_gb = disk_usage.total / (1024**3)
+                    used_gb = disk_usage.used / (1024**3)
+                    
+                    # Determine status
+                    is_critical = used_percent >= critical_threshold or free_gb < min_free_gb
+                    is_warning = used_percent >= warning_threshold
+                    
+                    if is_critical:
+                        overall_critical = True
+                    elif is_warning:
+                        overall_warning = True
+                    
+                    disk_usage_results.append({
+                        "path": path,
+                        "total_gb": round(total_gb, 2),
+                        "used_gb": round(used_gb, 2),
+                        "free_gb": round(free_gb, 2),
+                        "used_percent": round(used_percent, 1),
+                        "status": "critical" if is_critical else ("warning" if is_warning else "ok"),
+                        "is_critical": is_critical,
+                        "is_warning": is_warning
+                    })
+                    
+                except Exception as e:
+                    disk_usage_results.append({
+                        "path": path,
+                        "error": str(e),
+                        "status": "error"
+                    })
+            
+            # Check for additional disk information
+            disk_io_counters = None
+            try:
+                disk_io_counters = psutil.disk_io_counters()
+                if disk_io_counters:
+                    disk_io_info = {
+                        "read_count": disk_io_counters.read_count,
+                        "write_count": disk_io_counters.write_count,
+                        "read_bytes": disk_io_counters.read_bytes,
+                        "write_bytes": disk_io_counters.write_bytes,
+                        "read_time": disk_io_counters.read_time,
+                        "write_time": disk_io_counters.write_time
+                    }
+                else:
+                    disk_io_info = {"available": False}
+            except Exception as e:
+                disk_io_info = {"error": str(e)}
+            
+            if overall_critical:
+                critical_paths = [r for r in disk_usage_results if r.get("is_critical", False)]
                 return {
                     "success": False,
-                    "error": f"Insufficient disk space: {used_percent:.1f}% used, {free_gb:.1f}GB free",
+                    "error": f"Critical disk space issues on {len(critical_paths)} path(s)",
                     "diagnostic_info": {
-                        "total_gb": disk_usage.total / (1024**3),
-                        "used_gb": disk_usage.used / (1024**3),
-                        "free_gb": free_gb,
-                        "used_percent": used_percent
+                        "disk_usage_results": disk_usage_results,
+                        "disk_io_info": disk_io_info,
+                        "critical_paths": [r["path"] for r in critical_paths],
+                        "thresholds": {
+                            "critical_percent": critical_threshold,
+                            "warning_percent": warning_threshold,
+                            "min_free_gb": min_free_gb
+                        }
                     },
                     "remediation_suggestions": [
                         "Clean up temporary files",
                         "Remove old log files",
-                        "Increase disk space allocation"
+                        "Increase disk space allocation",
+                        "Move large files to other locations",
+                        "Check for large files consuming space"
                     ],
                     "is_recoverable": True
                 }
-            elif used_percent >= warning_threshold:
+            elif overall_warning:
+                warning_paths = [r for r in disk_usage_results if r.get("is_warning", False)]
                 return {
                     "success": True,
-                    "warning": f"Disk space warning: {used_percent:.1f}% used",
+                    "warning": f"Disk space warnings on {len(warning_paths)} path(s)",
                     "details": {
-                        "total_gb": disk_usage.total / (1024**3),
-                        "used_gb": disk_usage.used / (1024**3),
-                        "free_gb": free_gb,
-                        "used_percent": used_percent
+                        "disk_usage_results": disk_usage_results,
+                        "disk_io_info": disk_io_info,
+                        "warning_paths": [r["path"] for r in warning_paths],
+                        "thresholds": {
+                            "critical_percent": critical_threshold,
+                            "warning_percent": warning_threshold,
+                            "min_free_gb": min_free_gb
+                        }
                     }
                 }
             else:
                 return {
                     "success": True,
                     "details": {
-                        "total_gb": disk_usage.total / (1024**3),
-                        "used_gb": disk_usage.used / (1024**3),
-                        "free_gb": free_gb,
-                        "used_percent": used_percent
+                        "disk_usage_results": disk_usage_results,
+                        "disk_io_info": disk_io_info,
+                        "thresholds": {
+                            "critical_percent": critical_threshold,
+                            "warning_percent": warning_threshold,
+                            "min_free_gb": min_free_gb
+                        }
                     }
                 }
                 
@@ -552,41 +746,126 @@ class ValidationManager:
             }
     
     async def _check_tool_functionality(self, environment_id: str, config: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Check functionality of required testing tools"""
+        """Check functionality of required testing tools comprehensively"""
         try:
-            # Define tools to check
+            # Define comprehensive tool set
             tools_to_check = [
-                {"name": "python3", "command": ["python3", "--version"], "required": True},
-                {"name": "pytest", "command": ["python3", "-m", "pytest", "--version"], "required": True},
-                {"name": "git", "command": ["git", "--version"], "required": False},
+                # Core Python tools
+                {"name": "python3", "command": ["python3", "--version"], "required": True, "category": "python"},
+                {"name": "pip", "command": ["python3", "-m", "pip", "--version"], "required": True, "category": "python"},
+                {"name": "pytest", "command": ["python3", "-m", "pytest", "--version"], "required": True, "category": "testing"},
+                
+                # Version control
+                {"name": "git", "command": ["git", "--version"], "required": False, "category": "vcs"},
+                
+                # System tools
+                {"name": "ssh", "command": ["ssh", "-V"], "required": False, "category": "system"},
+                {"name": "curl", "command": ["curl", "--version"], "required": False, "category": "network"},
+                {"name": "wget", "command": ["wget", "--version"], "required": False, "category": "network"},
+                
+                # Kernel development tools (if available)
+                {"name": "gcc", "command": ["gcc", "--version"], "required": False, "category": "development"},
+                {"name": "make", "command": ["make", "--version"], "required": False, "category": "development"},
+                
+                # Performance and debugging tools
+                {"name": "perf", "command": ["perf", "--version"], "required": False, "category": "performance"},
+                {"name": "gdb", "command": ["gdb", "--version"], "required": False, "category": "debugging"},
+                
+                # Container tools (if available)
+                {"name": "docker", "command": ["docker", "--version"], "required": False, "category": "container"},
             ]
             
+            # Add custom tools from config if provided
+            if config and "additional_tools" in config:
+                for tool_config in config["additional_tools"]:
+                    tools_to_check.append({
+                        "name": tool_config["name"],
+                        "command": tool_config["command"],
+                        "required": tool_config.get("required", False),
+                        "category": tool_config.get("category", "custom")
+                    })
+            
             tool_results = []
+            category_results = {}
             all_required_available = True
             
             for tool in tools_to_check:
                 try:
-                    # Run tool version check
+                    # Run tool version check with timeout
+                    start_time = datetime.now()
                     result = subprocess.run(
                         tool["command"],
                         capture_output=True,
                         text=True,
-                        timeout=10
+                        timeout=15  # Increased timeout for some tools
                     )
+                    execution_time = (datetime.now() - start_time).total_seconds() * 1000
                     
                     if result.returncode == 0:
-                        tool_results.append({
+                        # Extract version information
+                        version_output = result.stdout.strip() or result.stderr.strip()
+                        version_lines = version_output.split('\n')
+                        version_info = version_lines[0] if version_lines else "Unknown version"
+                        
+                        tool_result = {
                             "name": tool["name"],
                             "available": True,
-                            "version": result.stdout.strip(),
-                            "required": tool["required"]
-                        })
+                            "version": version_info,
+                            "full_output": version_output,
+                            "required": tool["required"],
+                            "category": tool["category"],
+                            "execution_time_ms": execution_time
+                        }
+                        
+                        # Additional functionality tests for critical tools
+                        if tool["name"] == "python3":
+                            # Test Python module imports
+                            try:
+                                import_test = subprocess.run(
+                                    ["python3", "-c", "import sys, os, json, subprocess; print('Core modules OK')"],
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=5
+                                )
+                                tool_result["module_test"] = {
+                                    "success": import_test.returncode == 0,
+                                    "output": import_test.stdout.strip()
+                                }
+                            except Exception as e:
+                                tool_result["module_test"] = {
+                                    "success": False,
+                                    "error": str(e)
+                                }
+                        
+                        elif tool["name"] == "git":
+                            # Test git configuration
+                            try:
+                                git_config_test = subprocess.run(
+                                    ["git", "config", "--list"],
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=5
+                                )
+                                tool_result["config_test"] = {
+                                    "success": git_config_test.returncode == 0,
+                                    "has_user_config": "user.name" in git_config_test.stdout
+                                }
+                            except Exception as e:
+                                tool_result["config_test"] = {
+                                    "success": False,
+                                    "error": str(e)
+                                }
+                        
+                        tool_results.append(tool_result)
                     else:
                         tool_results.append({
                             "name": tool["name"],
                             "available": False,
-                            "error": result.stderr.strip(),
-                            "required": tool["required"]
+                            "error": result.stderr.strip() or "Command failed",
+                            "return_code": result.returncode,
+                            "required": tool["required"],
+                            "category": tool["category"],
+                            "execution_time_ms": execution_time
                         })
                         
                         if tool["required"]:
@@ -597,7 +876,8 @@ class ValidationManager:
                         "name": tool["name"],
                         "available": False,
                         "error": "Command timed out",
-                        "required": tool["required"]
+                        "required": tool["required"],
+                        "category": tool["category"]
                     })
                     
                     if tool["required"]:
@@ -608,16 +888,54 @@ class ValidationManager:
                         "name": tool["name"],
                         "available": False,
                         "error": str(e),
-                        "required": tool["required"]
+                        "required": tool["required"],
+                        "category": tool["category"]
                     })
                     
                     if tool["required"]:
                         all_required_available = False
             
+            # Organize results by category
+            for result in tool_results:
+                category = result["category"]
+                if category not in category_results:
+                    category_results[category] = {
+                        "available": [],
+                        "unavailable": [],
+                        "required_missing": []
+                    }
+                
+                if result["available"]:
+                    category_results[category]["available"].append(result["name"])
+                else:
+                    category_results[category]["unavailable"].append(result["name"])
+                    if result["required"]:
+                        category_results[category]["required_missing"].append(result["name"])
+            
+            # Calculate statistics
+            total_tools = len(tool_results)
+            available_tools = len([r for r in tool_results if r["available"]])
+            required_tools = len([r for r in tool_results if r["required"]])
+            available_required = len([r for r in tool_results if r["required"] and r["available"]])
+            
+            availability_rate = (available_tools / total_tools) * 100 if total_tools > 0 else 0
+            required_availability_rate = (available_required / required_tools) * 100 if required_tools > 0 else 100
+            
             if all_required_available:
                 return {
                     "success": True,
-                    "details": {"tool_results": tool_results}
+                    "details": {
+                        "tool_results": tool_results,
+                        "category_results": category_results,
+                        "statistics": {
+                            "total_tools": total_tools,
+                            "available_tools": available_tools,
+                            "required_tools": required_tools,
+                            "available_required": available_required,
+                            "availability_rate": availability_rate,
+                            "required_availability_rate": required_availability_rate
+                        }
+                    }
                 }
             else:
                 failed_required_tools = [
@@ -628,11 +946,25 @@ class ValidationManager:
                 return {
                     "success": False,
                     "error": f"Required tools not available: {', '.join(failed_required_tools)}",
-                    "diagnostic_info": {"tool_results": tool_results},
+                    "diagnostic_info": {
+                        "tool_results": tool_results,
+                        "category_results": category_results,
+                        "failed_required_tools": failed_required_tools,
+                        "statistics": {
+                            "total_tools": total_tools,
+                            "available_tools": available_tools,
+                            "required_tools": required_tools,
+                            "available_required": available_required,
+                            "availability_rate": availability_rate,
+                            "required_availability_rate": required_availability_rate
+                        }
+                    },
                     "remediation_suggestions": [
                         "Install missing required tools",
                         "Check PATH environment variable",
-                        "Verify tool permissions"
+                        "Verify tool permissions",
+                        "Update package manager repositories",
+                        f"Install tools by category: {', '.join(set(r['category'] for r in tool_results if r['required'] and not r['available']))}"
                     ],
                     "is_recoverable": True
                 }
