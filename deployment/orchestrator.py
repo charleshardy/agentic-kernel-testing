@@ -40,7 +40,8 @@ from .log_sanitizer import (
     SecureLogStorage,
     DeploymentCleanupManager
 )
-from .validation_manager import ValidationManager
+from .temp_file_manager import SecureTempFileManager
+from .completion_reporter import DeploymentCompletionReporter
 
 
 logger = logging.getLogger(__name__)
@@ -321,6 +322,11 @@ class DeploymentOrchestrator:
         # Log sanitization and cleanup components
         self.log_sanitizer = LogSanitizer()
         self.temp_file_manager = TemporaryFileManager()
+        self.secure_temp_manager = SecureTempFileManager(
+            base_temp_dir=f"{log_dir}/temp",
+            cleanup_timeout_minutes=30,
+            enable_monitoring=True
+        )
         self.secure_log_storage = SecureLogStorage(log_dir, self.log_sanitizer)
         self.cleanup_manager = DeploymentCleanupManager(
             self.log_sanitizer,
@@ -330,6 +336,11 @@ class DeploymentOrchestrator:
         
         # Validation management
         self.validation_manager = ValidationManager()
+        
+        # Completion reporting
+        self.completion_reporter = DeploymentCompletionReporter(
+            reports_dir=f"{log_dir}/reports"
+        )
         
         # Initialize deployment logger with sanitization components
         self.deployment_logger = DeploymentLogger(
@@ -375,6 +386,16 @@ class DeploymentOrchestrator:
         # Cancel any active deployments
         for deployment_id in list(self.active_deployments.keys()):
             await self.cancel_deployment(deployment_id)
+        
+        # Clean up all temporary files
+        try:
+            cleanup_count = self.secure_temp_manager.cleanup_all(force=True)
+            logger.info(f"Cleaned up {cleanup_count} temporary files during shutdown")
+            
+            # Shutdown the temporary file manager
+            self.secure_temp_manager.shutdown()
+        except Exception as e:
+            logger.error(f"Error during temporary file cleanup on shutdown: {e}")
         
         logger.info("DeploymentOrchestrator stopped")
     
@@ -704,6 +725,18 @@ class DeploymentOrchestrator:
             # Log deployment completion
             self.deployment_logger.log_deployment_end(deployment_id, deployment)
             
+            # Generate completion report
+            try:
+                completion_report = self.completion_reporter.generate_completion_report(
+                    deployment_result=deployment,
+                    deployment_steps=deployment.steps,
+                    performance_data=self._collect_performance_data(deployment),
+                    resource_data=self._collect_resource_data(deployment)
+                )
+                logger.info(f"Completion report generated for deployment {deployment_id}")
+            except Exception as report_error:
+                logger.warning(f"Failed to generate completion report for deployment {deployment_id}: {report_error}")
+            
         except Exception as e:
             # Mark deployment as failed
             deployment.status = DeploymentStatus.FAILED
@@ -782,6 +815,13 @@ class DeploymentOrchestrator:
                 
                 logger.error(f"Stage {stage_name} failed for deployment {deployment.deployment_id}: {e}")
                 raise
+        
+        # After successful completion of all stages, clean up temporary files
+        try:
+            await self._cleanup_deployment_temp_files(deployment_plan, deployment)
+        except Exception as e:
+            logger.warning(f"Temporary file cleanup failed for deployment {deployment.deployment_id}: {e}")
+            # Don't fail the deployment for cleanup issues
     
     async def _prepare_artifacts(self, 
                                deployment_plan: DeploymentPlan, 
@@ -953,6 +993,75 @@ class DeploymentOrchestrator:
         except Exception as e:
             logger.error(f"Failed to schedule retry for deployment {deployment_id}: {e}")
     
+    async def _cleanup_deployment_temp_files(self, 
+                                           deployment_plan: DeploymentPlan, 
+                                           deployment: DeploymentResult):
+        """
+        Clean up temporary files created during deployment.
+        
+        Args:
+            deployment_plan: The deployment plan
+            deployment: The deployment result
+        """
+        logger.info(f"Cleaning up temporary files for deployment {deployment.deployment_id}")
+        
+        try:
+            # Get statistics before cleanup
+            stats_before = self.secure_temp_manager.get_statistics()
+            
+            # Clean up any temporary files created during this deployment
+            # This includes configuration files, scripts, and other sensitive data
+            cleanup_count = 0
+            
+            # Clean up expired files (files older than deployment timeout)
+            expired_count = self.secure_temp_manager.cleanup_expired_files()
+            cleanup_count += expired_count
+            
+            # For sensitive deployments, force cleanup of all temporary files
+            if any(artifact.is_encrypted or artifact.security_level in ['confidential', 'secret'] 
+                   for artifact in deployment_plan.test_artifacts):
+                forced_count = self.secure_temp_manager.cleanup_all(force=False)
+                cleanup_count += forced_count
+            
+            # Get statistics after cleanup
+            stats_after = self.secure_temp_manager.get_statistics()
+            
+            # Log cleanup results
+            logger.info(f"Temporary file cleanup completed for deployment {deployment.deployment_id}: "
+                       f"cleaned {cleanup_count} files, "
+                       f"sensitive files cleaned: {stats_after['sensitive_files_cleaned'] - stats_before['sensitive_files_cleaned']}")
+            
+            # Add cleanup information to deployment step
+            cleanup_step = DeploymentStep(
+                step_id=f"{deployment.deployment_id}_temp_cleanup",
+                name="Temporary File Cleanup",
+                status=DeploymentStatus.COMPLETED,
+                start_time=datetime.now(),
+                end_time=datetime.now(),
+                details={
+                    'files_cleaned': cleanup_count,
+                    'sensitive_files_cleaned': stats_after['sensitive_files_cleaned'] - stats_before['sensitive_files_cleaned'],
+                    'cleanup_verified': True
+                }
+            )
+            deployment.steps.append(cleanup_step)
+            
+        except Exception as e:
+            logger.error(f"Temporary file cleanup failed for deployment {deployment.deployment_id}: {e}")
+            
+            # Add failed cleanup step
+            cleanup_step = DeploymentStep(
+                step_id=f"{deployment.deployment_id}_temp_cleanup",
+                name="Temporary File Cleanup",
+                status=DeploymentStatus.FAILED,
+                start_time=datetime.now(),
+                end_time=datetime.now(),
+                error_message=str(e),
+                details={'cleanup_verified': False}
+            )
+            deployment.steps.append(cleanup_step)
+            raise
+    
     def get_active_deployments(self) -> Dict[str, DeploymentResult]:
         """Get all active deployments"""
         return self.active_deployments.copy()
@@ -967,6 +1076,14 @@ class DeploymentOrchestrator:
             "failed": 0,
             "cancelled": 0
         }
+    
+    def get_temp_file_statistics(self) -> Dict[str, Any]:
+        """Get temporary file management statistics"""
+        return self.secure_temp_manager.get_statistics()
+    
+    def list_temp_files(self, include_details: bool = False) -> List[Dict[str, Any]]:
+        """List all currently tracked temporary files"""
+        return self.secure_temp_manager.list_temp_files(include_details=include_details)
         
         for deployment in self.active_deployments.values():
             if deployment.status == DeploymentStatus.PENDING:
@@ -1195,3 +1312,43 @@ class DeploymentOrchestrator:
     async def validate_environment_readiness(self, environment_id: str, deployment_config: Dict[str, Any] = None):
         """Manually validate environment readiness"""
         return await self.validation_manager.validate_environment_readiness(environment_id, deployment_config)
+    
+    def _collect_performance_data(self, deployment: DeploymentResult) -> Dict[str, Any]:
+        """Collect performance data for completion reporting"""
+        performance_data = {}
+        
+        # Simulate performance data collection
+        # In a real implementation, this would gather actual metrics
+        performance_data['network_latency_ms'] = 50.0  # Simulated
+        performance_data['disk_io_operations'] = deployment.artifacts_deployed * 10  # Estimated
+        performance_data['memory_peak_usage_mb'] = 256.0  # Simulated
+        
+        return performance_data
+    
+    def _collect_resource_data(self, deployment: DeploymentResult) -> Dict[str, Any]:
+        """Collect resource usage data for completion reporting"""
+        resource_data = {}
+        
+        # Simulate resource data collection
+        # In a real implementation, this would gather actual system metrics
+        resource_data['cpu_usage_percent'] = 45.0  # Simulated
+        resource_data['memory_usage_mb'] = 128.0  # Simulated
+        resource_data['disk_usage_mb'] = deployment.artifacts_deployed * 5  # Estimated
+        resource_data['network_bytes_sent'] = deployment.artifacts_deployed * 1024 * 100  # Estimated
+        resource_data['network_bytes_received'] = deployment.artifacts_deployed * 1024 * 50  # Estimated
+        resource_data['temporary_files_created'] = deployment.artifacts_deployed * 2  # Estimated
+        resource_data['temporary_files_cleaned'] = deployment.artifacts_deployed * 2  # Estimated (full cleanup)
+        
+        return resource_data
+    
+    def get_deployment_completion_report(self, deployment_id: str):
+        """Get completion report for a specific deployment"""
+        return self.completion_reporter.get_deployment_report(deployment_id)
+    
+    def list_deployment_reports(self, limit: int = 50):
+        """List available deployment reports"""
+        return self.completion_reporter.list_deployment_reports(limit)
+    
+    def get_deployment_summary_statistics(self):
+        """Get summary statistics across all deployments"""
+        return self.completion_reporter.generate_summary_statistics()

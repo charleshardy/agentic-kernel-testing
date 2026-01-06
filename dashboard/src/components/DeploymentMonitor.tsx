@@ -17,6 +17,7 @@ import {
   Download,
   Activity
 } from 'lucide-react';
+import DeploymentErrorDisplay from './ErrorHandling/DeploymentErrorDisplay';
 
 // Types for deployment monitoring
 interface DeploymentStep {
@@ -221,6 +222,117 @@ const DeploymentMonitor: React.FC<DeploymentMonitorProps> = ({
     return `${mins}m ${secs}s`;
   };
 
+  // Helper functions for error analysis
+  const getCurrentFailedStage = (steps: DeploymentStep[]) => {
+    const failedStep = steps.find(step => step.status === 'failed');
+    return failedStep ? failedStep.name.toLowerCase().replace(' ', '_') : 'unknown';
+  };
+
+  const getErrorType = (errorMessage: string) => {
+    if (errorMessage.includes('connection') || errorMessage.includes('network')) {
+      return 'connection_error';
+    }
+    if (errorMessage.includes('timeout')) {
+      return 'timeout_error';
+    }
+    if (errorMessage.includes('permission') || errorMessage.includes('access')) {
+      return 'permission_error';
+    }
+    if (errorMessage.includes('artifact') || errorMessage.includes('checksum')) {
+      return 'artifact_error';
+    }
+    if (errorMessage.includes('validation')) {
+      return 'validation_error';
+    }
+    return 'unknown_error';
+  };
+
+  const extractValidationFailures = (steps: DeploymentStep[]) => {
+    const validationStep = steps.find(step => 
+      step.name.toLowerCase().includes('validation') && step.status === 'failed'
+    );
+    
+    if (!validationStep || !validationStep.details) {
+      return [];
+    }
+
+    // Extract validation failures from step details
+    const failures = [];
+    if (validationStep.details.failed_checks) {
+      validationStep.details.failed_checks.forEach((check: string) => {
+        failures.push({
+          check_name: check,
+          error_message: validationStep.error_message || 'Validation check failed',
+          remediation_suggestions: getValidationRemediation(check),
+          severity: getValidationSeverity(check),
+          category: getValidationCategory(check)
+        });
+      });
+    }
+    
+    return failures;
+  };
+
+  const extractStepFailures = (steps: DeploymentStep[]) => {
+    return steps
+      .filter(step => step.status === 'failed')
+      .map(step => ({
+        step_name: step.name,
+        error_message: step.error_message || 'Step failed',
+        duration_seconds: step.duration_seconds,
+        details: step.details
+      }));
+  };
+
+  const getValidationRemediation = (checkName: string): string[] => {
+    const remediationMap: Record<string, string[]> = {
+      'network_connectivity': [
+        'Check network configuration and routing',
+        'Verify firewall rules allow required connections',
+        'Test DNS resolution for target hosts'
+      ],
+      'resource_availability': [
+        'Free up disk space on target environment',
+        'Check memory usage and available RAM',
+        'Verify CPU resources are not overloaded'
+      ],
+      'kernel_compatibility': [
+        'Update kernel to supported version',
+        'Enable required kernel configuration options',
+        'Check architecture compatibility'
+      ],
+      'tool_functionality': [
+        'Reinstall or update required tools',
+        'Check tool configuration and permissions',
+        'Verify tool dependencies are satisfied'
+      ]
+    };
+    
+    return remediationMap[checkName] || ['Review system configuration', 'Contact administrator'];
+  };
+
+  const getValidationSeverity = (checkName: string): 'low' | 'medium' | 'high' | 'critical' => {
+    const severityMap: Record<string, 'low' | 'medium' | 'high' | 'critical'> = {
+      'network_connectivity': 'high',
+      'resource_availability': 'medium',
+      'kernel_compatibility': 'critical',
+      'tool_functionality': 'medium'
+    };
+    
+    return severityMap[checkName] || 'medium';
+  };
+
+  const getValidationCategory = (checkName: string): string => {
+    const categoryMap: Record<string, string> = {
+      'network_connectivity': 'network',
+      'resource_availability': 'resource',
+      'kernel_compatibility': 'compatibility',
+      'tool_functionality': 'configuration'
+    };
+    
+    return categoryMap[checkName] || 'configuration';
+  };
+
   // Get remediation suggestions
   const getRemediationSuggestions = (errorMessage?: string) => {
     if (!errorMessage) return [];
@@ -383,32 +495,36 @@ const DeploymentMonitor: React.FC<DeploymentMonitorProps> = ({
         </CardContent>
       </Card>
 
-      {/* Error Display with Remediation */}
+      {/* Comprehensive Error Display */}
       {deployment.error_message && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-red-600 flex items-center">
-              <XCircle className="h-5 w-5 mr-2" />
-              Error Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{deployment.error_message}</AlertDescription>
-            </Alert>
-            
-            {getRemediationSuggestions(deployment.error_message).length > 0 && (
-              <div>
-                <h4 className="font-medium mb-2">Suggested Remediation:</h4>
-                <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
-                  {getRemediationSuggestions(deployment.error_message).map((suggestion, index) => (
-                    <li key={index}>{suggestion}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div>
+          <DeploymentErrorDisplay
+            error={{
+              deployment_id: deployment.deployment_id,
+              stage: getCurrentFailedStage(deployment.steps),
+              error_type: getErrorType(deployment.error_message),
+              error_message: deployment.error_message,
+              timestamp: deployment.start_time,
+              environment_id: deployment.environment_id,
+              plan_id: deployment.plan_id,
+              retry_count: deployment.retry_count,
+              validation_failures: extractValidationFailures(deployment.steps),
+              step_failures: extractStepFailures(deployment.steps),
+              context: {
+                deployment_duration: deployment.duration_seconds,
+                artifacts_deployed: deployment.artifacts_deployed,
+                dependencies_installed: deployment.dependencies_installed
+              }
+            }}
+            onRetry={handleRetry}
+            onViewLogs={handleDownloadLogs}
+            onContactSupport={(error) => {
+              // Handle support contact - could open a modal or redirect
+              console.log('Contact support for error:', error);
+            }}
+            showDetailedDiagnostics={true}
+          />
+        </div>
       )}
 
       {/* Detailed Tabs */}

@@ -1,0 +1,57 @@
+{
+  "deployment_id": "test123",
+  "plan_id": "plan123",
+  "environment_id": "env001",
+  "status": "completed",
+  "start_time": "2026-01-06T16:20:29.850558",
+  "end_time": "2026-01-06T16:50:29.850566",
+  "total_duration_seconds": 1800.000008,
+  "artifacts_deployed": 5,
+  "dependencies_installed": 3,
+  "steps_completed": 2,
+  "steps_total": 2,
+  "retry_count": 0,
+  "error_message": null,
+  "performance_metrics": {
+    "artifact_transfer_time_seconds": 300.0,
+    "dependency_installation_time_seconds": 0.0,
+    "validation_time_seconds": 0.0,
+    "average_step_duration_seconds": 300.0,
+    "throughput_artifacts_per_minute": 0.1666666659259259,
+    "network_latency_ms": 50.0,
+    "disk_io_operations": 100,
+    "memory_peak_usage_mb": 256.0
+  },
+  "step_details": [
+    {
+      "step_name": "artifact_preparation",
+      "status": "completed",
+      "start_time": "2026-01-06T16:20:29.850558",
+      "end_time": "2026-01-06T16:25:29.850558",
+      "duration_seconds": 300.0,
+      "artifacts_processed": 5,
+      "bytes_transferred": null,
+      "error_message": null
+    },
+    {
+      "step_name": "environment_connection",
+      "status": "completed",
+      "start_time": "2026-01-06T16:25:29.850558",
+      "end_time": "2026-01-06T16:30:29.850558",
+      "duration_seconds": 300.0,
+      "artifacts_processed": null,
+      "bytes_transferred": null,
+      "error_message": null
+    }
+  ],
+  "resource_usage": {
+    "cpu_usage_percent": 45.0,
+    "memory_usage_mb": 128.0,
+    "disk_usage_mb": 500.0,
+    "network_bytes_sent": 1024000,
+    "network_bytes_received": 512000,
+    "temporary_files_created": 10,
+    "temporary_files_cleaned": 10
+  },
+  "validation_results": null
+}
