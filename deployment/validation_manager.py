@@ -1057,11 +1057,12 @@ class ValidationManager:
             }
     
     async def _check_kernel_compatibility(self, environment_id: str, config: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Check kernel version and configuration compatibility"""
+        """Check comprehensive kernel version and configuration compatibility"""
         try:
             import platform
+            import re
             
-            # Get kernel information
+            # Get basic kernel information
             kernel_version = platform.release()
             system_info = {
                 "system": platform.system(),
@@ -1071,58 +1072,86 @@ class ValidationManager:
                 "processor": platform.processor()
             }
             
-            # Define minimum kernel requirements (example)
-            min_kernel_version = "3.10"  # Minimum supported kernel version
+            # Enhanced kernel version parsing
+            version_info = await self._parse_kernel_version(kernel_version)
             
-            # Simple version comparison (for demonstration)
-            try:
-                current_version_parts = kernel_version.split('.')[:2]
-                current_major = int(current_version_parts[0])
-                current_minor = int(current_version_parts[1]) if len(current_version_parts) > 1 else 0
-                
-                min_version_parts = min_kernel_version.split('.')
-                min_major = int(min_version_parts[0])
-                min_minor = int(min_version_parts[1]) if len(min_version_parts) > 1 else 0
-                
-                is_compatible = (current_major > min_major) or \
-                               (current_major == min_major and current_minor >= min_minor)
-                
-                if is_compatible:
-                    return {
-                        "success": True,
-                        "details": {
-                            "system_info": system_info,
-                            "kernel_version": kernel_version,
-                            "min_required": min_kernel_version,
-                            "compatible": True
-                        }
+            # Get kernel configuration if available
+            kernel_config = await self._get_kernel_configuration()
+            
+            # Check architecture compatibility
+            arch_compatibility = await self._check_architecture_compatibility(system_info, config)
+            
+            # Define comprehensive kernel requirements
+            kernel_requirements = self._get_kernel_requirements(config)
+            
+            # Perform version compatibility check
+            version_compatibility = self._check_version_compatibility(version_info, kernel_requirements)
+            
+            # Perform configuration compatibility check
+            config_compatibility = self._check_config_compatibility(kernel_config, kernel_requirements)
+            
+            # Aggregate all compatibility results
+            all_checks_passed = (
+                version_compatibility["compatible"] and
+                arch_compatibility["compatible"] and
+                config_compatibility["compatible"]
+            )
+            
+            # Collect warnings
+            warnings = []
+            warnings.extend(version_compatibility.get("warnings", []))
+            warnings.extend(arch_compatibility.get("warnings", []))
+            warnings.extend(config_compatibility.get("warnings", []))
+            
+            # Collect errors
+            errors = []
+            if not version_compatibility["compatible"]:
+                errors.append(version_compatibility["error"])
+            if not arch_compatibility["compatible"]:
+                errors.append(arch_compatibility["error"])
+            if not config_compatibility["compatible"]:
+                errors.append(config_compatibility["error"])
+            
+            if all_checks_passed:
+                result = {
+                    "success": True,
+                    "details": {
+                        "system_info": system_info,
+                        "version_info": version_info,
+                        "kernel_config": kernel_config,
+                        "version_compatibility": version_compatibility,
+                        "arch_compatibility": arch_compatibility,
+                        "config_compatibility": config_compatibility,
+                        "requirements": kernel_requirements
                     }
-                else:
-                    return {
-                        "success": False,
-                        "error": f"Kernel version {kernel_version} is below minimum required {min_kernel_version}",
-                        "diagnostic_info": {
-                            "system_info": system_info,
-                            "kernel_version": kernel_version,
-                            "min_required": min_kernel_version
-                        },
-                        "remediation_suggestions": [
-                            "Update kernel to supported version",
-                            "Check kernel configuration",
-                            "Verify system compatibility"
-                        ],
-                        "is_recoverable": False
-                    }
+                }
+                
+                if warnings:
+                    result["warnings"] = warnings
                     
-            except ValueError as e:
+                return result
+            else:
                 return {
                     "success": False,
-                    "error": f"Unable to parse kernel version: {kernel_version}",
+                    "error": f"Kernel compatibility issues: {'; '.join(errors)}",
                     "diagnostic_info": {
                         "system_info": system_info,
-                        "parse_error": str(e)
+                        "version_info": version_info,
+                        "kernel_config": kernel_config,
+                        "version_compatibility": version_compatibility,
+                        "arch_compatibility": arch_compatibility,
+                        "config_compatibility": config_compatibility,
+                        "requirements": kernel_requirements,
+                        "errors": errors,
+                        "warnings": warnings
                     },
-                    "remediation_suggestions": ["Check kernel version format"],
+                    "remediation_suggestions": [
+                        "Update kernel to supported version",
+                        "Enable required kernel configuration options",
+                        "Verify architecture compatibility",
+                        "Check kernel build configuration",
+                        "Consult kernel compatibility matrix"
+                    ],
                     "is_recoverable": False
                 }
                 
@@ -1131,8 +1160,430 @@ class ValidationManager:
                 "success": False,
                 "error": f"Kernel compatibility check failed: {e}",
                 "diagnostic_info": {"exception": str(e)},
-                "remediation_suggestions": ["Check system information"],
+                "remediation_suggestions": ["Check system information", "Verify kernel access"],
                 "is_recoverable": False
+            }
+    
+    async def _parse_kernel_version(self, kernel_version: str) -> Dict[str, Any]:
+        """Parse kernel version string into structured information"""
+        try:
+            import re
+            
+            # Enhanced version parsing with regex
+            # Handles formats like: 5.15.0-91-generic, 6.1.0, 4.19.0-25-amd64
+            version_pattern = r'^(\d+)\.(\d+)(?:\.(\d+))?(?:-(\d+))?(?:-(.+))?$'
+            match = re.match(version_pattern, kernel_version)
+            
+            if match:
+                major, minor, patch, build, suffix = match.groups()
+                
+                return {
+                    "raw_version": kernel_version,
+                    "major": int(major),
+                    "minor": int(minor),
+                    "patch": int(patch) if patch else 0,
+                    "build": int(build) if build else 0,
+                    "suffix": suffix or "",
+                    "parsed_successfully": True,
+                    "version_tuple": (int(major), int(minor), int(patch) if patch else 0)
+                }
+            else:
+                # Fallback parsing for non-standard formats
+                parts = kernel_version.split('.')
+                if len(parts) >= 2:
+                    try:
+                        major = int(parts[0])
+                        minor_part = parts[1].split('-')[0]  # Handle cases like "15-generic"
+                        minor = int(minor_part)
+                        patch = 0
+                        
+                        if len(parts) >= 3:
+                            patch_part = parts[2].split('-')[0]
+                            try:
+                                patch = int(patch_part)
+                            except ValueError:
+                                patch = 0
+                        
+                        return {
+                            "raw_version": kernel_version,
+                            "major": major,
+                            "minor": minor,
+                            "patch": patch,
+                            "build": 0,
+                            "suffix": "",
+                            "parsed_successfully": True,
+                            "version_tuple": (major, minor, patch),
+                            "fallback_parsing": True
+                        }
+                    except ValueError:
+                        pass
+                
+                return {
+                    "raw_version": kernel_version,
+                    "parsed_successfully": False,
+                    "error": "Unable to parse kernel version format"
+                }
+                
+        except Exception as e:
+            return {
+                "raw_version": kernel_version,
+                "parsed_successfully": False,
+                "error": f"Version parsing failed: {e}"
+            }
+    
+    async def _get_kernel_configuration(self) -> Dict[str, Any]:
+        """Get kernel configuration information"""
+        try:
+            config_info = {
+                "config_available": False,
+                "config_source": None,
+                "config_options": {},
+                "proc_config_gz": False,
+                "boot_config": False,
+                "module_support": False
+            }
+            
+            # Try to read /proc/config.gz if available
+            try:
+                import gzip
+                with gzip.open('/proc/config.gz', 'rt') as f:
+                    config_content = f.read()
+                    config_info["config_available"] = True
+                    config_info["config_source"] = "/proc/config.gz"
+                    config_info["proc_config_gz"] = True
+                    
+                    # Parse config options
+                    for line in config_content.split('\n'):
+                        line = line.strip()
+                        if line and not line.startswith('#') and '=' in line:
+                            key, value = line.split('=', 1)
+                            config_info["config_options"][key] = value
+                            
+            except (FileNotFoundError, PermissionError, OSError):
+                # Try /boot/config-$(uname -r)
+                try:
+                    import platform
+                    config_path = f"/boot/config-{platform.release()}"
+                    
+                    with open(config_path, 'r') as f:
+                        config_content = f.read()
+                        config_info["config_available"] = True
+                        config_info["config_source"] = config_path
+                        config_info["boot_config"] = True
+                        
+                        # Parse config options
+                        for line in config_content.split('\n'):
+                            line = line.strip()
+                            if line and not line.startswith('#') and '=' in line:
+                                key, value = line.split('=', 1)
+                                config_info["config_options"][key] = value
+                                
+                except (FileNotFoundError, PermissionError, OSError):
+                    pass
+            
+            # Check for module support
+            try:
+                import os
+                if os.path.exists('/proc/modules'):
+                    config_info["module_support"] = True
+            except Exception:
+                pass
+            
+            # Add some derived information
+            if config_info["config_available"]:
+                config_options = config_info["config_options"]
+                config_info["derived_info"] = {
+                    "has_kasan": config_options.get("CONFIG_KASAN", "n") == "y",
+                    "has_ktsan": config_options.get("CONFIG_KTSAN", "n") == "y",
+                    "has_lockdep": config_options.get("CONFIG_LOCKDEP", "n") == "y",
+                    "has_debug_info": config_options.get("CONFIG_DEBUG_INFO", "n") == "y",
+                    "has_gcov": config_options.get("CONFIG_GCOV_KERNEL", "n") == "y",
+                    "has_ftrace": config_options.get("CONFIG_FTRACE", "n") == "y",
+                    "has_perf_events": config_options.get("CONFIG_PERF_EVENTS", "n") == "y",
+                    "smp_enabled": config_options.get("CONFIG_SMP", "n") == "y",
+                    "preempt_enabled": config_options.get("CONFIG_PREEMPT", "n") == "y"
+                }
+            
+            return config_info
+            
+        except Exception as e:
+            return {
+                "config_available": False,
+                "error": f"Failed to get kernel configuration: {e}"
+            }
+    
+    async def _check_architecture_compatibility(self, system_info: Dict[str, Any], config: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Check architecture compatibility"""
+        try:
+            machine = system_info.get("machine", "").lower()
+            processor = system_info.get("processor", "").lower()
+            
+            # Define supported architectures
+            supported_architectures = {
+                "x86_64": ["x86_64", "amd64"],
+                "aarch64": ["aarch64", "arm64"],
+                "armv7l": ["armv7l", "armhf"],
+                "i386": ["i386", "i686"],
+                "riscv64": ["riscv64"]
+            }
+            
+            # Allow custom architecture requirements from config
+            if config and "supported_architectures" in config:
+                supported_architectures.update(config["supported_architectures"])
+            
+            # Check if current architecture is supported
+            current_arch = None
+            for arch_family, arch_variants in supported_architectures.items():
+                if machine in arch_variants or processor in arch_variants:
+                    current_arch = arch_family
+                    break
+            
+            if current_arch:
+                # Check for architecture-specific requirements
+                arch_warnings = []
+                
+                # x86_64 specific checks
+                if current_arch == "x86_64":
+                    # Check for virtualization support
+                    try:
+                        with open('/proc/cpuinfo', 'r') as f:
+                            cpuinfo = f.read()
+                            has_vmx = 'vmx' in cpuinfo  # Intel VT-x
+                            has_svm = 'svm' in cpuinfo  # AMD-V
+                            
+                            if not (has_vmx or has_svm):
+                                arch_warnings.append("No hardware virtualization support detected")
+                    except Exception:
+                        arch_warnings.append("Could not check virtualization support")
+                
+                # ARM specific checks
+                elif current_arch in ["aarch64", "armv7l"]:
+                    # Check for ARM-specific features
+                    try:
+                        with open('/proc/cpuinfo', 'r') as f:
+                            cpuinfo = f.read()
+                            if "neon" not in cpuinfo.lower():
+                                arch_warnings.append("NEON SIMD support not detected")
+                    except Exception:
+                        arch_warnings.append("Could not check ARM features")
+                
+                return {
+                    "compatible": True,
+                    "current_architecture": current_arch,
+                    "machine": machine,
+                    "processor": processor,
+                    "supported_architectures": list(supported_architectures.keys()),
+                    "warnings": arch_warnings
+                }
+            else:
+                return {
+                    "compatible": False,
+                    "error": f"Unsupported architecture: {machine}/{processor}",
+                    "current_architecture": None,
+                    "machine": machine,
+                    "processor": processor,
+                    "supported_architectures": list(supported_architectures.keys())
+                }
+                
+        except Exception as e:
+            return {
+                "compatible": False,
+                "error": f"Architecture compatibility check failed: {e}",
+                "machine": system_info.get("machine", "unknown"),
+                "processor": system_info.get("processor", "unknown")
+            }
+    
+    def _get_kernel_requirements(self, config: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Get kernel requirements based on configuration"""
+        # Default requirements
+        requirements = {
+            "min_version": (3, 10, 0),  # Minimum kernel version
+            "max_version": None,        # Maximum kernel version (None = no limit)
+            "required_config_options": [
+                # Basic requirements
+                "CONFIG_MODULES",
+                "CONFIG_SYSFS",
+                "CONFIG_PROC_FS"
+            ],
+            "recommended_config_options": [
+                # Recommended for testing
+                "CONFIG_DEBUG_FS",
+                "CONFIG_TRACING",
+                "CONFIG_FTRACE"
+            ],
+            "testing_config_options": [
+                # For comprehensive testing
+                "CONFIG_DEBUG_INFO",
+                "CONFIG_GCOV_KERNEL",
+                "CONFIG_PERF_EVENTS"
+            ],
+            "security_config_options": [
+                # For security testing
+                "CONFIG_KASAN",
+                "CONFIG_KTSAN", 
+                "CONFIG_LOCKDEP"
+            ]
+        }
+        
+        # Override with custom requirements if provided
+        if config:
+            if "min_kernel_version" in config:
+                min_ver = config["min_kernel_version"]
+                if isinstance(min_ver, str):
+                    parts = min_ver.split('.')
+                    requirements["min_version"] = tuple(int(p) for p in parts[:3])
+                elif isinstance(min_ver, (list, tuple)):
+                    requirements["min_version"] = tuple(min_ver[:3])
+            
+            if "max_kernel_version" in config:
+                max_ver = config["max_kernel_version"]
+                if isinstance(max_ver, str):
+                    parts = max_ver.split('.')
+                    requirements["max_version"] = tuple(int(p) for p in parts[:3])
+                elif isinstance(max_ver, (list, tuple)):
+                    requirements["max_version"] = tuple(max_ver[:3])
+            
+            # Merge config options
+            for option_type in ["required_config_options", "recommended_config_options", 
+                              "testing_config_options", "security_config_options"]:
+                if option_type in config:
+                    requirements[option_type].extend(config[option_type])
+        
+        return requirements
+    
+    def _check_version_compatibility(self, version_info: Dict[str, Any], requirements: Dict[str, Any]) -> Dict[str, Any]:
+        """Check kernel version compatibility"""
+        try:
+            if not version_info.get("parsed_successfully", False):
+                return {
+                    "compatible": False,
+                    "error": f"Could not parse kernel version: {version_info.get('error', 'Unknown error')}",
+                    "version_info": version_info
+                }
+            
+            current_version = version_info["version_tuple"]
+            min_version = requirements["min_version"]
+            max_version = requirements.get("max_version")
+            
+            # Check minimum version
+            if current_version < min_version:
+                return {
+                    "compatible": False,
+                    "error": f"Kernel version {'.'.join(map(str, current_version))} is below minimum required {'.'.join(map(str, min_version))}",
+                    "current_version": current_version,
+                    "min_version": min_version,
+                    "max_version": max_version
+                }
+            
+            # Check maximum version if specified
+            if max_version and current_version > max_version:
+                return {
+                    "compatible": False,
+                    "error": f"Kernel version {'.'.join(map(str, current_version))} is above maximum supported {'.'.join(map(str, max_version))}",
+                    "current_version": current_version,
+                    "min_version": min_version,
+                    "max_version": max_version
+                }
+            
+            # Check for version-specific warnings
+            warnings = []
+            
+            # Warn about very old kernels
+            if current_version < (4, 0, 0):
+                warnings.append("Kernel version is very old, some features may not be available")
+            
+            # Warn about development kernels
+            if version_info.get("suffix", "").startswith("rc"):
+                warnings.append("Development/RC kernel detected, stability may be reduced")
+            
+            return {
+                "compatible": True,
+                "current_version": current_version,
+                "min_version": min_version,
+                "max_version": max_version,
+                "warnings": warnings
+            }
+            
+        except Exception as e:
+            return {
+                "compatible": False,
+                "error": f"Version compatibility check failed: {e}",
+                "version_info": version_info
+            }
+    
+    def _check_config_compatibility(self, kernel_config: Dict[str, Any], requirements: Dict[str, Any]) -> Dict[str, Any]:
+        """Check kernel configuration compatibility"""
+        try:
+            if not kernel_config.get("config_available", False):
+                return {
+                    "compatible": True,  # Don't fail if config is not available
+                    "warning": "Kernel configuration not available for validation",
+                    "config_source": None,
+                    "missing_required": [],
+                    "missing_recommended": [],
+                    "available_testing": [],
+                    "available_security": []
+                }
+            
+            config_options = kernel_config.get("config_options", {})
+            
+            # Check required options
+            missing_required = []
+            for option in requirements.get("required_config_options", []):
+                if config_options.get(option, "n") != "y":
+                    missing_required.append(option)
+            
+            # Check recommended options
+            missing_recommended = []
+            for option in requirements.get("recommended_config_options", []):
+                if config_options.get(option, "n") != "y":
+                    missing_recommended.append(option)
+            
+            # Check testing options
+            available_testing = []
+            for option in requirements.get("testing_config_options", []):
+                if config_options.get(option, "n") == "y":
+                    available_testing.append(option)
+            
+            # Check security options
+            available_security = []
+            for option in requirements.get("security_config_options", []):
+                if config_options.get(option, "n") == "y":
+                    available_security.append(option)
+            
+            # Determine compatibility
+            compatible = len(missing_required) == 0
+            
+            warnings = []
+            if missing_recommended:
+                warnings.append(f"Missing recommended config options: {', '.join(missing_recommended)}")
+            
+            if compatible:
+                return {
+                    "compatible": True,
+                    "config_source": kernel_config.get("config_source"),
+                    "missing_required": missing_required,
+                    "missing_recommended": missing_recommended,
+                    "available_testing": available_testing,
+                    "available_security": available_security,
+                    "warnings": warnings
+                }
+            else:
+                return {
+                    "compatible": False,
+                    "error": f"Missing required kernel config options: {', '.join(missing_required)}",
+                    "config_source": kernel_config.get("config_source"),
+                    "missing_required": missing_required,
+                    "missing_recommended": missing_recommended,
+                    "available_testing": available_testing,
+                    "available_security": available_security
+                }
+                
+        except Exception as e:
+            return {
+                "compatible": False,
+                "error": f"Config compatibility check failed: {e}",
+                "config_available": kernel_config.get("config_available", False)
             }
     
     async def attempt_failure_recovery(self, 

@@ -198,14 +198,83 @@ class MockValidationManager(ValidationManager):
         if self.kernel_success:
             return {
                 "success": True,
-                "details": {"kernel_version": "5.4.0", "compatible": True}
+                "details": {
+                    "system_info": {
+                        "system": "Linux",
+                        "release": "5.15.0-91-generic",
+                        "machine": "x86_64",
+                        "processor": "x86_64"
+                    },
+                    "version_info": {
+                        "raw_version": "5.15.0-91-generic",
+                        "major": 5,
+                        "minor": 15,
+                        "patch": 0,
+                        "version_tuple": (5, 15, 0),
+                        "parsed_successfully": True
+                    },
+                    "kernel_config": {
+                        "config_available": True,
+                        "config_source": "/proc/config.gz",
+                        "config_options": {
+                            "CONFIG_MODULES": "y",
+                            "CONFIG_SYSFS": "y",
+                            "CONFIG_PROC_FS": "y",
+                            "CONFIG_DEBUG_INFO": "y"
+                        }
+                    },
+                    "arch_compatibility": {
+                        "compatible": True,
+                        "current_architecture": "x86_64",
+                        "machine": "x86_64",
+                        "processor": "x86_64"
+                    },
+                    "version_compatibility": {
+                        "compatible": True,
+                        "current_version": (5, 15, 0),
+                        "min_version": (3, 10, 0)
+                    },
+                    "config_compatibility": {
+                        "compatible": True,
+                        "missing_required": [],
+                        "missing_recommended": [],
+                        "available_testing": ["CONFIG_DEBUG_INFO"],
+                        "available_security": []
+                    }
+                }
             }
         else:
             return {
                 "success": False,
-                "error": "Kernel version incompatible",
-                "diagnostic_info": {"kernel_version": "2.6.0"},
-                "remediation_suggestions": ["Update kernel to supported version"],
+                "error": "Kernel compatibility validation failed",
+                "diagnostic_info": {
+                    "system_info": {
+                        "system": "Linux",
+                        "release": "2.6.32",
+                        "machine": "i386",
+                        "processor": "i386"
+                    },
+                    "version_info": {
+                        "raw_version": "2.6.32",
+                        "version_tuple": (2, 6, 32),
+                        "parsed_successfully": True
+                    },
+                    "version_compatibility": {
+                        "compatible": False,
+                        "current_version": (2, 6, 32),
+                        "min_version": (3, 10, 0)
+                    },
+                    "arch_compatibility": {
+                        "compatible": False,
+                        "current_architecture": None,
+                        "machine": "i386"
+                    }
+                },
+                "remediation_suggestions": [
+                    "Update kernel to supported version",
+                    "Enable required kernel configuration options",
+                    "Verify architecture compatibility"
+                ],
                 "is_recoverable": False
             }
 
@@ -514,6 +583,296 @@ def test_comprehensive_validation_checks_sync():
     asyncio.run(run_single_test())
 
 
+@st.composite
+def kernel_config_strategy(draw):
+    """Generate kernel configuration for property testing"""
+    return {
+        "min_kernel_version": draw(st.sampled_from(["3.10.0", "4.0.0", "5.0.0", "6.0.0"])),
+        "max_kernel_version": draw(st.one_of(
+            st.none(),
+            st.sampled_from(["5.15.0", "6.1.0", "6.5.0"])
+        )),
+        "supported_architectures": draw(st.fixed_dictionaries({
+            "x86_64": st.just(["x86_64", "amd64"]),
+            "aarch64": st.just(["aarch64", "arm64"]),
+            "armv7l": st.just(["armv7l", "armhf"])
+        })),
+        "required_config_options": draw(st.lists(
+            st.sampled_from([
+                "CONFIG_MODULES", "CONFIG_SYSFS", "CONFIG_PROC_FS",
+                "CONFIG_DEBUG_FS", "CONFIG_TRACING"
+            ]),
+            min_size=1,
+            max_size=3
+        )),
+        "testing_config_options": draw(st.lists(
+            st.sampled_from([
+                "CONFIG_DEBUG_INFO", "CONFIG_GCOV_KERNEL", "CONFIG_PERF_EVENTS",
+                "CONFIG_FTRACE", "CONFIG_KASAN", "CONFIG_KTSAN"
+            ]),
+            min_size=0,
+            max_size=4
+        ))
+    }
+
+
+@st.composite
+def kernel_version_strategy(draw):
+    """Generate kernel version strings for property testing"""
+    major = draw(st.integers(min_value=3, max_value=6))
+    minor = draw(st.integers(min_value=0, max_value=20))
+    patch = draw(st.integers(min_value=0, max_value=50))
+    
+    # Generate different version formats
+    format_type = draw(st.sampled_from([
+        "simple",      # 5.15.0
+        "with_build",  # 5.15.0-91
+        "with_suffix", # 5.15.0-91-generic
+        "rc_version"   # 6.2.0-rc1
+    ]))
+    
+    if format_type == "simple":
+        return f"{major}.{minor}.{patch}"
+    elif format_type == "with_build":
+        build = draw(st.integers(min_value=1, max_value=100))
+        return f"{major}.{minor}.{patch}-{build}"
+    elif format_type == "with_suffix":
+        build = draw(st.integers(min_value=1, max_value=100))
+        suffix = draw(st.sampled_from(["generic", "amd64", "server", "desktop"]))
+        return f"{major}.{minor}.{patch}-{build}-{suffix}"
+    else:  # rc_version
+        rc_num = draw(st.integers(min_value=1, max_value=8))
+        return f"{major}.{minor}.{patch}-rc{rc_num}"
+
+
+@given(
+    environment_id=environment_id_strategy(),
+    kernel_config=kernel_config_strategy(),
+    kernel_version=kernel_version_strategy()
+)
+@settings(max_examples=100, deadline=5000)
+def test_kernel_compatibility_validation(environment_id, kernel_config, kernel_version):
+    """
+    **Feature: test-deployment-system, Property 18: Kernel compatibility validation**
+    **Validates: Requirements 4.3**
+    
+    Property 18: Kernel compatibility validation
+    For any kernel testing deployment, kernel version and configuration compatibility 
+    should be validated.
+    
+    This test verifies that:
+    1. Kernel version parsing handles various version formats correctly
+    2. Version compatibility checks work with different minimum/maximum requirements
+    3. Architecture compatibility validation covers supported architectures
+    4. Kernel configuration validation checks required and optional config options
+    5. Overall compatibility determination considers all validation aspects
+    6. Detailed diagnostic information is provided for compatibility issues
+    7. Remediation suggestions are appropriate for different failure types
+    """
+    asyncio.run(test_kernel_compatibility_validation_manual(
+        environment_id, kernel_config, kernel_version
+    ))
+
+
+async def test_kernel_compatibility_validation_manual(environment_id, kernel_config, kernel_version):
+    """
+    Manual test function for kernel compatibility validation.
+    """
+    # Import the actual ValidationManager for testing
+    from deployment.validation_manager import ValidationManager
+    
+    # Create validation manager
+    validation_manager = ValidationManager()
+    
+    # Mock platform.release to return our test kernel version
+    with patch('platform.release', return_value=kernel_version):
+        with patch('platform.system', return_value='Linux'):
+            with patch('platform.machine', return_value='x86_64'):
+                with patch('platform.processor', return_value='x86_64'):
+                    
+                    # Act - Perform kernel compatibility validation
+                    result = await validation_manager._check_kernel_compatibility(
+                        environment_id, kernel_config
+                    )
+    
+    # Assert - Verify kernel compatibility validation properties
+    
+    # Property: Result should have proper structure
+    assert isinstance(result, dict), \
+        "Kernel compatibility result should be a dictionary"
+    
+    assert "success" in result, \
+        "Result should contain success status"
+    
+    assert isinstance(result["success"], bool), \
+        "Success status should be boolean"
+    
+    # Property: Successful validation should contain detailed information
+    if result["success"]:
+        assert "details" in result, \
+            "Successful validation should contain details"
+        
+        details = result["details"]
+        
+        # Verify system information is present
+        assert "system_info" in details, \
+            "Details should contain system information"
+        
+        system_info = details["system_info"]
+        assert system_info["system"] == "Linux", \
+            "System should be Linux"
+        assert system_info["release"] == kernel_version, \
+            f"Release should match test kernel version {kernel_version}"
+        
+        # Verify version parsing information
+        assert "version_info" in details, \
+            "Details should contain version parsing information"
+        
+        version_info = details["version_info"]
+        assert "raw_version" in version_info, \
+            "Version info should contain raw version"
+        assert version_info["raw_version"] == kernel_version, \
+            "Raw version should match input"
+        
+        # If version was parsed successfully, verify structure
+        if version_info.get("parsed_successfully", False):
+            assert "version_tuple" in version_info, \
+                "Parsed version should contain version tuple"
+            assert isinstance(version_info["version_tuple"], tuple), \
+                "Version tuple should be a tuple"
+            assert len(version_info["version_tuple"]) == 3, \
+                "Version tuple should have 3 elements (major, minor, patch)"
+            
+            # Verify version numbers are reasonable
+            major, minor, patch = version_info["version_tuple"]
+            assert 0 <= major <= 10, \
+                f"Major version should be reasonable, got {major}"
+            assert 0 <= minor <= 50, \
+                f"Minor version should be reasonable, got {minor}"
+            assert 0 <= patch <= 100, \
+                f"Patch version should be reasonable, got {patch}"
+        
+        # Verify architecture compatibility information
+        assert "arch_compatibility" in details, \
+            "Details should contain architecture compatibility"
+        
+        arch_compat = details["arch_compatibility"]
+        assert "compatible" in arch_compat, \
+            "Architecture compatibility should have compatible status"
+        assert isinstance(arch_compat["compatible"], bool), \
+            "Architecture compatible status should be boolean"
+        
+        # Verify version compatibility information
+        assert "version_compatibility" in details, \
+            "Details should contain version compatibility"
+        
+        version_compat = details["version_compatibility"]
+        assert "compatible" in version_compat, \
+            "Version compatibility should have compatible status"
+        assert isinstance(version_compat["compatible"], bool), \
+            "Version compatible status should be boolean"
+        
+        # Verify configuration compatibility information
+        assert "config_compatibility" in details, \
+            "Details should contain configuration compatibility"
+        
+        config_compat = details["config_compatibility"]
+        assert "compatible" in config_compat, \
+            "Config compatibility should have compatible status"
+        assert isinstance(config_compat["compatible"], bool), \
+            "Config compatible status should be boolean"
+        
+        # Property: All compatibility aspects should be true for overall success
+        assert arch_compat["compatible"], \
+            "Architecture should be compatible for successful validation"
+        assert version_compat["compatible"], \
+            "Version should be compatible for successful validation"
+        assert config_compat["compatible"], \
+            "Configuration should be compatible for successful validation"
+    
+    # Property: Failed validation should contain error information
+    else:
+        assert "error" in result, \
+            "Failed validation should contain error message"
+        
+        assert isinstance(result["error"], str), \
+            "Error message should be a string"
+        
+        assert len(result["error"]) > 0, \
+            "Error message should not be empty"
+        
+        # Should contain diagnostic information
+        assert "diagnostic_info" in result, \
+            "Failed validation should contain diagnostic information"
+        
+        # Should contain remediation suggestions
+        assert "remediation_suggestions" in result, \
+            "Failed validation should contain remediation suggestions"
+        
+        remediation = result["remediation_suggestions"]
+        assert isinstance(remediation, list), \
+            "Remediation suggestions should be a list"
+        assert len(remediation) > 0, \
+            "Should provide at least one remediation suggestion"
+        
+        # Should indicate if recoverable
+        assert "is_recoverable" in result, \
+            "Failed validation should indicate if recoverable"
+        assert isinstance(result["is_recoverable"], bool), \
+            "Recoverable status should be boolean"
+    
+    # Property: Version parsing should handle various formats
+    # Test the version parsing separately to ensure it works correctly
+    parsed_version = await validation_manager._parse_kernel_version(kernel_version)
+    
+    assert isinstance(parsed_version, dict), \
+        "Version parsing should return a dictionary"
+    
+    assert "raw_version" in parsed_version, \
+        "Parsed version should contain raw version"
+    
+    assert parsed_version["raw_version"] == kernel_version, \
+        "Raw version should match input"
+    
+    # If parsing was successful, verify the parsed components
+    if parsed_version.get("parsed_successfully", False):
+        assert "major" in parsed_version, \
+            "Successfully parsed version should contain major version"
+        assert "minor" in parsed_version, \
+            "Successfully parsed version should contain minor version"
+        assert "patch" in parsed_version, \
+            "Successfully parsed version should contain patch version"
+        
+        # Verify version components are integers
+        assert isinstance(parsed_version["major"], int), \
+            "Major version should be integer"
+        assert isinstance(parsed_version["minor"], int), \
+            "Minor version should be integer"
+        assert isinstance(parsed_version["patch"], int), \
+            "Patch version should be integer"
+
+
+def test_kernel_compatibility_validation_sync():
+    """Synchronous wrapper for kernel compatibility validation test"""
+    
+    async def run_single_test():
+        # Test with a known good configuration
+        kernel_config = {
+            "min_kernel_version": "4.0.0",
+            "supported_architectures": {
+                "x86_64": ["x86_64", "amd64"]
+            },
+            "required_config_options": ["CONFIG_MODULES", "CONFIG_SYSFS"],
+            "testing_config_options": ["CONFIG_DEBUG_INFO"]
+        }
+        
+        await test_kernel_compatibility_validation_manual(
+            "test_env_kernel", kernel_config, "5.15.0-91-generic"
+        )
+    
+    asyncio.run(run_single_test())
+
+
 if __name__ == "__main__":
     # Run a few test cases manually for verification
     print("Testing comprehensive validation checks...")
@@ -538,6 +897,17 @@ if __name__ == "__main__":
         print("Testing custom checks integration...")
         await test_custom_validation_checks_integration("test_env_custom", 3)
         print("✓ Custom checks integration test passed")
+        
+        print("Testing kernel compatibility validation...")
+        await test_kernel_compatibility_validation_manual(
+            "test_env_kernel", 
+            {
+                "min_kernel_version": "4.0.0",
+                "required_config_options": ["CONFIG_MODULES"]
+            },
+            "5.15.0-91-generic"
+        )
+        print("✓ Kernel compatibility validation test passed")
         
         print("All comprehensive validation tests completed successfully!")
     

@@ -1,0 +1,41 @@
+{
+  "environment_states": {
+    "test_env_failed": {
+      "environment_id": "test_env_failed",
+      "status": "not_ready",
+      "last_validation": "2026-01-06T10:17:25.392765",
+      "validation_count": 1,
+      "consecutive_successes": 0,
+      "consecutive_failures": 1,
+      "last_failure_reason": "network_connectivity, disk_space, tool_functionality",
+      "readiness_score": 47.1,
+      "metadata": {
+        "last_validation_success_rate": 57.14285714285714,
+        "failed_checks_count": 3,
+        "warnings_count": 0,
+        "checks_performed_count": 7
+      }
+    }
+  },
+  "notification_history": [
+    {
+      "environment_id": "test_env_failed",
+      "level": "error",
+      "message": "Environment test_env_failed status changed from unknown to not_ready",
+      "timestamp": "2026-01-06T10:17:25.392843",
+      "details": {
+        "previous_status": "unknown",
+        "new_status": "not_ready",
+        "validation_success_rate": 57.14285714285714,
+        "failed_checks": [
+          "network_connectivity",
+          "disk_space",
+          "tool_functionality"
+        ],
+        "warnings": []
+      },
+      "acknowledged": false
+    }
+  ],
+  "last_updated": "2026-01-06T10:17:25.392903"
+}
