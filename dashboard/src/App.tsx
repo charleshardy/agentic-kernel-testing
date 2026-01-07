@@ -61,7 +61,9 @@ function App() {
       <Route path="/test-plans" element={<DashboardLayout><TestPlans /></DashboardLayout>} />
       <Route path="/test-plans/:planId" element={<DashboardLayout><TestPlanDetails /></DashboardLayout>} />
       <Route path="/test-execution" element={<DashboardLayout><TestExecution /></DashboardLayout>} />
-      <Route path="/tests" element={<DashboardLayout><TestExecutionDebug /></DashboardLayout>} />
+      <Route path="/test-execution-debug" element={<DashboardLayout><TestExecutionDebug /></DashboardLayout>} />
+      {/* Backward compatibility redirect */}
+      <Route path="/tests" element={<Navigate to="/test-execution-debug" replace />} />
       <Route path="/execution-debug" element={<DashboardLayout><ExecutionDebug /></DashboardLayout>} />
       <Route path="/execution-monitor" element={<DashboardLayout><ExecutionMonitor /></DashboardLayout>} />
       <Route path="/test-environment" element={<DashboardLayout><TestEnvironment /></DashboardLayout>} />

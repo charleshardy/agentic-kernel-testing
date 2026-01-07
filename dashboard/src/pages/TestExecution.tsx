@@ -18,7 +18,7 @@ import {
   CodeOutlined,
   FunctionOutlined,
 } from '@ant-design/icons'
-import { useMutation, useQueryClient } from 'react-query'
+import { useMutation, useQueryClient, useQuery } from 'react-query'
 import { useDashboardStore } from '../store'
 import apiService from '../services/api'
 import useAIGeneration from '../hooks/useAIGeneration'
@@ -38,6 +38,17 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
   const [form] = Form.useForm()
   const [autoGenForm] = Form.useForm()
   const queryClient = useQueryClient()
+
+  // Fetch environments for the form
+  const { data: environments } = useQuery(
+    'environments',
+    () => apiService.getEnvironments(),
+    {
+      onError: (error) => {
+        console.log('Failed to fetch environments:', error)
+      }
+    }
+  )
 
   // AI Generation hook with custom handlers
   const { generateFromDiff, generateFromFunction, isGenerating } = useAIGeneration({
@@ -403,10 +414,10 @@ const TestExecution: React.FC<TestExecutionProps> = () => {
           >
             <Select
               placeholder="Any available environment"
-              options={environments?.map(env => ({
+              options={Array.isArray(environments) ? environments.map(env => ({
                 label: `${env.config?.architecture} - ${env.config?.cpu_model}`,
                 value: env.id,
-              }))}
+              })) : []}
             />
           </Form.Item>
 

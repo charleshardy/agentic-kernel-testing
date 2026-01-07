@@ -852,21 +852,21 @@ class APIService {
     search?: string
     limit?: number
   }): Promise<{ events: AllocationEvent[] }> {
-    try {
-      // Convert the params to match the backend API format
-      const queryParams: Record<string, any> = {}
-      
-      if (params?.planId) queryParams.plan_id = params.planId
-      if (params?.environmentId) queryParams.environment_id = params.environmentId
-      if (params?.testId) queryParams.test_id = params.testId
-      if (params?.eventTypes?.length) queryParams.event_types = params.eventTypes.join(',')
-      if (params?.environmentIds?.length) queryParams.environment_ids = params.environmentIds.join(',')
-      if (params?.testIds?.length) queryParams.test_ids = params.testIds.join(',')
-      if (params?.startDate) queryParams.start_time = params.startDate
-      if (params?.endDate) queryParams.end_time = params.endDate
-      if (params?.search) queryParams.search = params.search
-      if (params?.limit) queryParams.limit = params.limit
+    // Convert the params to match the backend API format
+    const queryParams: Record<string, any> = {}
+    
+    if (params?.planId) queryParams.plan_id = params.planId
+    if (params?.environmentId) queryParams.environment_id = params.environmentId
+    if (params?.testId) queryParams.test_id = params.testId
+    if (params?.eventTypes?.length) queryParams.event_types = params.eventTypes.join(',')
+    if (params?.environmentIds?.length) queryParams.environment_ids = params.environmentIds.join(',')
+    if (params?.testIds?.length) queryParams.test_ids = params.testIds.join(',')
+    if (params?.startDate) queryParams.start_time = params.startDate
+    if (params?.endDate) queryParams.end_time = params.endDate
+    if (params?.search) queryParams.search = params.search
+    if (params?.limit) queryParams.limit = params.limit
 
+    try {
       const response: AxiosResponse<APIResponse<{ events: AllocationEvent[] }>> = 
         await this.client.get('/environments/allocation/history', { params: queryParams })
       return response.data.data!
@@ -1549,16 +1549,32 @@ class APIService {
     }
   }
 
-  async executeTestPlan(planId: string): Promise<{ execution_plan_id: string }> {
+  async executeTestPlan(planId: string): Promise<{ 
+    execution_plan_id: string
+    test_plan_id?: string
+    test_case_count?: number
+    status?: string
+    estimated_completion?: string
+  }> {
     try {
-      const response: AxiosResponse<APIResponse<{ execution_plan_id: string }>> = 
-        await this.client.post(`/test-plans/${planId}/execute`)
+      const response: AxiosResponse<APIResponse<{ 
+        execution_plan_id: string
+        test_plan_id?: string
+        test_case_count?: number
+        status?: string
+        estimated_completion?: string
+      }>> = await this.client.post(`/test-plans/${planId}/execute`)
       return response.data.data!
     } catch (error: any) {
       if (error.response?.status === 401) {
         await this.ensureDemoToken()
-        const response: AxiosResponse<APIResponse<{ execution_plan_id: string }>> = 
-          await this.client.post(`/test-plans/${planId}/execute`)
+        const response: AxiosResponse<APIResponse<{ 
+          execution_plan_id: string
+          test_plan_id?: string
+          test_case_count?: number
+          status?: string
+          estimated_completion?: string
+        }>> = await this.client.post(`/test-plans/${planId}/execute`)
         return response.data.data!
       }
       throw error

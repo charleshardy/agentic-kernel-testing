@@ -43,10 +43,12 @@ import {
   ThunderboltOutlined,
   SafetyOutlined,
   FunctionOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { useNavigate } from 'react-router-dom'
 import apiService, { ExecutionPlanStatus, EnhancedTestCase } from '../services/api'
+import TestCaseModal from '../components/TestCaseModal'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -91,6 +93,11 @@ const TestPlans: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<TestPlan | null>(null)
   const [selectedTestIds, setSelectedTestIds] = useState<string[]>([])
   const [form] = Form.useForm()
+  
+  // Test case detail modal state
+  const [testCaseDetailVisible, setTestCaseDetailVisible] = useState(false)
+  const [selectedTestCase, setSelectedTestCase] = useState<EnhancedTestCase | null>(null)
+  const [testCaseModalMode, setTestCaseModalMode] = useState<'view' | 'edit'>('view')
 
   // Fetch test plans - try real API first, fallback to mock data
   const { data: testPlans, isLoading: plansLoading, refetch: refetchPlans, error: plansError } = useQuery(
@@ -112,11 +119,26 @@ const TestPlans: React.FC = () => {
   )
 
   // Fetch available test cases for plan creation
-  const { data: availableTests } = useQuery(
+  const { data: availableTests, isLoading: testsLoading, error: testsError, refetch: refetchTests } = useQuery(
     'availableTestCases',
-    () => apiService.getTests({ page: 1, page_size: 1000 }),
+    async () => {
+      console.log('🔍 Fetching available test cases for test plan creation...')
+      try {
+        // Note: API limits page_size to 100 max
+        const result = await apiService.getTests({ page: 1, page_size: 100 })
+        console.log('✅ Available test cases fetched:', result)
+        console.log('📊 Number of tests:', result?.tests?.length || 0)
+        return result
+      } catch (error) {
+        console.error('❌ Error fetching test cases:', error)
+        throw error
+      }
+    },
     {
       enabled: createModalVisible || editModalVisible,
+      refetchOnMount: 'always',
+      staleTime: 0,
+      cacheTime: 0,
     }
   )
 
@@ -213,19 +235,29 @@ const TestPlans: React.FC = () => {
         const result = await apiService.executeTestPlan(planId)
         console.log('✅ Executed test plan:', result)
         return result
-      } catch (error) {
-        console.warn('⚠️ Execute test plan API not available, using mock:', error)
-        // Mock implementation as fallback
-        return { execution_plan_id: `exec-${Date.now()}` }
+      } catch (error: any) {
+        console.error('❌ Execute test plan failed:', error)
+        // Re-throw to trigger onError
+        throw error
       }
     },
     {
       onSuccess: (data) => {
-        message.success(`Test plan execution started: ${data.execution_plan_id}`)
+        const testCount = data.test_case_count || 0
+        const status = data.status || 'queued'
+        message.success(`Test plan execution started with ${testCount} tests (${status})`)
         queryClient.invalidateQueries('activeExecutions')
+        
+        // Navigate to execution monitor after a short delay
+        if (data.execution_plan_id) {
+          setTimeout(() => {
+            navigate(`/execution-monitor?planId=${data.execution_plan_id}`)
+          }, 1000)
+        }
       },
       onError: (error: any) => {
-        message.error(`Failed to execute test plan: ${error.message}`)
+        const errorMessage = error.response?.data?.detail || error.message || 'Unknown error'
+        message.error(`Failed to execute test plan: ${errorMessage}`)
       },
     }
   )
@@ -361,6 +393,52 @@ const TestPlans: React.FC = () => {
       parallel_execution: plan.execution_config.parallel_execution,
     })
     setEditModalVisible(true)
+    // Refetch test cases to ensure fresh data
+    refetchTests()
+  }
+
+  // Handle viewing test case details
+  const handleViewTestCaseDetail = async (testId: string) => {
+    try {
+      // First check if we have the test in availableTests
+      const cachedTest = availableTests?.tests?.find((t: EnhancedTestCase) => t.id === testId)
+      if (cachedTest) {
+        setSelectedTestCase(cachedTest)
+        setTestCaseModalMode('view')
+        setTestCaseDetailVisible(true)
+        return
+      }
+      
+      // Otherwise fetch from API
+      message.loading({ content: 'Loading test case details...', key: 'loadingTestCase' })
+      const testCase = await apiService.getTestById(testId)
+      message.destroy('loadingTestCase')
+      setSelectedTestCase(testCase)
+      setTestCaseModalMode('view')
+      setTestCaseDetailVisible(true)
+    } catch (error) {
+      message.destroy('loadingTestCase')
+      message.error(`Failed to load test case: ${testId}`)
+      console.error('Error loading test case:', error)
+    }
+  }
+
+  const handleCloseTestCaseModal = () => {
+    setTestCaseDetailVisible(false)
+    setSelectedTestCase(null)
+  }
+
+  const handleSaveTestCase = async (testCase: EnhancedTestCase) => {
+    try {
+      await apiService.updateTest(testCase.id, testCase)
+      message.success('Test case updated successfully')
+      setTestCaseModalMode('view')
+      // Refresh available tests
+      refetchTests()
+    } catch (error) {
+      message.error('Failed to update test case')
+      console.error('Error updating test case:', error)
+    }
   }
 
   const getStatusIcon = (status: string) => {
@@ -492,6 +570,19 @@ const TestPlans: React.FC = () => {
 
   const columns = [
     {
+      title: 'Plan ID',
+      dataIndex: 'id',
+      key: 'id',
+      width: 140,
+      render: (id: string) => (
+        <Tooltip title={id}>
+          <Text code copyable={{ text: id }} style={{ fontSize: '11px' }}>
+            {id.length > 12 ? `${id.slice(0, 8)}...${id.slice(-4)}` : id}
+          </Text>
+        </Tooltip>
+      ),
+    },
+    {
       title: 'Plan Name',
       dataIndex: 'name',
       key: 'name',
@@ -512,17 +603,100 @@ const TestPlans: React.FC = () => {
       title: 'Test Cases',
       dataIndex: 'test_ids',
       key: 'test_ids',
-      render: (testIds: string[]) => (
-        <Space direction="vertical" size="small">
-          <Text strong>{testIds.length} tests</Text>
-          <div>
-            {/* Mock test type display */}
-            <Tag icon={getTestTypeIcon('unit')}>unit</Tag>
-            <Tag icon={getTestTypeIcon('integration')}>integration</Tag>
-            {testIds.length > 2 && (
-              <Tag>+{testIds.length - 2} more</Tag>
+      width: 320,
+      render: (testIds: string[], record: TestPlan) => (
+        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+          <Space>
+            <Text strong>{testIds.length} test{testIds.length !== 1 ? 's' : ''}</Text>
+            {testIds.length === 0 && (
+              <Tag color="warning">No tests assigned</Tag>
             )}
-          </div>
+            {testIds.length > 0 && (
+              <Tooltip title="View all test cases">
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<InfoCircleOutlined />}
+                  style={{ padding: 0, height: 'auto', fontSize: '11px' }}
+                  onClick={() => {
+                    Modal.info({
+                      title: `Test Cases in "${record.name}"`,
+                      width: 600,
+                      content: (
+                        <div style={{ maxHeight: 400, overflow: 'auto' }}>
+                          <List
+                            size="small"
+                            dataSource={testIds}
+                            renderItem={(testId) => (
+                              <List.Item
+                                actions={[
+                                  <Button
+                                    key="view"
+                                    type="link"
+                                    size="small"
+                                    icon={<EyeOutlined />}
+                                    onClick={() => {
+                                      Modal.destroyAll()
+                                      handleViewTestCaseDetail(testId)
+                                    }}
+                                  >
+                                    View Detail
+                                  </Button>
+                                ]}
+                              >
+                                <List.Item.Meta
+                                  title={
+                                    <Text code copyable={{ text: testId }} style={{ fontSize: '12px' }}>
+                                      {testId}
+                                    </Text>
+                                  }
+                                />
+                              </List.Item>
+                            )}
+                          />
+                        </div>
+                      ),
+                    })
+                  }}
+                >
+                  View All
+                </Button>
+              </Tooltip>
+            )}
+          </Space>
+          {testIds.length > 0 && (
+            <div style={{ maxHeight: 100, overflow: 'auto' }}>
+              {testIds.slice(0, 3).map((testId) => (
+                <Tooltip key={testId} title={`Click to view details for: ${testId}`}>
+                  <Tag 
+                    style={{ marginBottom: 4, fontSize: '10px', cursor: 'pointer' }}
+                    color="blue"
+                    onClick={() => handleViewTestCaseDetail(testId)}
+                  >
+                    <EyeOutlined style={{ marginRight: 4 }} />
+                    {testId.length > 14 ? `${testId.slice(0, 10)}...` : testId}
+                  </Tag>
+                </Tooltip>
+              ))}
+              {testIds.length > 3 && (
+                <Tooltip title={`${testIds.length - 3} more test cases. Click "View All" to see all.`}>
+                  <Tag color="default" style={{ marginBottom: 4, fontSize: '10px' }}>
+                    +{testIds.length - 3} more
+                  </Tag>
+                </Tooltip>
+              )}
+            </div>
+          )}
+          {record.tags && record.tags.length > 0 && (
+            <div>
+              {record.tags.slice(0, 3).map(tag => (
+                <Tag key={tag} style={{ fontSize: '10px' }}>{tag}</Tag>
+              ))}
+              {record.tags.length > 3 && (
+                <Tag style={{ fontSize: '10px' }}>+{record.tags.length - 3}</Tag>
+              )}
+            </div>
+          )}
         </Space>
       ),
     },
@@ -675,6 +849,8 @@ const TestPlans: React.FC = () => {
               setSelectedTestIds([])
               form.resetFields()
               setCreateModalVisible(true)
+              // Refetch test cases to ensure fresh data
+              refetchTests()
             }}
           >
             Create Test Plan
@@ -843,9 +1019,37 @@ const TestPlans: React.FC = () => {
             
             <TabPane tab="Test Selection" key="tests">
               <Form.Item label="Select Test Cases">
+                {testsLoading && (
+                  <Alert
+                    message="Loading test cases..."
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                )}
+                {!!testsError && (
+                  <Alert
+                    message="Error loading test cases"
+                    description={testsError instanceof Error ? testsError.message : "Failed to load test cases"}
+                    type="error"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                )}
+                {!testsLoading && !testsError && (!availableTests?.tests || availableTests.tests.length === 0) && (
+                  <Alert
+                    message="No test cases available"
+                    description="Create test cases first using the Test Cases page or AI generation, then they will appear here for selection."
+                    type="warning"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                )}
                 <div style={{ maxHeight: 400, overflow: 'auto', border: '1px solid #d9d9d9', borderRadius: 6, padding: 16 }}>
                   <List
+                    loading={testsLoading}
                     dataSource={availableTests?.tests || []}
+                    locale={{ emptyText: testsLoading ? 'Loading...' : 'No test cases found. Create tests first.' }}
                     renderItem={(test: EnhancedTestCase) => (
                       <List.Item key={test.id}>
                         <Checkbox
@@ -976,9 +1180,37 @@ const TestPlans: React.FC = () => {
             
             <TabPane tab="Test Selection" key="tests">
               <Form.Item label="Select Test Cases">
+                {testsLoading && (
+                  <Alert
+                    message="Loading test cases..."
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                )}
+                {!!testsError && (
+                  <Alert
+                    message="Error loading test cases"
+                    description={testsError instanceof Error ? testsError.message : "Failed to load test cases"}
+                    type="error"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                )}
+                {!testsLoading && !testsError && (!availableTests?.tests || availableTests.tests.length === 0) && (
+                  <Alert
+                    message="No test cases available"
+                    description="Create test cases first using the Test Cases page or AI generation, then they will appear here for selection."
+                    type="warning"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                )}
                 <div style={{ maxHeight: 400, overflow: 'auto', border: '1px solid #d9d9d9', borderRadius: 6, padding: 16 }}>
                   <List
+                    loading={testsLoading}
                     dataSource={availableTests?.tests || []}
+                    locale={{ emptyText: testsLoading ? 'Loading...' : 'No test cases found. Create tests first.' }}
                     renderItem={(test: EnhancedTestCase) => (
                       <List.Item key={test.id}>
                         <Checkbox
@@ -1064,6 +1296,16 @@ const TestPlans: React.FC = () => {
           </Tabs>
         </Form>
       </Modal>
+
+      {/* Test Case Detail Modal */}
+      <TestCaseModal
+        testCase={selectedTestCase}
+        visible={testCaseDetailVisible}
+        mode={testCaseModalMode}
+        onClose={handleCloseTestCaseModal}
+        onSave={handleSaveTestCase}
+        onModeChange={setTestCaseModalMode}
+      />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 """Real-time test execution endpoints with orchestrator integration."""
 
 import uuid
+import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, Query, status, WebSocket, WebSocketDisconnect
@@ -12,6 +13,8 @@ from ..auth import get_current_user, require_permission
 from ..orchestrator_integration import get_orchestrator
 from ai_generator.models import TestStatus
 from execution.execution_service import get_execution_service
+
+logger = logging.getLogger(__name__)
 
 def get_demo_user():
     """Return demo user for testing."""
@@ -189,7 +192,7 @@ async def get_execution_status(
             )
         
         # Fallback to execution_plans data
-        from api.routers.tests import execution_plans
+        from api.routers.tests import execution_plans, submitted_tests
         if plan_id not in execution_plans:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -199,10 +202,10 @@ async def get_execution_status(
         plan_data = execution_plans[plan_id]
         
         # Get actual test case details
-        from api.routers.tests import submitted_tests
         test_case_details = []
+        test_case_ids = plan_data.get("test_case_ids", [])
         
-        for test_id in plan_data["test_case_ids"]:
+        for test_id in test_case_ids:
             if test_id in submitted_tests:
                 test_data = submitted_tests[test_id]
                 test_case = test_data["test_case"]
@@ -216,28 +219,53 @@ async def get_execution_status(
                     "execution_time_estimate": test_case.execution_time_estimate
                 })
         
+        # Handle datetime serialization for created_at
+        created_at = plan_data.get("created_at")
+        if created_at:
+            if hasattr(created_at, 'isoformat'):
+                created_at = created_at.isoformat()
+            else:
+                created_at = str(created_at)
+        else:
+            created_at = datetime.utcnow().isoformat()
+        
+        # Handle estimated_completion
+        estimated_completion = plan_data.get("estimated_completion")
+        if estimated_completion:
+            if hasattr(estimated_completion, 'isoformat'):
+                estimated_completion = estimated_completion.isoformat()
+            else:
+                estimated_completion = str(estimated_completion)
+        else:
+            estimated_completion = (datetime.utcnow() + timedelta(minutes=10)).isoformat()
+        
         # Create enhanced status response with test case details
-        mock_status = {
+        status_response = {
             "plan_id": plan_id,
-            "submission_id": plan_data["submission_id"],
+            "submission_id": plan_data.get("submission_id", f"sub-{plan_id[:8]}"),
             "overall_status": plan_data.get("status", "queued"),
-            "total_tests": len(plan_data["test_case_ids"]),
+            "total_tests": len(test_case_ids),
             "completed_tests": 0,
             "failed_tests": 0,
             "progress": 0.0,
-            "started_at": plan_data["created_at"].isoformat(),
-            "estimated_completion": plan_data.get("estimated_completion", datetime.utcnow() + timedelta(minutes=10)).isoformat(),
+            "started_at": created_at,
+            "estimated_completion": estimated_completion,
             "test_cases": test_case_details,
-            "test_statuses": []
+            "test_statuses": [],
+            "test_plan_name": plan_data.get("test_plan_name"),
+            "test_plan_id": plan_data.get("test_plan_id")
         }
         
         return APIResponse(
             success=True,
-            message="Execution status retrieved (fallback data)",
-            data=mock_status
+            message="Execution status retrieved",
+            data=status_response
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Failed to get execution status for {plan_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get execution status: {str(e)}"

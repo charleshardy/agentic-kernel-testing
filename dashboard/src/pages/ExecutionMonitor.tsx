@@ -351,13 +351,64 @@ const ExecutionMonitor: React.FC = () => {
     )
   }
 
-  if (isLoading) {
+  if (isLoading && !executionData) {
     return (
       <div style={{ padding: '24px', textAlign: 'center' }}>
         <Spin size="large" />
         <div style={{ marginTop: 16 }}>
           <Text>Loading execution details...</Text>
         </div>
+      </div>
+    )
+  }
+
+  // Show a message if execution data couldn't be loaded
+  if (!executionData && planId) {
+    return (
+      <div style={{ padding: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <div>
+            <Title level={2}>Execution Monitor</Title>
+            <Text type="secondary">
+              Execution plan: <Text code>{planId}</Text>
+            </Text>
+          </div>
+          <Space>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => refetch()}
+            >
+              Refresh
+            </Button>
+          </Space>
+        </div>
+        <Alert
+          message="Execution Not Found or Still Initializing"
+          description={
+            <div>
+              <p>The execution plan <Text code>{planId}</Text> could not be found or is still initializing.</p>
+              <p>This can happen if:</p>
+              <ul>
+                <li>The execution just started and is still being set up</li>
+                <li>The execution plan ID is invalid</li>
+                <li>The execution has already completed and been cleaned up</li>
+              </ul>
+              <p>Try refreshing the page or go back to the <a href="/test-plans">Test Plans</a> page.</p>
+            </div>
+          }
+          type="warning"
+          showIcon
+          action={
+            <Space direction="vertical">
+              <Button size="small" onClick={() => refetch()}>
+                Refresh
+              </Button>
+              <Button size="small" onClick={() => navigate('/test-plans')}>
+                Back to Test Plans
+              </Button>
+            </Space>
+          }
+        />
       </div>
     )
   }

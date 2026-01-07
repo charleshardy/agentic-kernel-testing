@@ -281,29 +281,86 @@ async def execute_test_plan(
             )
         
         test_plan = test_plans_store[plan_id]
+        test_ids = test_plan['test_ids']
+        
+        # Import submitted_tests to check for valid test cases
+        from .tests import execution_plans, submitted_tests
+        
+        # If test plan has no test IDs, check if there are any available tests
+        if not test_ids:
+            # Get available test IDs from submitted_tests
+            available_test_ids = list(submitted_tests.keys())
+            if available_test_ids:
+                # Use available tests for execution
+                test_ids = available_test_ids[:10]  # Limit to 10 tests
+                logger.info(f"Test plan {plan_id} has no test IDs, using {len(test_ids)} available tests")
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Test plan has no test cases and no tests are available. Please add test cases to the test plan first."
+                )
+        
+        # Validate that test cases exist
+        valid_test_ids = [tid for tid in test_ids if tid in submitted_tests]
+        if not valid_test_ids and test_ids:
+            # Test IDs specified but none found - use available tests instead
+            available_test_ids = list(submitted_tests.keys())
+            if available_test_ids:
+                valid_test_ids = available_test_ids[:10]
+                logger.info(f"Test plan {plan_id} test IDs not found, using {len(valid_test_ids)} available tests")
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No valid test cases found. Please create test cases first using AI generation or manual submission."
+                )
         
         # Generate execution plan ID
         execution_plan_id = f"exec-{uuid.uuid4()}"
         
-        # Import execution plans from tests router to create execution
-        from .tests import execution_plans
-        
-        # Create execution plan
+        # Create execution plan with valid test IDs
         execution_plans[execution_plan_id] = {
-            "plan_id": plan_id,
-            "test_plan_id": plan_id,  # Add explicit test plan ID reference
+            "plan_id": execution_plan_id,
+            "test_plan_id": plan_id,
             "submission_id": str(uuid.uuid4()),
-            "test_case_ids": test_plan['test_ids'],
+            "test_case_ids": valid_test_ids,
             "status": "queued",
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.utcnow(),
             "priority": test_plan['execution_config'].get('priority', 5),
             "environment_preference": test_plan['execution_config'].get('environment_preference'),
             "timeout_minutes": test_plan['execution_config'].get('timeout_minutes', 60),
             "retry_failed": test_plan['execution_config'].get('retry_failed', False),
             "parallel_execution": test_plan['execution_config'].get('parallel_execution', True),
-            "test_plan_name": test_plan['name'],  # Add test plan name for easier identification
+            "test_plan_name": test_plan['name'],
             "created_by": current_user.get('username', 'unknown')
         }
+        
+        # Auto-start execution immediately
+        try:
+            from execution.execution_service import get_execution_service
+            
+            # Get test case objects
+            test_cases = []
+            for test_id in valid_test_ids:
+                if test_id in submitted_tests:
+                    test_cases.append(submitted_tests[test_id]["test_case"])
+            
+            if test_cases:
+                execution_service = get_execution_service()
+                success = execution_service.start_execution(
+                    plan_id=execution_plan_id,
+                    test_cases=test_cases,
+                    created_by=current_user.get('username', 'unknown'),
+                    priority=test_plan['execution_config'].get('priority', 5),
+                    timeout=test_plan['execution_config'].get('timeout_minutes', 60) * 60
+                )
+                
+                if success:
+                    execution_plans[execution_plan_id]["status"] = "running"
+                    logger.info(f"Auto-started execution {execution_plan_id} with {len(test_cases)} tests")
+                else:
+                    logger.warning(f"Failed to auto-start execution {execution_plan_id}")
+        except Exception as e:
+            logger.warning(f"Could not auto-start execution: {e}")
         
         # Update test plan statistics
         test_plan['statistics']['total_executions'] += 1
@@ -314,11 +371,12 @@ async def execute_test_plan(
         
         return APIResponse(
             success=True,
-            message=f"Test plan '{test_plan['name']}' execution started",
+            message=f"Test plan '{test_plan['name']}' execution started with {len(valid_test_ids)} tests",
             data={
                 "execution_plan_id": execution_plan_id,
                 "test_plan_id": plan_id,
-                "test_case_count": len(test_plan['test_ids']),
+                "test_case_count": len(valid_test_ids),
+                "status": execution_plans[execution_plan_id]["status"],
                 "estimated_completion": (datetime.utcnow() + timedelta(
                     minutes=test_plan['execution_config'].get('timeout_minutes', 60)
                 )).isoformat()
