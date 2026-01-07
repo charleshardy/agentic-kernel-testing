@@ -88,9 +88,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       label: 'Test Deployment',
     },
     {
-      key: '/tests',
+      key: '/test-execution',
       icon: <ExperimentOutlined />,
       label: 'Test Execution',
+    },
+    {
+      key: '/test-execution-debug',
+      icon: <ExperimentOutlined />,
+      label: 'Test Execution Debug',
     },
     {
       key: '/results',
