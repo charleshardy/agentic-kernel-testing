@@ -25,6 +25,7 @@ import SimpleTest from './pages/SimpleTest'
 import WorkflowDiagnostic from './components/WorkflowDiagnostic'
 import MenuDebugger from './components/MenuDebugger'
 import SyntaxHighlightTest from './components/SyntaxHighlightTest'
+import DeploymentWorkflow from './pages/DeploymentWorkflow'
 
 
 const { Content } = Layout
@@ -81,6 +82,11 @@ function App() {
       <Route path="/workflow-full" element={<DashboardLayout><WorkflowBasic /></DashboardLayout>} />
       <Route path="/workflow-complex" element={<DashboardLayout><WorkflowDiagram /></DashboardLayout>} />
       <Route path="/workflow-diagnostic" element={<DashboardLayout><WorkflowDiagnostic /></DashboardLayout>} />
+      <Route path="/test-deployment" element={<DashboardLayout><DeploymentWorkflow /></DashboardLayout>} />
+      <Route path="/test-deployment-workflow" element={<DashboardLayout><DeploymentWorkflow /></DashboardLayout>} />
+      {/* Backward compatibility redirects */}
+      <Route path="/deployment" element={<Navigate to="/test-deployment" replace />} />
+      <Route path="/deployment-workflow" element={<Navigate to="/test-deployment" replace />} />
       <Route path="/menu-debug" element={<DashboardLayout><MenuDebugger /></DashboardLayout>} />
       <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
       <Route path="/syntax-test" element={<DashboardLayout><SyntaxHighlightTest /></DashboardLayout>} />

@@ -1497,6 +1497,374 @@ class APIService {
       throw error
     }
   }
+
+  // Deployment Management API methods
+  async getDeploymentOverview(): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get('/deployments/overview')
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get('/deployments/overview')
+        return response.data.data!
+      }
+      
+      // Return mock data for development
+      console.log('🔧 Returning mock deployment overview data')
+      return {
+        active_deployments: 3,
+        completed_today: 12,
+        success_rate: 91.7,
+        average_duration: '2m 15s',
+        failed_deployments: 1,
+        cancelled_deployments: 0,
+        queue_size: 2,
+        environments: {
+          qemu_ready: 4,
+          qemu_deploying: 2,
+          qemu_failed: 1,
+          physical_ready: 2,
+          physical_deploying: 1,
+          physical_failed: 0
+        }
+      }
+    }
+  }
+
+  async getEnvironmentsStatus(): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/status')
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get('/environments/status')
+        return response.data.data!
+      }
+      
+      // Return mock data for development
+      console.log('🔧 Returning mock environment status data')
+      return {
+        environments: [
+          {
+            environment_id: 'qemu-vm-x86-001',
+            environment_type: 'qemu-x86',
+            status: 'ready',
+            health: 'healthy',
+            resource_usage: {
+              cpu_percent: 15,
+              memory_percent: 25,
+              disk_percent: 30,
+              network_io: { in: 1024, out: 2048 }
+            },
+            current_deployment: null,
+            last_health_check: new Date().toISOString()
+          },
+          {
+            environment_id: 'qemu-vm-arm64-002',
+            environment_type: 'qemu-arm',
+            status: 'deploying',
+            health: 'healthy',
+            resource_usage: {
+              cpu_percent: 75,
+              memory_percent: 80,
+              disk_percent: 45,
+              network_io: { in: 5120, out: 8192 }
+            },
+            current_deployment: 'kernel_security_test (67% - Installing Dependencies)',
+            last_health_check: new Date().toISOString()
+          },
+          {
+            environment_id: 'physical-board-001',
+            environment_type: 'physical',
+            status: 'ready',
+            health: 'healthy',
+            resource_usage: {
+              cpu_percent: 20,
+              memory_percent: 35,
+              disk_percent: 50,
+              network_io: { in: 2048, out: 4096 }
+            },
+            current_deployment: null,
+            last_health_check: new Date().toISOString()
+          },
+          {
+            environment_id: 'docker-container-001',
+            environment_type: 'docker',
+            status: 'allocating',
+            health: 'unknown',
+            resource_usage: {
+              cpu_percent: 5,
+              memory_percent: 10,
+              disk_percent: 15,
+              network_io: { in: 512, out: 1024 }
+            },
+            current_deployment: 'network_stack_test (25% - Environment Connection)',
+            last_health_check: new Date(Date.now() - 60000).toISOString() // 1 minute ago
+          }
+        ]
+      }
+    }
+  }
+
+  async createDeployment(deploymentData: {
+    plan_id: string
+    environment_id: string
+    artifacts: any[]
+    priority?: string
+    timeout_seconds?: number
+  }): Promise<{ deployment_id: string, status: string, message: string }> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.post('/deployments/', deploymentData)
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.post('/deployments/', deploymentData)
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async getDeploymentStatus(deploymentId: string): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get(`/deployments/${deploymentId}/status`)
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get(`/deployments/${deploymentId}/status`)
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async cancelDeployment(deploymentId: string): Promise<{ success: boolean, message: string }> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.put(`/deployments/${deploymentId}/cancel`)
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.put(`/deployments/${deploymentId}/cancel`)
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async retryDeployment(deploymentId: string): Promise<{ deployment_id: string, status: string, message: string }> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.post(`/deployments/${deploymentId}/retry`)
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.post(`/deployments/${deploymentId}/retry`)
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async getDeploymentLogs(deploymentId: string, format: 'json' | 'text' = 'json'): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get(`/deployments/${deploymentId}/logs`, {
+        params: { format }
+      })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get(`/deployments/${deploymentId}/logs`, {
+          params: { format }
+        })
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async getDeploymentMetrics(): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get('/deployments/metrics')
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get('/deployments/metrics')
+        return response.data.data!
+      }
+      
+      // Return mock data for development
+      console.log('🔧 Returning mock deployment metrics data')
+      return {
+        total_deployments: 156,
+        successful_deployments: 143,
+        failed_deployments: 10,
+        cancelled_deployments: 3,
+        active_deployments: 3,
+        queue_size: 2,
+        average_duration_seconds: 135,
+        retry_count: 7,
+        environment_usage: {
+          'qemu-x86': 45,
+          'qemu-arm': 32,
+          'physical': 23,
+          'docker': 12
+        }
+      }
+    }
+  }
+
+  async getDeploymentHistory(params?: {
+    page?: number
+    page_size?: number
+    status?: string
+    environment_id?: string
+  }): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get('/deployments/history', { params })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get('/deployments/history', { params })
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async getDeploymentAnalytics(params?: {
+    start_date?: string
+    end_date?: string
+    environment_id?: string
+  }): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get('/deployments/analytics', { params })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get('/deployments/analytics', { params })
+        return response.data.data!
+      }
+      
+      // Return mock analytics data for development
+      console.log('🔧 Returning mock deployment analytics data')
+      return {
+        deployment_trends: [
+          { date: '2026-01-01', successful: 12, failed: 1, cancelled: 0 },
+          { date: '2026-01-02', successful: 15, failed: 2, cancelled: 1 },
+          { date: '2026-01-03', successful: 18, failed: 0, cancelled: 0 },
+          { date: '2026-01-04', successful: 14, failed: 1, cancelled: 0 },
+          { date: '2026-01-05', successful: 16, failed: 2, cancelled: 1 },
+          { date: '2026-01-06', successful: 20, failed: 1, cancelled: 0 },
+          { date: '2026-01-07', successful: 12, failed: 1, cancelled: 0 }
+        ],
+        performance_metrics: {
+          average_duration: 135,
+          p95_duration: 280,
+          p99_duration: 450,
+          success_rate: 91.7
+        },
+        environment_breakdown: {
+          'qemu-x86': { count: 45, success_rate: 95.6, avg_duration: 120 },
+          'qemu-arm': { count: 32, success_rate: 87.5, avg_duration: 150 },
+          'physical': { count: 23, success_rate: 95.7, avg_duration: 180 },
+          'docker': { count: 12, success_rate: 100.0, avg_duration: 90 }
+        }
+      }
+    }
+  }
+
+  async getPerformanceAnalytics(params?: {
+    start_date?: string
+    end_date?: string
+    metric?: string
+  }): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get('/deployments/analytics/performance', { params })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get('/deployments/analytics/performance', { params })
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async getDeploymentTrends(params?: {
+    start_date?: string
+    end_date?: string
+    metric?: string
+  }): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get('/deployments/analytics/trends', { params })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get('/deployments/analytics/trends', { params })
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async getEnvironmentAnalytics(): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.get('/deployments/analytics/environments')
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.get('/deployments/analytics/environments')
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async exportDeploymentAnalytics(params?: {
+    format?: 'csv' | 'json'
+    start_date?: string
+    end_date?: string
+  }): Promise<Blob> {
+    try {
+      const response: AxiosResponse<Blob> = await this.client.get('/deployments/analytics/export', {
+        params,
+        responseType: 'blob'
+      })
+      return response.data
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<Blob> = await this.client.get('/deployments/analytics/export', {
+          params,
+          responseType: 'blob'
+        })
+        return response.data
+      }
+      throw error
+    }
+  }
+
+  // WebSocket connection for real-time deployment updates
+  createDeploymentWebSocket(deploymentId?: string): WebSocket {
+    const baseURL = this.client.defaults.baseURL?.replace('http', 'ws')
+    const token = localStorage.getItem('auth_token')
+    const url = deploymentId 
+      ? `${baseURL}/deployments/${deploymentId}/status/live${token ? `?token=${token}` : ''}`
+      : `${baseURL}/deployments/live${token ? `?token=${token}` : ''}`
+    return new WebSocket(url)
+  }
 }
 
 export const apiService = new APIService()

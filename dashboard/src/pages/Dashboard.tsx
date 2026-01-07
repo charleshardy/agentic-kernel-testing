@@ -267,7 +267,7 @@ const Dashboard: React.FC = () => {
               border: 'none',
               color: 'white'
             }}
-            bodyStyle={{ padding: '24px' }}
+            styles={{ body: { padding: '24px' } }}
           >
             <Row align="middle">
               <Col xs={24} md={18}>

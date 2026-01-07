@@ -1,187 +1,285 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  TrendingUp, 
+  TrendingUp,
   TrendingDown,
-  Activity, 
+  BarChart3,
+  PieChart,
   Clock,
   CheckCircle,
   XCircle,
-  BarChart3,
-  PieChart,
+  AlertTriangle,
+  Activity,
   Calendar,
   Filter,
   Download,
-  RefreshCw
+  RefreshCw,
+  Server,
+  Cpu,
+  HardDrive,
+  Network
 } from 'lucide-react';
 
-interface DeploymentAnalyticsProps {
-  timeRange?: string;
-  autoRefresh?: boolean;
-  refreshInterval?: number;
+// Types for analytics data
+interface DeploymentMetrics {
+  total_deployments: number;
+  successful_deployments: number;
+  failed_deployments: number;
+  cancelled_deployments: number;
+  average_duration_seconds: number;
+  success_rate_percentage: number;
+  retry_rate_percentage: number;
+  environment_utilization: Record<string, number>;
+  failure_categories: Record<string, number>;
+  performance_trends: {
+    date: string;
+    deployments: number;
+    success_rate: number;
+    average_duration: number;
+  }[];
 }
 
-interface AnalyticsData {
-  successRate: number;
-  averageDuration: number;
-  totalDeployments: number;
-  failureRate: number;
-  retryRate: number;
-  environmentBreakdown: Record<string, number>;
-  timeSeriesData: Array<{
-    timestamp: string;
-    successful: number;
-    failed: number;
-    duration: number;
-  }>;
+interface EnvironmentAnalytics {
+  environment_id: string;
+  environment_type: string;
+  total_deployments: number;
+  successful_deployments: number;
+  failed_deployments: number;
+  average_duration_seconds: number;
+  resource_efficiency: {
+    cpu_utilization: number;
+    memory_utilization: number;
+    disk_utilization: number;
+  };
+  failure_reasons: Record<string, number>;
+  peak_usage_hours: number[];
+}
+
+interface TimeRangeFilter {
+  label: string;
+  value: string;
+  days: number;
+}
+
+interface DeploymentAnalyticsProps {
+  className?: string;
 }
 
 const DeploymentAnalytics: React.FC<DeploymentAnalyticsProps> = ({
-  timeRange = '24h',
-  autoRefresh = true,
-  refreshInterval = 30000
+  className = ""
 }) => {
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [metrics, setMetrics] = useState<DeploymentMetrics | null>(null);
+  const [environmentAnalytics, setEnvironmentAnalytics] = useState<EnvironmentAnalytics[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTimeRange, setSelectedTimeRange] = useState(timeRange);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [error, setError] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState('7d');
+  const [selectedEnvironment, setSelectedEnvironment] = useState<string>('all');
 
-  // Mock analytics data
-  const mockAnalytics: AnalyticsData = {
-    successRate: 87.5,
-    averageDuration: 145.2,
-    totalDeployments: 156,
-    failureRate: 8.3,
-    retryRate: 4.2,
-    environmentBreakdown: {
-      'qemu-x86-64': 45,
-      'physical-arm64': 32,
-      'qemu-arm64': 28,
-      'container-x86': 21,
-      'physical-x86': 18,
-      'qemu-riscv': 12
-    },
-    timeSeriesData: [
-      { timestamp: '00:00', successful: 12, failed: 2, duration: 142 },
-      { timestamp: '04:00', successful: 8, failed: 1, duration: 138 },
-      { timestamp: '08:00', successful: 15, failed: 3, duration: 156 },
-      { timestamp: '12:00', successful: 18, failed: 2, duration: 149 },
-      { timestamp: '16:00', successful: 22, failed: 1, duration: 134 },
-      { timestamp: '20:00', successful: 16, failed: 3, duration: 152 }
-    ]
-  };
+  const timeRangeOptions: TimeRangeFilter[] = [
+    { label: 'Last 24 Hours', value: '1d', days: 1 },
+    { label: 'Last 7 Days', value: '7d', days: 7 },
+    { label: 'Last 30 Days', value: '30d', days: 30 },
+    { label: 'Last 90 Days', value: '90d', days: 90 }
+  ];
+
+  // Fetch analytics data
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [metricsResponse, environmentsResponse] = await Promise.all([
+        fetch(`/api/v1/deployments/analytics?time_range=${timeRange}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        }),
+        fetch(`/api/v1/deployments/analytics/environments?time_range=${timeRange}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        })
+      ]);
+
+      if (!metricsResponse.ok || !environmentsResponse.ok) {
+        throw new Error('Failed to fetch analytics data');
+      }
+
+      const metricsData = await metricsResponse.json();
+      const environmentsData = await environmentsResponse.json();
+
+      setMetrics(metricsData);
+      setEnvironmentAnalytics(environmentsData.environments || []);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch analytics');
+    } finally {
+      setLoading(false);
+    }
+  }, [timeRange]);
 
   useEffect(() => {
-    const fetchAnalytics = async () => {
-      setLoading(true);
-      try {
-        // In real implementation, fetch from API
-        // const response = await fetch(`/api/v1/deployments/analytics/performance?time_range=${selectedTimeRange}`);
-        // const data = await response.json();
-        
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setAnalytics(mockAnalytics);
-      } catch (error) {
-        console.error('Failed to fetch analytics:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchAnalytics();
+  }, [fetchAnalytics]);
 
-    if (autoRefresh) {
-      const interval = setInterval(fetchAnalytics, refreshInterval);
-      return () => clearInterval(interval);
+  // Export analytics data
+  const exportAnalytics = async () => {
+    try {
+      const response = await fetch(`/api/v1/deployments/analytics/export?time_range=${timeRange}&format=csv`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `deployment_analytics_${timeRange}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+    } catch (err) {
+      console.error('Failed to export analytics:', err);
     }
-  }, [selectedTimeRange, autoRefresh, refreshInterval]);
+  };
 
+  // Format duration
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}m ${secs}s`;
   };
 
-  const getSuccessRateColor = (rate: number) => {
-    if (rate >= 90) return 'text-green-600';
-    if (rate >= 75) return 'text-yellow-600';
-    return 'text-red-600';
+  // Get trend indicator
+  const getTrendIndicator = (current: number, previous: number) => {
+    if (current > previous) {
+      return <TrendingUp className="h-4 w-4 text-green-500" />;
+    } else if (current < previous) {
+      return <TrendingDown className="h-4 w-4 text-red-500" />;
+    }
+    return <div className="h-4 w-4" />;
   };
 
-  const getSuccessRateIcon = (rate: number) => {
-    if (rate >= 90) return <TrendingUp className="h-4 w-4 text-green-600" />;
-    if (rate >= 75) return <Activity className="h-4 w-4 text-yellow-600" />;
-    return <TrendingDown className="h-4 w-4 text-red-600" />;
+  // Get environment type icon
+  const getEnvironmentTypeIcon = (type: string) => {
+    switch (type) {
+      case 'qemu': return <Server className="h-4 w-4" />;
+      case 'physical': return <Cpu className="h-4 w-4" />;
+      case 'cloud': return <Network className="h-4 w-4" />;
+      default: return <Server className="h-4 w-4" />;
+    }
   };
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-center">
-            <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-            Loading analytics...
-          </div>
-        </CardContent>
-      </Card>
+      <div className={`space-y-6 ${className}`}>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center">
+              <Activity className="h-6 w-6 animate-spin mr-2" />
+              Loading analytics data...
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
-  if (!analytics) {
+  if (error) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="text-center text-gray-500">
-            Failed to load analytics data
-          </div>
-        </CardContent>
-      </Card>
+      <div className={`space-y-6 ${className}`}>
+        <Card>
+          <CardContent className="p-6">
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+            <Button onClick={fetchAnalytics} className="mt-4">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!metrics) {
+    return (
+      <div className={`space-y-6 ${className}`}>
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center text-gray-500">
+              No analytics data available
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with Controls */}
+    <div className={`space-y-6 ${className}`}>
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Deployment Analytics</h2>
-          <p className="text-gray-600">Performance insights and trends</p>
+          <p className="text-gray-500">Performance insights and trends</p>
         </div>
         <div className="flex items-center space-x-2">
           <select
-            value={selectedTimeRange}
-            onChange={(e) => setSelectedTimeRange(e.target.value)}
-            className="border rounded px-3 py-1 text-sm"
+            value={timeRange}
+            onChange={(e) => setTimeRange(e.target.value)}
+            className="border rounded px-3 py-2 text-sm"
           >
-            <option value="1h">Last Hour</option>
-            <option value="24h">Last 24 Hours</option>
-            <option value="7d">Last 7 Days</option>
-            <option value="30d">Last 30 Days</option>
+            {timeRangeOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={exportAnalytics}>
             <Download className="h-4 w-4 mr-2" />
             Export
+          </Button>
+          <Button variant="outline" size="sm" onClick={fetchAnalytics}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
           </Button>
         </div>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Total Deployments</p>
+                <p className="text-2xl font-bold">{metrics.total_deployments}</p>
+              </div>
+              <BarChart3 className="h-8 w-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-500">Success Rate</p>
-                <p className={`text-2xl font-bold ${getSuccessRateColor(analytics.successRate)}`}>
-                  {analytics.successRate}%
-                </p>
+                <p className="text-2xl font-bold">{metrics.success_rate_percentage.toFixed(1)}%</p>
               </div>
-              {getSuccessRateIcon(analytics.successRate)}
+              <CheckCircle className="h-8 w-8 text-green-500" />
             </div>
           </CardContent>
         </Card>
@@ -191,7 +289,7 @@ const DeploymentAnalytics: React.FC<DeploymentAnalyticsProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-500">Avg Duration</p>
-                <p className="text-2xl font-bold">{formatDuration(analytics.averageDuration)}</p>
+                <p className="text-2xl font-bold">{formatDuration(metrics.average_duration_seconds)}</p>
               </div>
               <Clock className="h-8 w-8 text-blue-500" />
             </div>
@@ -202,234 +300,319 @@ const DeploymentAnalytics: React.FC<DeploymentAnalyticsProps> = ({
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">Total Deployments</p>
-                <p className="text-2xl font-bold">{analytics.totalDeployments}</p>
-              </div>
-              <Activity className="h-8 w-8 text-purple-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Failure Rate</p>
-                <p className="text-2xl font-bold text-red-600">{analytics.failureRate}%</p>
-              </div>
-              <XCircle className="h-8 w-8 text-red-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
                 <p className="text-sm font-medium text-gray-500">Retry Rate</p>
-                <p className="text-2xl font-bold text-orange-600">{analytics.retryRate}%</p>
+                <p className="text-2xl font-bold">{metrics.retry_rate_percentage.toFixed(1)}%</p>
               </div>
-              <RefreshCw className="h-8 w-8 text-orange-500" />
+              <RefreshCw className="h-8 w-8 text-yellow-500" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Analytics Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+      {/* Charts and Detailed Analytics */}
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="trends">Trends</TabsTrigger>
           <TabsTrigger value="environments">Environments</TabsTrigger>
-          <TabsTrigger value="performance">Performance</TabsTrigger>
+          <TabsTrigger value="failures">Failure Analysis</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="mt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Success Rate Trend */}
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Success vs Failure Distribution */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <TrendingUp className="h-5 w-5 mr-2" />
-                  Success Rate Trend
+                  <PieChart className="h-5 w-5 mr-2" />
+                  Deployment Status Distribution
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-64 flex items-center justify-center">
-                  <div className="w-full space-y-3">
-                    {analytics.timeSeriesData.map((point, index) => {
-                      const total = point.successful + point.failed;
-                      const successRate = total > 0 ? (point.successful / total) * 100 : 0;
-                      return (
-                        <div key={index} className="flex items-center justify-between">
-                          <span className="text-sm font-medium w-12">{point.timestamp}</span>
-                          <div className="flex-1 mx-4">
-                            <Progress value={successRate} className="h-2" />
-                          </div>
-                          <span className="text-sm text-gray-500 w-12 text-right">
-                            {Math.round(successRate)}%
-                          </span>
-                        </div>
-                      );
-                    })}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <span className="text-sm">Successful</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">{metrics.successful_deployments}</div>
+                      <div className="text-xs text-gray-500">
+                        {((metrics.successful_deployments / metrics.total_deployments) * 100).toFixed(1)}%
+                      </div>
+                    </div>
                   </div>
+                  <Progress 
+                    value={(metrics.successful_deployments / metrics.total_deployments) * 100} 
+                    className="h-2"
+                  />
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                      <span className="text-sm">Failed</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">{metrics.failed_deployments}</div>
+                      <div className="text-xs text-gray-500">
+                        {((metrics.failed_deployments / metrics.total_deployments) * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                  <Progress 
+                    value={(metrics.failed_deployments / metrics.total_deployments) * 100} 
+                    className="h-2"
+                  />
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
+                      <span className="text-sm">Cancelled</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">{metrics.cancelled_deployments}</div>
+                      <div className="text-xs text-gray-500">
+                        {((metrics.cancelled_deployments / metrics.total_deployments) * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                  <Progress 
+                    value={(metrics.cancelled_deployments / metrics.total_deployments) * 100} 
+                    className="h-2"
+                  />
                 </div>
               </CardContent>
             </Card>
 
-            {/* Deployment Volume */}
+            {/* Environment Utilization */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <BarChart3 className="h-5 w-5 mr-2" />
-                  Deployment Volume
+                  <Server className="h-5 w-5 mr-2" />
+                  Environment Utilization
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-64 flex items-end justify-between space-x-2">
-                  {analytics.timeSeriesData.map((point, index) => {
-                    const total = point.successful + point.failed;
-                    const maxTotal = Math.max(...analytics.timeSeriesData.map(p => p.successful + p.failed));
-                    const height = (total / maxTotal) * 200;
-                    
-                    return (
-                      <div key={index} className="flex flex-col items-center space-y-2">
-                        <div className="flex flex-col items-center">
-                          <div 
-                            className="bg-green-500 rounded-t"
-                            style={{ 
-                              width: '20px', 
-                              height: `${(point.successful / maxTotal) * 200}px`,
-                              minHeight: '2px'
-                            }}
-                          />
-                          <div 
-                            className="bg-red-500 rounded-b"
-                            style={{ 
-                              width: '20px', 
-                              height: `${(point.failed / maxTotal) * 200}px`,
-                              minHeight: point.failed > 0 ? '2px' : '0px'
-                            }}
-                          />
-                        </div>
-                        <span className="text-xs text-gray-500">{point.timestamp}</span>
+                <div className="space-y-4">
+                  {Object.entries(metrics.environment_utilization).map(([env, usage]) => (
+                    <div key={env}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium">{env}</span>
+                        <span className="text-sm text-gray-500">{usage} deployments</span>
                       </div>
-                    );
-                  })}
-                </div>
-                <div className="flex items-center justify-center space-x-4 mt-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-green-500 rounded" />
-                    <span className="text-sm">Successful</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-red-500 rounded" />
-                    <span className="text-sm">Failed</span>
-                  </div>
+                      <Progress 
+                        value={(usage / Math.max(...Object.values(metrics.environment_utilization))) * 100} 
+                        className="h-2"
+                      />
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
-        <TabsContent value="trends" className="mt-6">
+        <TabsContent value="trends" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Performance Trends</CardTitle>
+              <CardTitle className="flex items-center">
+                <TrendingUp className="h-5 w-5 mr-2" />
+                Performance Trends
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-64 flex items-center justify-center text-gray-500">
-                <div className="text-center">
-                  <TrendingUp className="h-12 w-12 mx-auto mb-2" />
-                  <p>Detailed trend analysis would be displayed here</p>
-                  <p className="text-sm">Integration with time-series data pending</p>
+              {metrics.performance_trends.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Simple trend visualization */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <p className="text-sm text-gray-500">Deployments Trend</p>
+                      <div className="flex items-center justify-center space-x-2">
+                        <span className="text-lg font-bold">
+                          {metrics.performance_trends[metrics.performance_trends.length - 1]?.deployments || 0}
+                        </span>
+                        {getTrendIndicator(
+                          metrics.performance_trends[metrics.performance_trends.length - 1]?.deployments || 0,
+                          metrics.performance_trends[metrics.performance_trends.length - 2]?.deployments || 0
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm text-gray-500">Success Rate Trend</p>
+                      <div className="flex items-center justify-center space-x-2">
+                        <span className="text-lg font-bold">
+                          {(metrics.performance_trends[metrics.performance_trends.length - 1]?.success_rate || 0).toFixed(1)}%
+                        </span>
+                        {getTrendIndicator(
+                          metrics.performance_trends[metrics.performance_trends.length - 1]?.success_rate || 0,
+                          metrics.performance_trends[metrics.performance_trends.length - 2]?.success_rate || 0
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm text-gray-500">Duration Trend</p>
+                      <div className="flex items-center justify-center space-x-2">
+                        <span className="text-lg font-bold">
+                          {formatDuration(metrics.performance_trends[metrics.performance_trends.length - 1]?.average_duration || 0)}
+                        </span>
+                        {getTrendIndicator(
+                          metrics.performance_trends[metrics.performance_trends.length - 2]?.average_duration || 0,
+                          metrics.performance_trends[metrics.performance_trends.length - 1]?.average_duration || 0
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Trend data table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-2">Date</th>
+                          <th className="text-left p-2">Deployments</th>
+                          <th className="text-left p-2">Success Rate</th>
+                          <th className="text-left p-2">Avg Duration</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {metrics.performance_trends.slice(-7).map((trend, index) => (
+                          <tr key={index} className="border-b">
+                            <td className="p-2">{new Date(trend.date).toLocaleDateString()}</td>
+                            <td className="p-2">{trend.deployments}</td>
+                            <td className="p-2">{trend.success_rate.toFixed(1)}%</td>
+                            <td className="p-2">{formatDuration(trend.average_duration)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="text-center text-gray-500 py-8">
+                  No trend data available for the selected time range
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="environments" className="mt-6">
+        <TabsContent value="environments" className="space-y-6">
+          <div className="grid grid-cols-1 gap-6">
+            {environmentAnalytics.map((env) => (
+              <Card key={env.environment_id}>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    {getEnvironmentTypeIcon(env.environment_type)}
+                    <span className="ml-2">{env.environment_id}</span>
+                    <Badge variant="outline" className="ml-2">
+                      {env.environment_type}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Total Deployments</p>
+                      <p className="text-lg font-bold">{env.total_deployments}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Success Rate</p>
+                      <p className="text-lg font-bold">
+                        {env.total_deployments > 0 
+                          ? ((env.successful_deployments / env.total_deployments) * 100).toFixed(1)
+                          : 0}%
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Avg Duration</p>
+                      <p className="text-lg font-bold">{formatDuration(env.average_duration_seconds)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Failed</p>
+                      <p className="text-lg font-bold text-red-600">{env.failed_deployments}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="font-medium mb-2">Resource Efficiency</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>CPU Utilization</span>
+                          <span>{env.resource_efficiency.cpu_utilization.toFixed(1)}%</span>
+                        </div>
+                        <Progress value={env.resource_efficiency.cpu_utilization} className="h-1" />
+                        
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Memory Utilization</span>
+                          <span>{env.resource_efficiency.memory_utilization.toFixed(1)}%</span>
+                        </div>
+                        <Progress value={env.resource_efficiency.memory_utilization} className="h-1" />
+                        
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Disk Utilization</span>
+                          <span>{env.resource_efficiency.disk_utilization.toFixed(1)}%</span>
+                        </div>
+                        <Progress value={env.resource_efficiency.disk_utilization} className="h-1" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="font-medium mb-2">Top Failure Reasons</h4>
+                      <div className="space-y-2">
+                        {Object.entries(env.failure_reasons)
+                          .sort(([,a], [,b]) => b - a)
+                          .slice(0, 3)
+                          .map(([reason, count]) => (
+                            <div key={reason} className="flex items-center justify-between text-sm">
+                              <span className="truncate">{reason}</span>
+                              <Badge variant="outline">{count}</Badge>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="failures" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <PieChart className="h-5 w-5 mr-2" />
-                Environment Breakdown
+                <XCircle className="h-5 w-5 mr-2" />
+                Failure Analysis
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {Object.entries(analytics.environmentBreakdown)
+                <h4 className="font-medium">Failure Categories</h4>
+                {Object.entries(metrics.failure_categories)
                   .sort(([,a], [,b]) => b - a)
-                  .map(([env, count]) => {
-                    const percentage = (count / analytics.totalDeployments) * 100;
-                    return (
-                      <div key={env} className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-4 h-4 bg-blue-500 rounded" />
-                          <span className="font-medium">{env}</span>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <div className="w-32">
-                            <Progress value={percentage} className="h-2" />
-                          </div>
-                          <span className="text-sm text-gray-500 w-12 text-right">
-                            {count}
-                          </span>
-                          <span className="text-sm text-gray-500 w-12 text-right">
-                            {Math.round(percentage)}%
-                          </span>
+                  .map(([category, count]) => (
+                    <div key={category}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium capitalize">
+                          {category.replace(/_/g, ' ')}
+                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-gray-500">{count} failures</span>
+                          <Badge variant="outline">
+                            {((count / metrics.failed_deployments) * 100).toFixed(1)}%
+                          </Badge>
                         </div>
                       </div>
-                    );
-                  })}
+                      <Progress 
+                        value={(count / Math.max(...Object.values(metrics.failure_categories))) * 100} 
+                        className="h-2"
+                      />
+                    </div>
+                  ))}
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="performance" className="mt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Duration Distribution</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64 flex items-center justify-center text-gray-500">
-                  <div className="text-center">
-                    <Clock className="h-12 w-12 mx-auto mb-2" />
-                    <p>Duration distribution chart would be displayed here</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Performance Metrics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Fastest Deployment</span>
-                    <span className="text-sm">45s</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Slowest Deployment</span>
-                    <span className="text-sm">8m 23s</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Median Duration</span>
-                    <span className="text-sm">2m 18s</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">95th Percentile</span>
-                    <span className="text-sm">4m 45s</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </TabsContent>
       </Tabs>
     </div>

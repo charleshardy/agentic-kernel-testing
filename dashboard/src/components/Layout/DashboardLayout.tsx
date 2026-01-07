@@ -16,6 +16,7 @@ import {
   RobotOutlined,
   ScheduleOutlined,
   CloudServerOutlined,
+  DeploymentUnitOutlined,
 } from '@ant-design/icons'
 import { useDashboardStore } from '../../store'
 
@@ -80,6 +81,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       key: '/test-environment',
       icon: <CloudServerOutlined />,
       label: 'Test Environment',
+    },
+    {
+      key: '/test-deployment',
+      icon: <DeploymentUnitOutlined />,
+      label: 'Test Deployment',
     },
     {
       key: '/tests',

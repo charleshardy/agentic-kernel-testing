@@ -1122,3 +1122,204 @@ async def cancel_allocation_request(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to cancel allocation request: {str(e)}"
         )
+
+@router.get("/available")
+async def get_available_environments(
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get list of available environments for deployment.
+    
+    Returns environments that are currently available for deployment
+    with their capabilities and resource limits.
+    """
+    try:
+        # Sample available environments (in production, this would query the environment manager)
+        available_environments = [
+            {
+                "id": "qemu-x86-001",
+                "name": "QEMU x86_64 VM #1",
+                "type": "qemu",
+                "architecture": "x86_64",
+                "status": "available",
+                "capabilities": ["kasan", "coverage", "performance_monitoring", "fuzzing"],
+                "resource_limits": {
+                    "max_cpu": 4,
+                    "max_memory_gb": 8,
+                    "max_disk_gb": 50
+                }
+            },
+            {
+                "id": "qemu-x86-002",
+                "name": "QEMU x86_64 VM #2",
+                "type": "qemu",
+                "architecture": "x86_64",
+                "status": "available",
+                "capabilities": ["kasan", "coverage", "performance_monitoring"],
+                "resource_limits": {
+                    "max_cpu": 4,
+                    "max_memory_gb": 8,
+                    "max_disk_gb": 50
+                }
+            },
+            {
+                "id": "qemu-arm64-001",
+                "name": "QEMU ARM64 VM #1",
+                "type": "qemu",
+                "architecture": "aarch64",
+                "status": "available",
+                "capabilities": ["coverage", "performance_monitoring"],
+                "resource_limits": {
+                    "max_cpu": 4,
+                    "max_memory_gb": 4,
+                    "max_disk_gb": 30
+                }
+            },
+            {
+                "id": "board-rpi4-001",
+                "name": "Raspberry Pi 4 Board #1",
+                "type": "physical",
+                "architecture": "aarch64",
+                "status": "available",
+                "capabilities": ["hardware_testing", "gpio_access", "real_hardware"],
+                "resource_limits": {
+                    "max_cpu": 4,
+                    "max_memory_gb": 4,
+                    "max_disk_gb": 32
+                }
+            },
+            {
+                "id": "board-x86-001",
+                "name": "Intel NUC Board #1",
+                "type": "physical",
+                "architecture": "x86_64",
+                "status": "busy",
+                "capabilities": ["hardware_testing", "performance_monitoring", "real_hardware"],
+                "resource_limits": {
+                    "max_cpu": 8,
+                    "max_memory_gb": 16,
+                    "max_disk_gb": 256
+                }
+            },
+            {
+                "id": "cloud-aws-001",
+                "name": "AWS EC2 Instance #1",
+                "type": "cloud",
+                "architecture": "x86_64",
+                "status": "available",
+                "capabilities": ["scalable", "cloud_native", "high_performance"],
+                "resource_limits": {
+                    "max_cpu": 16,
+                    "max_memory_gb": 32,
+                    "max_disk_gb": 500
+                }
+            }
+        ]
+        
+        return {
+            "environments": available_environments
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get available environments: {str(e)}"
+        )
+
+
+@router.get("/status")
+async def get_environment_status(
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get current status of all environments.
+    
+    Returns real-time status information for all environments
+    including resource usage and health metrics.
+    """
+    try:
+        # Sample environment status data (in production, this would query actual environments)
+        environment_statuses = [
+            {
+                "environment_id": "qemu-x86-001",
+                "environment_type": "qemu",
+                "status": "ready",
+                "current_deployment": None,
+                "resource_usage": {
+                    "cpu_percent": 15,
+                    "memory_percent": 25,
+                    "disk_percent": 45
+                },
+                "last_health_check": datetime.now().isoformat()
+            },
+            {
+                "environment_id": "qemu-x86-002",
+                "environment_type": "qemu",
+                "status": "deploying",
+                "current_deployment": "deploy_20240106_143022_abc123",
+                "resource_usage": {
+                    "cpu_percent": 75,
+                    "memory_percent": 60,
+                    "disk_percent": 50
+                },
+                "last_health_check": datetime.now().isoformat()
+            },
+            {
+                "environment_id": "qemu-arm64-001",
+                "environment_type": "qemu",
+                "status": "ready",
+                "current_deployment": None,
+                "resource_usage": {
+                    "cpu_percent": 8,
+                    "memory_percent": 20,
+                    "disk_percent": 35
+                },
+                "last_health_check": datetime.now().isoformat()
+            },
+            {
+                "environment_id": "board-rpi4-001",
+                "environment_type": "physical",
+                "status": "ready",
+                "current_deployment": None,
+                "resource_usage": {
+                    "cpu_percent": 12,
+                    "memory_percent": 30,
+                    "disk_percent": 65
+                },
+                "last_health_check": datetime.now().isoformat()
+            },
+            {
+                "environment_id": "board-x86-001",
+                "environment_type": "physical",
+                "status": "deploying",
+                "current_deployment": "deploy_20240106_142015_def456",
+                "resource_usage": {
+                    "cpu_percent": 85,
+                    "memory_percent": 70,
+                    "disk_percent": 55
+                },
+                "last_health_check": datetime.now().isoformat()
+            },
+            {
+                "environment_id": "cloud-aws-001",
+                "environment_type": "cloud",
+                "status": "maintenance",
+                "current_deployment": None,
+                "resource_usage": {
+                    "cpu_percent": 5,
+                    "memory_percent": 15,
+                    "disk_percent": 25
+                },
+                "last_health_check": (datetime.now() - timedelta(minutes=5)).isoformat()
+            }
+        ]
+        
+        return {
+            "environments": environment_statuses
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get environment status: {str(e)}"
+        )
