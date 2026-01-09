@@ -728,7 +728,9 @@ class DeploymentManager:
             "aarch64": ["arm64", "aarch64"],
             "armv7": ["armv7", "arm", "armhf"],
             "arm": ["armv7", "arm", "armhf"],
+            "armhf": ["armv7", "arm", "armhf"],
             "riscv64": ["riscv64", "riscv"],
+            "riscv": ["riscv64", "riscv"],
         }
         
         compatible_archs = arch_compat.get(board_arch, [board_arch])

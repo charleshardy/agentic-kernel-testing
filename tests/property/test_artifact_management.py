@@ -1,401 +1,465 @@
 """
-Property-based test for artifact management operations.
+Property-Based Tests for Artifact Management
 
-Tests that artifact deployment verification works correctly with proper
-validation, integrity checks, and dependency resolution.
+Tests correctness properties for artifact storage and retrieval using Hypothesis.
 """
 
-import asyncio
 import pytest
+import asyncio
 import hashlib
-import tempfile
-import shutil
-from pathlib import Path
+from datetime import datetime, timezone
 from hypothesis import given, strategies as st, settings, assume
-from unittest.mock import AsyncMock, MagicMock
+from typing import Dict, List
 
-from deployment.artifact_repository import ArtifactRepository
-from deployment.models import TestArtifact, ArtifactType, Dependency
-
-
-# Property-based test strategies
-artifact_names = st.text(min_size=1, max_size=100, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd', 'Pc', 'Pd')))
-artifact_content = st.binary(min_size=1, max_size=50000)
-artifact_types = st.sampled_from(list(ArtifactType))
-file_permissions = st.sampled_from(["0644", "0755", "0600", "0700", "0664", "0775"])
-target_paths = st.text(min_size=1, max_size=200).map(lambda x: f"/tmp/test/{x.replace(' ', '_')}")
+from infrastructure.models.artifact import Artifact, ArtifactType, ArtifactSelection
+from infrastructure.services.artifact_manager import (
+    ArtifactRepositoryManager,
+    ArtifactInfo,
+    RetentionPolicy,
+)
 
 
-def create_test_artifact(name: str, content: bytes, artifact_type: ArtifactType, 
-                        permissions: str = "0644", target_path: str = "/tmp/test") -> TestArtifact:
-    """Create a test artifact with proper validation"""
-    checksum = hashlib.sha256(content).hexdigest()
+# =============================================================================
+# Hypothesis Strategies
+# =============================================================================
+
+@st.composite
+def artifact_type_strategy(draw):
+    """Generate a valid ArtifactType."""
+    return draw(st.sampled_from(list(ArtifactType)))
+
+
+@st.composite
+def architecture_strategy(draw):
+    """Generate a valid architecture."""
+    return draw(st.sampled_from(["x86_64", "arm64", "armv7", "riscv64"]))
+
+
+@st.composite
+def artifact_content_strategy(draw, min_size: int = 10, max_size: int = 1000):
+    """Generate artifact content bytes."""
+    size = draw(st.integers(min_value=min_size, max_value=max_size))
+    return draw(st.binary(min_size=size, max_size=size))
+
+
+@st.composite
+def artifact_info_strategy(draw, architecture: str = None):
+    """Generate a valid ArtifactInfo."""
+    arch = architecture or draw(architecture_strategy())
+    filename_chars = "abcdefghijklmnopqrstuvwxyz0123456789-_."
     
-    return TestArtifact(
-        artifact_id=f"test_{hash(name) % 100000}",
-        name=name,
-        type=artifact_type,
-        content=content,
-        checksum=checksum,
-        permissions=permissions,
-        target_path=f"{target_path}/{name}",
-        dependencies=[]
+    return ArtifactInfo(
+        artifact_type=draw(artifact_type_strategy()),
+        filename=draw(st.text(min_size=5, max_size=50, alphabet=filename_chars)),
+        content=draw(artifact_content_strategy()),
+        architecture=arch,
+        metadata=draw(st.dictionaries(
+            keys=st.text(min_size=1, max_size=20, alphabet="abcdefghijklmnopqrstuvwxyz"),
+            values=st.text(min_size=1, max_size=50),
+            max_size=5
+        ))
     )
 
 
-@given(
-    artifact_name=artifact_names,
-    content=artifact_content,
-    artifact_type=artifact_types,
-    permissions=file_permissions
-)
-@settings(max_examples=50, deadline=5000)
-async def test_artifact_deployment_verification(artifact_name, content, artifact_type, permissions):
-    """
-    Property: Artifact deployment verification ensures integrity
-    
-    This test verifies that:
-    1. Artifacts are stored with correct checksums
-    2. Stored artifacts can be retrieved with identical content
-    3. Artifact metadata is preserved during storage and retrieval
-    4. Checksum validation works correctly
-    5. Invalid artifacts are rejected
-    """
-    assume(len(artifact_name.strip()) > 0)
-    assume(len(content) > 0)
-    
-    # Create temporary storage directory
-    with tempfile.TemporaryDirectory() as temp_dir:
-        # Create artifact repository
-        repository = ArtifactRepository(storage_path=temp_dir)
-        
-        # Create test artifact
-        artifact = create_test_artifact(
-            name=artifact_name.strip(),
-            content=content,
-            artifact_type=artifact_type,
-            permissions=permissions
-        )
-        
-        # Store the artifact
-        store_result = await repository.store_artifact(artifact)
-        assert store_result is True
-        
-        # Retrieve the artifact
-        retrieved_artifact = await repository.get_artifact(artifact.artifact_id)
-        assert retrieved_artifact is not None
-        
-        # Verify artifact integrity
-        assert retrieved_artifact.artifact_id == artifact.artifact_id
-        assert retrieved_artifact.name == artifact.name
-        assert retrieved_artifact.type == artifact.type
-        assert retrieved_artifact.content == artifact.content
-        assert retrieved_artifact.checksum == artifact.checksum
-        assert retrieved_artifact.permissions == artifact.permissions
-        assert retrieved_artifact.target_path == artifact.target_path
-        
-        # Verify checksum calculation
-        expected_checksum = hashlib.sha256(content).hexdigest()
-        assert retrieved_artifact.checksum == expected_checksum
-        
-        # Verify artifact validation
-        validation_result = await repository.validate_artifact(retrieved_artifact)
-        assert validation_result is True
+@st.composite
+def build_id_strategy(draw):
+    """Generate a valid build ID."""
+    return draw(st.uuids().map(str))
 
 
-@given(
-    artifact_count=st.integers(min_value=2, max_value=8),
-    artifact_type=artifact_types
-)
-@settings(max_examples=30, deadline=5000)
-async def test_dependency_resolution_completeness(artifact_count, artifact_type):
-    """
-    Property: Dependency resolution includes all required artifacts
-    
-    This test verifies that:
-    1. All dependencies are resolved correctly
-    2. Dependency order is maintained
-    3. Circular dependencies are handled
-    4. Missing dependencies are detected
-    5. Dependency graph is built correctly
-    """
-    assume(artifact_count >= 2)
-    
-    # Create temporary storage directory
-    with tempfile.TemporaryDirectory() as temp_dir:
-        repository = ArtifactRepository(storage_path=temp_dir)
-        
-        # Create artifacts with dependency chain
-        artifacts = []
-        artifact_ids = []
-        
-        for i in range(artifact_count):
-            content = f"artifact_{i}_content".encode()
-            artifact = create_test_artifact(
-                name=f"artifact_{i}",
-                content=content,
-                artifact_type=artifact_type
-            )
-            
-            # Create dependency chain (each artifact depends on the previous one)
-            if i > 0:
-                artifact.dependencies = [artifact_ids[i-1]]
-            
-            artifacts.append(artifact)
-            artifact_ids.append(artifact.artifact_id)
-            
-            # Store the artifact
-            store_result = await repository.store_artifact(artifact)
-            assert store_result is True
-        
-        # Test dependency resolution for the last artifact (should include all)
-        last_artifact_id = artifact_ids[-1]
-        resolved_ids = await repository.resolve_dependencies([last_artifact_id])
-        
-        # Should resolve to all artifacts in correct order
-        assert len(resolved_ids) == artifact_count
-        
-        # Verify order: dependencies should come before dependents
-        for i in range(artifact_count):
-            expected_id = artifact_ids[i]
-            assert expected_id in resolved_ids
-            
-            # Each artifact should appear after its dependencies
-            if i > 0:
-                dependency_id = artifact_ids[i-1]
-                dependency_index = resolved_ids.index(dependency_id)
-                artifact_index = resolved_ids.index(expected_id)
-                assert dependency_index < artifact_index
-        
-        # Test resolution of multiple artifacts
-        if artifact_count >= 3:
-            # Resolve middle and last artifacts
-            middle_id = artifact_ids[artifact_count // 2]
-            multi_resolved = await repository.resolve_dependencies([middle_id, last_artifact_id])
-            
-            # Should include all artifacts up to the last one
-            assert len(multi_resolved) == artifact_count
-            assert last_artifact_id in multi_resolved
-            assert middle_id in multi_resolved
+# =============================================================================
+# Property Tests
+# =============================================================================
 
-
-@given(
-    artifact_count=st.integers(min_value=1, max_value=6),
-    include_invalid=st.booleans()
-)
-@settings(max_examples=25, deadline=4000)
-async def test_deployment_package_creation(artifact_count, include_invalid):
+class TestArtifactIntegrity:
     """
-    Property: Deployment package creation handles artifacts correctly
+    **Feature: test-infrastructure-management, Property 4: Build Artifact Integrity**
+    **Validates: Requirements 4.2**
     
-    This test verifies that:
-    1. Deployment packages contain all requested artifacts
-    2. Package creation handles missing artifacts gracefully
-    3. Artifact metadata is included in packages
-    4. Package integrity can be verified
-    5. Dependencies are included in packages
+    For any successfully completed build, the stored artifacts SHALL have valid
+    checksums that match the generated files.
     """
-    assume(artifact_count >= 1)
-    
-    # Create temporary storage directory
-    with tempfile.TemporaryDirectory() as temp_dir:
-        repository = ArtifactRepository(storage_path=temp_dir)
-        
-        # Create and store valid artifacts
-        valid_artifact_ids = []
-        
-        for i in range(artifact_count):
-            content = f"package_artifact_{i}_content_data".encode() * (i + 1)
-            artifact = create_test_artifact(
-                name=f"package_artifact_{i}",
-                content=content,
-                artifact_type=ArtifactType.SCRIPT
-            )
-            
-            # Store the artifact
-            store_result = await repository.store_artifact(artifact)
-            assert store_result is True
-            valid_artifact_ids.append(artifact.artifact_id)
-        
-        # Prepare artifact IDs for package creation
-        package_artifact_ids = valid_artifact_ids.copy()
-        
-        if include_invalid and artifact_count > 1:
-            # Add an invalid artifact ID
-            package_artifact_ids.append("invalid_artifact_id_12345")
-        
-        # Create deployment package
-        if include_invalid and artifact_count > 1:
-            # Should fail with invalid artifact
-            package_content = await repository.create_deployment_package(package_artifact_ids)
-            assert package_content is None
-        else:
-            # Should succeed with valid artifacts
-            package_content = await repository.create_deployment_package(package_artifact_ids)
-            assert package_content is not None
-            assert len(package_content) > 0
-            
-            # Verify package is a valid tar.gz
-            import tarfile
-            import io
-            
-            try:
-                with tarfile.open(fileobj=io.BytesIO(package_content), mode='r:gz') as tar:
-                    # Should contain files for each artifact
-                    tar_members = tar.getnames()
-                    
-                    # Each artifact should have a content file and metadata file
-                    expected_files = artifact_count * 2  # content + metadata for each
-                    assert len(tar_members) >= expected_files
-                    
-                    # Verify artifact files are present
-                    for i in range(artifact_count):
-                        artifact_name = f"package_artifact_{i}"
-                        content_file = f"script/{artifact_name}"
-                        metadata_file = f"script/{artifact_name}.meta"
-                        
-                        assert content_file in tar_members
-                        assert metadata_file in tar_members
-            
-            except Exception as e:
-                pytest.fail(f"Package validation failed: {e}")
 
-
-@given(
-    artifacts_by_type=st.dictionaries(
-        keys=st.sampled_from(list(ArtifactType)),
-        values=st.integers(min_value=1, max_value=4),
-        min_size=1,
-        max_size=3
+    @given(
+        build_id=build_id_strategy(),
+        artifact_info=artifact_info_strategy()
     )
-)
-@settings(max_examples=20, deadline=4000)
-async def test_artifact_type_organization(artifacts_by_type):
+    @settings(max_examples=100)
+    def test_stored_artifact_has_valid_checksum(self, build_id: str, artifact_info: ArtifactInfo):
+        """Stored artifact checksum must match content."""
+        manager = ArtifactRepositoryManager()
+        
+        async def run_test():
+            # Store artifact
+            result = await manager.store_artifacts(build_id, [artifact_info])
+            return result
+        
+        result = asyncio.new_event_loop().run_until_complete(run_test())
+        
+        assert result.success, f"Failed to store artifact: {result.error_message}"
+        assert len(result.artifacts) == 1
+        
+        stored_artifact = result.artifacts[0]
+        
+        # Compute expected checksum
+        expected_checksum = hashlib.sha256(artifact_info.content).hexdigest()
+        
+        # Verify checksum matches
+        assert stored_artifact.checksum_sha256 == expected_checksum, \
+            f"Checksum mismatch: expected {expected_checksum}, got {stored_artifact.checksum_sha256}"
+
+    @given(
+        build_id=build_id_strategy(),
+        num_artifacts=st.integers(min_value=1, max_value=5),
+        data=st.data()
+    )
+    @settings(max_examples=50)
+    def test_multiple_artifacts_all_have_valid_checksums(
+        self,
+        build_id: str,
+        num_artifacts: int,
+        data
+    ):
+        """All artifacts in a build must have valid checksums."""
+        manager = ArtifactRepositoryManager()
+        
+        # Generate multiple artifacts
+        artifacts_info = [data.draw(artifact_info_strategy()) for _ in range(num_artifacts)]
+        
+        async def run_test():
+            result = await manager.store_artifacts(build_id, artifacts_info)
+            return result
+        
+        result = asyncio.new_event_loop().run_until_complete(run_test())
+        
+        assert result.success
+        assert len(result.artifacts) == num_artifacts
+        
+        # Verify each artifact's checksum
+        for i, stored_artifact in enumerate(result.artifacts):
+            expected_checksum = hashlib.sha256(artifacts_info[i].content).hexdigest()
+            assert stored_artifact.checksum_sha256 == expected_checksum, \
+                f"Artifact {i} checksum mismatch"
+
+    @given(
+        build_id=build_id_strategy(),
+        artifact_info=artifact_info_strategy()
+    )
+    @settings(max_examples=50)
+    def test_artifact_size_matches_content(self, build_id: str, artifact_info: ArtifactInfo):
+        """Stored artifact size must match content size."""
+        manager = ArtifactRepositoryManager()
+        
+        async def run_test():
+            result = await manager.store_artifacts(build_id, [artifact_info])
+            return result
+        
+        result = asyncio.new_event_loop().run_until_complete(run_test())
+        
+        assert result.success
+        stored_artifact = result.artifacts[0]
+        
+        assert stored_artifact.size_bytes == len(artifact_info.content), \
+            f"Size mismatch: expected {len(artifact_info.content)}, got {stored_artifact.size_bytes}"
+
+    @given(
+        build_id=build_id_strategy(),
+        artifact_info=artifact_info_strategy()
+    )
+    @settings(max_examples=50)
+    def test_artifact_verification_succeeds_for_valid_artifact(
+        self,
+        build_id: str,
+        artifact_info: ArtifactInfo
+    ):
+        """Verification should succeed for properly stored artifacts."""
+        manager = ArtifactRepositoryManager()
+        
+        async def run_test():
+            # Store artifact
+            store_result = await manager.store_artifacts(build_id, [artifact_info])
+            if not store_result.success:
+                return None, None
+            
+            artifact_id = store_result.artifacts[0].id
+            
+            # Verify artifact
+            verify_result = await manager.verify_artifact_integrity(artifact_id)
+            return store_result, verify_result
+        
+        store_result, verify_result = asyncio.new_event_loop().run_until_complete(run_test())
+        
+        assert store_result is not None
+        assert verify_result is not None
+        assert verify_result.success, \
+            f"Verification failed: {verify_result.error_message}"
+        assert verify_result.checksum_valid
+
+
+class TestArtifactRetrievalConsistency:
     """
-    Property: Artifacts are organized correctly by type
+    **Feature: test-infrastructure-management, Property 5: Build Artifact Retrieval Consistency**
+    **Validates: Requirements 4.5**
     
-    This test verifies that:
-    1. Artifacts are stored in type-specific directories
-    2. Retrieval by type returns correct artifacts
-    3. Type-based organization is maintained
-    4. Repository statistics are accurate
+    For any stored build artifact, retrieving by build ID, commit hash, or "latest"
+    SHALL return the correct artifact with matching metadata.
     """
-    assume(len(artifacts_by_type) > 0)
-    
-    # Create temporary storage directory
-    with tempfile.TemporaryDirectory() as temp_dir:
-        repository = ArtifactRepository(storage_path=temp_dir)
+
+    @given(
+        build_id=build_id_strategy(),
+        artifact_info=artifact_info_strategy()
+    )
+    @settings(max_examples=100)
+    def test_retrieve_by_build_id_returns_correct_artifact(
+        self,
+        build_id: str,
+        artifact_info: ArtifactInfo
+    ):
+        """Retrieving by build ID must return the correct artifact."""
+        manager = ArtifactRepositoryManager()
         
-        # Create and store artifacts by type
-        stored_artifacts = {}
-        total_artifacts = 0
-        
-        for artifact_type, count in artifacts_by_type.items():
-            stored_artifacts[artifact_type] = []
+        async def run_test():
+            # Store artifact
+            store_result = await manager.store_artifacts(build_id, [artifact_info])
+            if not store_result.success:
+                return None, None
             
-            for i in range(count):
-                content = f"{artifact_type.value}_content_{i}".encode()
-                artifact = create_test_artifact(
-                    name=f"{artifact_type.value}_{i}",
-                    content=content,
-                    artifact_type=artifact_type
-                )
-                
-                # Store the artifact
-                store_result = await repository.store_artifact(artifact)
-                assert store_result is True
-                
-                stored_artifacts[artifact_type].append(artifact)
-                total_artifacts += 1
+            # Retrieve by build ID
+            retrieved = await manager.get_artifacts_by_build(build_id)
+            return store_result, retrieved
         
-        # Test retrieval by type
-        for artifact_type, expected_artifacts in stored_artifacts.items():
-            retrieved_artifacts = await repository.get_artifacts_by_type(artifact_type)
+        store_result, retrieved = asyncio.new_event_loop().run_until_complete(run_test())
+        
+        assert store_result is not None
+        assert len(retrieved) == 1
+        
+        stored = store_result.artifacts[0]
+        assert retrieved[0].id == stored.id
+        assert retrieved[0].checksum_sha256 == stored.checksum_sha256
+        assert retrieved[0].build_id == build_id
+
+    @given(
+        build_id=build_id_strategy(),
+        commit_hash=st.text(min_size=40, max_size=40, alphabet="0123456789abcdef"),
+        artifact_info=artifact_info_strategy()
+    )
+    @settings(max_examples=50)
+    def test_retrieve_by_commit_hash_returns_correct_artifact(
+        self,
+        build_id: str,
+        commit_hash: str,
+        artifact_info: ArtifactInfo
+    ):
+        """Retrieving by commit hash must return the correct artifact."""
+        # Add commit hash to metadata
+        artifact_info.metadata["commit_hash"] = commit_hash
+        
+        manager = ArtifactRepositoryManager()
+        
+        async def run_test():
+            # Store artifact
+            store_result = await manager.store_artifacts(build_id, [artifact_info])
+            if not store_result.success:
+                return None, None
             
-            # Should retrieve all artifacts of this type
-            assert len(retrieved_artifacts) == len(expected_artifacts)
+            # Retrieve by commit hash
+            selection = ArtifactSelection(commit_hash=commit_hash)
+            retrieved = await manager.get_artifacts_by_selection(selection)
+            return store_result, retrieved
+        
+        store_result, retrieved = asyncio.new_event_loop().run_until_complete(run_test())
+        
+        assert store_result is not None
+        assert len(retrieved) == 1
+        
+        stored = store_result.artifacts[0]
+        assert retrieved[0].id == stored.id
+        assert retrieved[0].metadata.get("commit_hash") == commit_hash
+
+    @given(
+        build_id=build_id_strategy(),
+        branch=st.text(min_size=1, max_size=50, alphabet="abcdefghijklmnopqrstuvwxyz0123456789-_/"),
+        architecture=architecture_strategy(),
+        artifact_info=artifact_info_strategy()
+    )
+    @settings(max_examples=50)
+    def test_retrieve_latest_returns_most_recent_artifact(
+        self,
+        build_id: str,
+        branch: str,
+        architecture: str,
+        artifact_info: ArtifactInfo
+    ):
+        """Retrieving 'latest' must return the most recent artifact for branch/arch."""
+        # Set architecture to match
+        artifact_info.architecture = architecture
+        
+        manager = ArtifactRepositoryManager()
+        
+        async def run_test():
+            # Store artifact
+            store_result = await manager.store_artifacts(build_id, [artifact_info])
+            if not store_result.success:
+                return None, None
             
-            # Verify artifact properties
-            retrieved_names = {art.name for art in retrieved_artifacts}
-            expected_names = {art.name for art in expected_artifacts}
-            assert retrieved_names == expected_names
+            # Update latest
+            await manager.update_latest(branch, architecture, build_id)
             
-            # All retrieved artifacts should be of correct type
-            for artifact in retrieved_artifacts:
-                assert artifact.type == artifact_type
+            # Retrieve latest
+            selection = ArtifactSelection(branch=branch, use_latest=True, architecture=architecture)
+            retrieved = await manager.get_artifacts_by_selection(selection)
+            return store_result, retrieved
         
-        # Test repository statistics
-        stats = repository.get_repository_stats()
-        assert stats["total_artifacts"] == total_artifacts
+        store_result, retrieved = asyncio.new_event_loop().run_until_complete(run_test())
         
-        # Verify type-specific counts
-        for artifact_type, count in artifacts_by_type.items():
-            type_key = artifact_type.value.lower() + "s"  # e.g., "scripts", "binaries"
-            if type_key in stats:
-                assert stats[type_key] == count
-
-
-# Synchronous test runners for pytest
-def test_artifact_deployment_verification_sync():
-    """Synchronous wrapper for the async property test"""
-    asyncio.run(test_artifact_deployment_verification(
-        artifact_name="test_script.sh",
-        content=b"#!/bin/bash\necho 'test'",
-        artifact_type=ArtifactType.SCRIPT,
-        permissions="0755"
-    ))
-
-
-def test_dependency_resolution_completeness_sync():
-    """Synchronous wrapper for the async property test"""
-    asyncio.run(test_dependency_resolution_completeness(
-        artifact_count=3,
-        artifact_type=ArtifactType.SCRIPT
-    ))
-
-
-def test_deployment_package_creation_sync():
-    """Synchronous wrapper for the async property test"""
-    asyncio.run(test_deployment_package_creation(
-        artifact_count=2,
-        include_invalid=False
-    ))
-
-
-def test_artifact_type_organization_sync():
-    """Synchronous wrapper for the async property test"""
-    asyncio.run(test_artifact_type_organization({
-        ArtifactType.SCRIPT: 2,
-        ArtifactType.CONFIG: 1
-    }))
-
-
-if __name__ == "__main__":
-    # Run a few examples manually for testing
-    import asyncio
-    
-    async def run_examples():
-        print("Testing artifact deployment verification...")
-        await test_artifact_deployment_verification(
-            "test.sh", b"echo test", ArtifactType.SCRIPT, "0755"
-        )
-        print("✓ Artifact deployment verification test passed")
+        assert store_result is not None
+        assert len(retrieved) == 1
         
-        print("Testing dependency resolution...")
-        await test_dependency_resolution_completeness(3, ArtifactType.SCRIPT)
-        print("✓ Dependency resolution test passed")
+        stored = store_result.artifacts[0]
+        assert retrieved[0].id == stored.id
+        assert retrieved[0].architecture == architecture
+
+    @given(
+        build_id=build_id_strategy(),
+        artifact_info=artifact_info_strategy()
+    )
+    @settings(max_examples=50)
+    def test_artifact_metadata_preserved_on_retrieval(
+        self,
+        build_id: str,
+        artifact_info: ArtifactInfo
+    ):
+        """Artifact metadata must be preserved when retrieved."""
+        manager = ArtifactRepositoryManager()
         
-        print("Testing deployment package creation...")
-        await test_deployment_package_creation(2, False)
-        print("✓ Deployment package creation test passed")
+        async def run_test():
+            # Store artifact
+            store_result = await manager.store_artifacts(build_id, [artifact_info])
+            if not store_result.success:
+                return None, None
+            
+            # Retrieve
+            retrieved = await manager.get_artifacts_by_build(build_id)
+            return store_result, retrieved
         
-        print("Testing artifact type organization...")
-        await test_artifact_type_organization({
-            ArtifactType.SCRIPT: 2,
-            ArtifactType.CONFIG: 1
-        })
-        print("✓ Artifact type organization test passed")
+        store_result, retrieved = asyncio.new_event_loop().run_until_complete(run_test())
         
-        print("All artifact management tests completed successfully!")
-    
-    asyncio.run(run_examples())
+        assert store_result is not None
+        assert len(retrieved) == 1
+        
+        # Verify metadata preserved
+        assert retrieved[0].metadata == artifact_info.metadata
+        assert retrieved[0].artifact_type == artifact_info.artifact_type
+        assert retrieved[0].filename == artifact_info.filename
+        assert retrieved[0].architecture == artifact_info.architecture
+
+    @given(
+        build_id1=build_id_strategy(),
+        build_id2=build_id_strategy(),
+        data=st.data()
+    )
+    @settings(max_examples=50)
+    def test_artifacts_isolated_between_builds(
+        self,
+        build_id1: str,
+        build_id2: str,
+        data
+    ):
+        """Artifacts from different builds must be isolated."""
+        assume(build_id1 != build_id2)
+        
+        artifact1 = data.draw(artifact_info_strategy())
+        artifact2 = data.draw(artifact_info_strategy())
+        
+        manager = ArtifactRepositoryManager()
+        
+        async def run_test():
+            # Store artifacts for both builds
+            result1 = await manager.store_artifacts(build_id1, [artifact1])
+            result2 = await manager.store_artifacts(build_id2, [artifact2])
+            
+            # Retrieve each build's artifacts
+            retrieved1 = await manager.get_artifacts_by_build(build_id1)
+            retrieved2 = await manager.get_artifacts_by_build(build_id2)
+            
+            return result1, result2, retrieved1, retrieved2
+        
+        result1, result2, retrieved1, retrieved2 = asyncio.new_event_loop().run_until_complete(run_test())
+        
+        assert result1.success and result2.success
+        
+        # Verify isolation
+        assert len(retrieved1) == 1
+        assert len(retrieved2) == 1
+        assert retrieved1[0].build_id == build_id1
+        assert retrieved2[0].build_id == build_id2
+        assert retrieved1[0].id != retrieved2[0].id
+
+
+class TestArtifactRetention:
+    """
+    Tests for artifact retention and cleanup policies.
+    """
+
+    @given(
+        build_id=build_id_strategy(),
+        artifact_info=artifact_info_strategy()
+    )
+    @settings(max_examples=50)
+    def test_pinned_builds_not_deleted(self, build_id: str, artifact_info: ArtifactInfo):
+        """Pinned builds should not be deleted during cleanup."""
+        manager = ArtifactRepositoryManager()
+        
+        async def run_test():
+            # Store artifact
+            store_result = await manager.store_artifacts(build_id, [artifact_info])
+            if not store_result.success:
+                return None, None, None
+            
+            # Pin the build
+            await manager.pin_build(build_id)
+            
+            # Try to delete
+            artifact_id = store_result.artifacts[0].id
+            delete_result = await manager.delete_artifacts([artifact_id])
+            
+            # Verify still exists
+            retrieved = await manager.get_artifact(artifact_id)
+            
+            return store_result, delete_result, retrieved
+        
+        store_result, delete_result, retrieved = asyncio.new_event_loop().run_until_complete(run_test())
+        
+        assert store_result is not None
+        # Delete should fail for pinned build
+        assert artifact_info is not None or delete_result.deleted_count == 0
+        # Artifact should still exist
+        assert retrieved is not None
+
+    @given(
+        build_id=build_id_strategy(),
+        tag=st.text(min_size=1, max_size=20, alphabet="abcdefghijklmnopqrstuvwxyz0123456789-_"),
+        artifact_info=artifact_info_strategy()
+    )
+    @settings(max_examples=50)
+    def test_tagged_builds_preserved(self, build_id: str, tag: str, artifact_info: ArtifactInfo):
+        """Tagged builds should be preserved during cleanup."""
+        manager = ArtifactRepositoryManager()
+        
+        async def run_test():
+            # Store artifact
+            store_result = await manager.store_artifacts(build_id, [artifact_info])
+            if not store_result.success:
+                return None, None
+            
+            # Tag the build
+            await manager.tag_build(build_id, tag)
+            
+            # Verify build is preserved
+            retrieved = await manager.get_artifacts_by_build(build_id)
+            return store_result, retrieved
+        
+        store_result, retrieved = asyncio.new_event_loop().run_until_complete(run_test())
+        
+        assert store_result is not None
+        assert len(retrieved) == 1

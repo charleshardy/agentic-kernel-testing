@@ -17,17 +17,98 @@ from infrastructure.services.deployment_manager import (
     VerificationResult,
     RollbackResult,
 )
+from infrastructure.services.health_monitor import (
+    HealthMonitorService,
+    HealthCheckResult,
+    HealthRecord,
+    HealthThresholds,
+    HealthStatus,
+    ResourceType,
+    TimeRange,
+)
+from infrastructure.services.alert_service import (
+    AlertService,
+    Alert,
+    AlertSeverity,
+    AlertStatus,
+    AlertCategory,
+    AlertRule,
+    NotificationChannel,
+    NotificationConfig,
+)
+from infrastructure.services.resource_group_manager import (
+    ResourceGroupManager,
+    ResourceGroup,
+    ResourceType as GroupResourceType,
+    AllocationPolicy,
+    GroupStatistics,
+    AllocationResult,
+    Allocation,
+)
+from infrastructure.services.pipeline_manager import (
+    PipelineManager,
+    Pipeline,
+    PipelineConfig,
+    PipelineStage,
+    PipelineStatus,
+    StageStatus,
+    StageType,
+    EnvironmentType,
+    PipelineResult,
+    CancelResult as PipelineCancelResult,
+    PipelineFilters,
+)
 
 __all__ = [
+    # Build Server Management
     "BuildServerManagementService",
     "BuildJobManager",
     "ArtifactRepositoryManager",
+    # Host and Board Management
     "HostManagementService",
     "BoardManagementService",
+    # Deployment
     "DeploymentManager",
     "VMConfig",
     "DeploymentResult",
     "DeploymentStatusResult",
     "VerificationResult",
     "RollbackResult",
+    # Health Monitoring
+    "HealthMonitorService",
+    "HealthCheckResult",
+    "HealthRecord",
+    "HealthThresholds",
+    "HealthStatus",
+    "ResourceType",
+    "TimeRange",
+    # Alerting
+    "AlertService",
+    "Alert",
+    "AlertSeverity",
+    "AlertStatus",
+    "AlertCategory",
+    "AlertRule",
+    "NotificationChannel",
+    "NotificationConfig",
+    # Resource Groups
+    "ResourceGroupManager",
+    "ResourceGroup",
+    "GroupResourceType",
+    "AllocationPolicy",
+    "GroupStatistics",
+    "AllocationResult",
+    "Allocation",
+    # Pipeline Management
+    "PipelineManager",
+    "Pipeline",
+    "PipelineConfig",
+    "PipelineStage",
+    "PipelineStatus",
+    "StageStatus",
+    "StageType",
+    "EnvironmentType",
+    "PipelineResult",
+    "PipelineCancelResult",
+    "PipelineFilters",
 ]
