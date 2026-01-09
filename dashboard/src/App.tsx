@@ -26,6 +26,7 @@ import WorkflowDiagnostic from './components/WorkflowDiagnostic'
 import MenuDebugger from './components/MenuDebugger'
 import SyntaxHighlightTest from './components/SyntaxHighlightTest'
 import DeploymentWorkflow from './pages/DeploymentWorkflow'
+import Infrastructure from './pages/Infrastructure'
 
 
 const { Content } = Layout
@@ -89,6 +90,11 @@ function App() {
       {/* Backward compatibility redirects */}
       <Route path="/deployment" element={<Navigate to="/test-deployment" replace />} />
       <Route path="/deployment-workflow" element={<Navigate to="/test-deployment" replace />} />
+      
+      {/* Infrastructure Management */}
+      <Route path="/test-infrastructure" element={<DashboardLayout><Infrastructure /></DashboardLayout>} />
+      <Route path="/infrastructure" element={<Navigate to="/test-infrastructure" replace />} />
+      
       <Route path="/menu-debug" element={<DashboardLayout><MenuDebugger /></DashboardLayout>} />
       <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
       <Route path="/syntax-test" element={<DashboardLayout><SyntaxHighlightTest /></DashboardLayout>} />
