@@ -27,6 +27,7 @@ import MenuDebugger from './components/MenuDebugger'
 import SyntaxHighlightTest from './components/SyntaxHighlightTest'
 import DeploymentWorkflow from './pages/DeploymentWorkflow'
 import Infrastructure from './pages/Infrastructure'
+import TestSpecifications from './pages/TestSpecifications'
 
 
 const { Content } = Layout
@@ -94,6 +95,10 @@ function App() {
       {/* Infrastructure Management */}
       <Route path="/test-infrastructure" element={<DashboardLayout><Infrastructure /></DashboardLayout>} />
       <Route path="/infrastructure" element={<Navigate to="/test-infrastructure" replace />} />
+      
+      {/* Test Specifications - Property-based Testing */}
+      <Route path="/test-specifications" element={<DashboardLayout><TestSpecifications /></DashboardLayout>} />
+      <Route path="/specifications" element={<Navigate to="/test-specifications" replace />} />
       
       <Route path="/menu-debug" element={<DashboardLayout><MenuDebugger /></DashboardLayout>} />
       <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />

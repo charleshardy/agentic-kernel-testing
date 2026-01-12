@@ -16,6 +16,7 @@ from cli.commands.results import results_group
 from cli.commands.config import config_group
 from cli.commands.environment import env_group
 from cli.commands.interactive import interactive_group
+from cli.commands.spec import spec_group, req_group, generate_group, run_group, report_group
 from cli.utils import setup_logging, get_client, handle_api_error
 from config.settings import get_settings
 
@@ -72,6 +73,11 @@ cli.add_command(results_group)
 cli.add_command(config_group)
 cli.add_command(env_group)
 cli.add_command(interactive_group)
+cli.add_command(spec_group)
+cli.add_command(req_group)
+cli.add_command(generate_group)
+cli.add_command(run_group, name='run')
+cli.add_command(report_group)
 
 
 @cli.command()

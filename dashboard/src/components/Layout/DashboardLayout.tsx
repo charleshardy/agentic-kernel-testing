@@ -18,6 +18,7 @@ import {
   CloudServerOutlined,
   DeploymentUnitOutlined,
   ClusterOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons'
 import { useDashboardStore } from '../../store'
 
@@ -92,6 +93,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       key: '/test-infrastructure',
       icon: <ClusterOutlined />,
       label: 'Test Infrastructure',
+    },
+    {
+      key: '/test-specifications',
+      icon: <FileTextOutlined />,
+      label: 'Test Specifications',
     },
     {
       key: '/test-execution',

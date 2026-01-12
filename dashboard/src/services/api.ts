@@ -1948,6 +1948,114 @@ class APIService {
       : `${baseURL}/deployments/live${token ? `?token=${token}` : ''}`
     return new WebSocket(url)
   }
+
+  // Test Specifications API
+  async getSpecifications(): Promise<{ specifications: any[] }> {
+    try {
+      const response: AxiosResponse<APIResponse<{ specifications: any[] }>> = await this.client.get('/specifications')
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<{ specifications: any[] }>> = await this.client.get('/specifications')
+        return response.data.data!
+      }
+      // Return mock data for development
+      console.log('🔧 Returning mock specifications data')
+      return { specifications: [] }
+    }
+  }
+
+  async createSpecification(data: { name: string; description?: string; glossary?: Record<string, string> }): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.post('/specifications', data)
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.post('/specifications', data)
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async deleteSpecification(specId: string): Promise<void> {
+    try {
+      await this.client.delete(`/specifications/${specId}`)
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        await this.client.delete(`/specifications/${specId}`)
+      } else {
+        throw error
+      }
+    }
+  }
+
+  async generateSpecificationProperties(specId: string): Promise<{ properties: any[] }> {
+    try {
+      const response: AxiosResponse<APIResponse<{ properties: any[] }>> = await this.client.post(`/specifications/${specId}/properties/generate`, {})
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<{ properties: any[] }>> = await this.client.post(`/specifications/${specId}/properties/generate`, {})
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async generateSpecificationTests(specId: string): Promise<{ tests: any[] }> {
+    try {
+      const response: AxiosResponse<APIResponse<{ tests: any[] }>> = await this.client.post(`/specifications/${specId}/tests/generate`, {})
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<{ tests: any[] }>> = await this.client.post(`/specifications/${specId}/tests/generate`, {})
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async executeSpecificationTests(specId: string, options?: { iterations?: number; parallel?: boolean }): Promise<{ summary: any }> {
+    try {
+      const response: AxiosResponse<APIResponse<{ summary: any }>> = await this.client.post('/specifications/tests/execute', {
+        spec_id: specId,
+        iterations: options?.iterations || 100,
+        parallel: options?.parallel ?? true,
+      })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<{ summary: any }>> = await this.client.post('/specifications/tests/execute', {
+          spec_id: specId,
+          iterations: options?.iterations || 100,
+          parallel: options?.parallel ?? true,
+        })
+        return response.data.data!
+      }
+      throw error
+    }
+  }
+
+  async addSpecificationRequirement(specId: string, text: string): Promise<any> {
+    try {
+      const response: AxiosResponse<APIResponse<any>> = await this.client.post(`/specifications/${specId}/requirements`, { text })
+      return response.data.data!
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await this.ensureDemoToken()
+        const response: AxiosResponse<APIResponse<any>> = await this.client.post(`/specifications/${specId}/requirements`, { text })
+        return response.data.data!
+      }
+      throw error
+    }
+  }
 }
 
 export const apiService = new APIService()
