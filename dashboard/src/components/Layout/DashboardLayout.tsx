@@ -19,6 +19,7 @@ import {
   DeploymentUnitOutlined,
   ClusterOutlined,
   FileTextOutlined,
+  BugOutlined,
 } from '@ant-design/icons'
 import { useDashboardStore } from '../../store'
 
@@ -70,6 +71,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       label: 'Dashboard',
     },
     {
+      key: '/test-specifications',
+      icon: <FileTextOutlined />,
+      label: 'Test Specifications',
+    },
+    {
       key: '/test-cases',
       icon: <ExperimentOutlined />,
       label: 'Test Cases',
@@ -95,11 +101,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       label: 'Test Infrastructure',
     },
     {
-      key: '/test-specifications',
-      icon: <FileTextOutlined />,
-      label: 'Test Specifications',
-    },
-    {
       key: '/test-execution',
       icon: <ExperimentOutlined />,
       label: 'Test Execution',
@@ -113,6 +114,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       key: '/results',
       icon: <BarChartOutlined />,
       label: 'Test Results',
+    },
+    {
+      key: '/defects',
+      icon: <BugOutlined />,
+      label: 'Defect Management',
     },
     {
       key: '/coverage',

@@ -28,6 +28,7 @@ import SyntaxHighlightTest from './components/SyntaxHighlightTest'
 import DeploymentWorkflow from './pages/DeploymentWorkflow'
 import Infrastructure from './pages/Infrastructure'
 import TestSpecifications from './pages/TestSpecifications'
+import DefectManagement from './pages/DefectManagement'
 
 
 const { Content } = Layout
@@ -72,6 +73,7 @@ function App() {
       {/* Backward compatibility redirect */}
       <Route path="/environment-management" element={<Navigate to="/test-environment" replace />} />
       <Route path="/results" element={<DashboardLayout><TestResults /></DashboardLayout>} />
+      <Route path="/defects" element={<DashboardLayout><DefectManagement /></DashboardLayout>} />
       <Route path="/coverage" element={<DashboardLayout><Coverage /></DashboardLayout>} />
       <Route path="/performance" element={<DashboardLayout><Performance /></DashboardLayout>} />
       <Route path="/workflow" element={
