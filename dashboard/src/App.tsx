@@ -29,6 +29,17 @@ import DeploymentWorkflow from './pages/DeploymentWorkflow'
 import Infrastructure from './pages/Infrastructure'
 import TestSpecifications from './pages/TestSpecifications'
 import DefectManagement from './pages/DefectManagement'
+import SecurityDashboard from './pages/SecurityDashboard'
+import VulnerabilityManagement from './pages/VulnerabilityManagement'
+import AIModelManagement from './pages/AIModelManagement'
+import AnalyticsInsights from './pages/AnalyticsInsights'
+import ResourceMonitoring from './pages/ResourceMonitoring'
+import UserTeamManagement from './pages/UserTeamManagement'
+import IntegrationHub from './pages/IntegrationHub'
+import AuditCompliance from './pages/AuditCompliance'
+import BackupRecovery from './pages/BackupRecovery'
+import NotificationCenter from './pages/NotificationCenter'
+import KnowledgeBase from './pages/KnowledgeBase'
 
 
 const { Content } = Layout
@@ -105,6 +116,19 @@ function App() {
       <Route path="/menu-debug" element={<DashboardLayout><MenuDebugger /></DashboardLayout>} />
       <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
       <Route path="/syntax-test" element={<DashboardLayout><SyntaxHighlightTest /></DashboardLayout>} />
+      
+      {/* New Enhanced Sidebar Routes */}
+      <Route path="/security-dashboard" element={<DashboardLayout><SecurityDashboard /></DashboardLayout>} />
+      <Route path="/vulnerability-management" element={<DashboardLayout><VulnerabilityManagement /></DashboardLayout>} />
+      <Route path="/ai-model-management" element={<DashboardLayout><AIModelManagement /></DashboardLayout>} />
+      <Route path="/analytics-insights" element={<DashboardLayout><AnalyticsInsights /></DashboardLayout>} />
+      <Route path="/resource-monitoring" element={<DashboardLayout><ResourceMonitoring /></DashboardLayout>} />
+      <Route path="/user-team-management" element={<DashboardLayout><UserTeamManagement /></DashboardLayout>} />
+      <Route path="/integration-hub" element={<DashboardLayout><IntegrationHub /></DashboardLayout>} />
+      <Route path="/audit-compliance" element={<DashboardLayout><AuditCompliance /></DashboardLayout>} />
+      <Route path="/backup-recovery" element={<DashboardLayout><BackupRecovery /></DashboardLayout>} />
+      <Route path="/notification-center" element={<DashboardLayout><NotificationCenter /></DashboardLayout>} />
+      <Route path="/knowledge-base" element={<DashboardLayout><KnowledgeBase /></DashboardLayout>} />
       
       {/* Catch-all route */}
       <Route path="*" element={
