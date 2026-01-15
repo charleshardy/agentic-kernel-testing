@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { Layout, Menu, Input, Badge, Divider, Typography, Tooltip, Button } from 'antd'
 import { useNavigate, useLocation } from 'react-router-dom'
+import UnifiedSearch from '../Navigation/UnifiedSearch'
 import {
   // Core Testing Icons
   DashboardOutlined,
@@ -100,6 +101,7 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({
   
   // State management
   const [searchTerm, setSearchTerm] = useState('')
+  const [searchModalVisible, setSearchModalVisible] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState<string[]>([])
   const [userPreferences, setUserPreferences] = useState<UserPreferences>({
     collapsedSections: [],
@@ -566,6 +568,7 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({
             placeholder="Search features..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            onFocus={() => setSearchModalVisible(true)}
             prefix={<SearchOutlined />}
             allowClear
             size="small"
@@ -642,6 +645,15 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({
           color: #1890ff;
         }
       `}</style>
+
+      {/* Unified Search Modal */}
+      <UnifiedSearch 
+        visible={searchModalVisible} 
+        onClose={() => {
+          setSearchModalVisible(false)
+          setSearchTerm('')
+        }} 
+      />
     </Sider>
   )
 }

@@ -15,6 +15,7 @@ import { useDashboardStore } from '../store'
 import apiService, { ExecutionPlanStatus, TestResult } from '../services/api'
 import webSocketService from '../services/websocket'
 import { useNavigate } from 'react-router-dom'
+import CrossFeatureWidget from '../components/Dashboard/CrossFeatureWidget'
 
 const { Title, Text } = Typography
 
@@ -496,6 +497,25 @@ const Dashboard: React.FC = () => {
               )}
             />
           </Card>
+        </Col>
+      </Row>
+
+      {/* Cross-Feature Widgets */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={24} lg={12}>
+          <CrossFeatureWidget type="security-overview" />
+        </Col>
+        <Col xs={24} lg={12}>
+          <CrossFeatureWidget type="system-health" />
+        </Col>
+      </Row>
+
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={24} lg={12}>
+          <CrossFeatureWidget type="test-summary" />
+        </Col>
+        <Col xs={24} lg={12}>
+          <CrossFeatureWidget type="user-activity" />
         </Col>
       </Row>
     </div>

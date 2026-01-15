@@ -9,7 +9,12 @@ import uvicorn
 from typing import Optional
 import os
 
-from .routers import tests, status, results, health, auth, webhooks, environments, performance, execution, test_plans, deployments, infrastructure, specifications
+from .routers import (
+    tests, status, results, health, auth, webhooks, environments, performance, 
+    execution, test_plans, deployments, infrastructure, specifications,
+    security, ai_models, audit, resources, integrations, users, notifications,
+    knowledge_base, analytics, backup
+)
 from .middleware import RequestLoggingMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
 from .auth import verify_token, get_current_user
 from .models import APIResponse, ErrorResponse
@@ -102,6 +107,18 @@ app.include_router(webhooks.router, prefix="/api/v1", tags=["Webhooks"])
 app.include_router(performance.router, prefix="/api/v1", tags=["Performance"])
 app.include_router(infrastructure.router, tags=["Infrastructure"])
 app.include_router(specifications.router, prefix="/api/v1", tags=["Specifications"])
+
+# New feature routers
+app.include_router(security.router, prefix="/api/v1", tags=["Security"])
+app.include_router(ai_models.router, prefix="/api/v1", tags=["AI Models"])
+app.include_router(audit.router, prefix="/api/v1", tags=["Audit & Compliance"])
+app.include_router(resources.router, prefix="/api/v1", tags=["Resource Monitoring"])
+app.include_router(integrations.router, prefix="/api/v1", tags=["Integrations"])
+app.include_router(users.router, prefix="/api/v1", tags=["User Management"])
+app.include_router(notifications.router, prefix="/api/v1", tags=["Notifications"])
+app.include_router(knowledge_base.router, prefix="/api/v1", tags=["Knowledge Base"])
+app.include_router(analytics.router, prefix="/api/v1", tags=["Analytics"])
+app.include_router(backup.router, prefix="/api/v1", tags=["Backup & Recovery"])
 
 
 @app.get("/", response_model=APIResponse)

@@ -1,7 +1,10 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Layout, Alert } from 'antd'
 import DashboardLayout from './components/Layout/DashboardLayout'
+import ErrorBoundary, { FeatureErrorBoundary } from './components/ErrorBoundary'
+import { RouteGuard } from './components/RouteGuard'
+import { SuspenseFallback } from './components/LoadingState'
 import Dashboard from './pages/Dashboard'
 import TestCases from './pages/TestCases'
 import TestPlans from './pages/TestPlans'
@@ -65,98 +68,168 @@ function App() {
   const location = useLocation()
   
   return (
-    <Routes>
-      {/* Login route - redirect back to dashboard in demo mode */}
-      <Route path="/login" element={<LoginPlaceholder />} />
-      
-      {/* Main dashboard routes - flattened structure */}
-      <Route path="/" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
-      <Route path="/test-cases" element={<DashboardLayout><TestCases /></DashboardLayout>} />
-      <Route path="/test-plans" element={<DashboardLayout><TestPlans /></DashboardLayout>} />
-      <Route path="/test-plans/:planId" element={<DashboardLayout><TestPlanDetails /></DashboardLayout>} />
-      <Route path="/test-execution" element={<DashboardLayout><TestExecution /></DashboardLayout>} />
-      <Route path="/test-execution-debug" element={<DashboardLayout><TestExecutionDebug /></DashboardLayout>} />
-      {/* Backward compatibility redirect */}
-      <Route path="/tests" element={<Navigate to="/test-execution-debug" replace />} />
-      <Route path="/execution-debug" element={<DashboardLayout><ExecutionDebug /></DashboardLayout>} />
-      <Route path="/execution-monitor" element={<DashboardLayout><ExecutionMonitor /></DashboardLayout>} />
-      <Route path="/test-environment" element={<DashboardLayout><TestEnvironment /></DashboardLayout>} />
-      {/* Backward compatibility redirect */}
-      <Route path="/environment-management" element={<Navigate to="/test-environment" replace />} />
-      <Route path="/results" element={<DashboardLayout><TestResults /></DashboardLayout>} />
-      <Route path="/defects" element={<DashboardLayout><DefectManagement /></DashboardLayout>} />
-      <Route path="/coverage" element={<DashboardLayout><Coverage /></DashboardLayout>} />
-      <Route path="/performance" element={<DashboardLayout><Performance /></DashboardLayout>} />
-      <Route path="/workflow" element={
-        <DashboardLayout>
-          <SimpleTest />
-        </DashboardLayout>
-      } />
-      <Route path="/workflow-minimal" element={<DashboardLayout><WorkflowMinimal /></DashboardLayout>} />
-      <Route path="/workflow-test" element={<DashboardLayout><WorkflowTest /></DashboardLayout>} />
-      <Route path="/workflow-simple" element={<DashboardLayout><WorkflowDiagramSimple /></DashboardLayout>} />
-      <Route path="/workflow-basic" element={<DashboardLayout><WorkflowBasic /></DashboardLayout>} />
-      <Route path="/workflow-full" element={<DashboardLayout><WorkflowBasic /></DashboardLayout>} />
-      <Route path="/workflow-complex" element={<DashboardLayout><WorkflowDiagram /></DashboardLayout>} />
-      <Route path="/workflow-diagnostic" element={<DashboardLayout><WorkflowDiagnostic /></DashboardLayout>} />
-      <Route path="/test-deployment" element={<DashboardLayout><DeploymentWorkflow /></DashboardLayout>} />
-      <Route path="/test-deployment-workflow" element={<DashboardLayout><DeploymentWorkflow /></DashboardLayout>} />
-      {/* Backward compatibility redirects */}
-      <Route path="/deployment" element={<Navigate to="/test-deployment" replace />} />
-      <Route path="/deployment-workflow" element={<Navigate to="/test-deployment" replace />} />
-      
-      {/* Infrastructure Management */}
-      <Route path="/test-infrastructure" element={<DashboardLayout><Infrastructure /></DashboardLayout>} />
-      <Route path="/infrastructure" element={<Navigate to="/test-infrastructure" replace />} />
-      
-      {/* Test Specifications - Property-based Testing */}
-      <Route path="/test-specifications" element={<DashboardLayout><TestSpecifications /></DashboardLayout>} />
-      <Route path="/specifications" element={<Navigate to="/test-specifications" replace />} />
-      
-      <Route path="/menu-debug" element={<DashboardLayout><MenuDebugger /></DashboardLayout>} />
-      <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
-      <Route path="/syntax-test" element={<DashboardLayout><SyntaxHighlightTest /></DashboardLayout>} />
-      
-      {/* New Enhanced Sidebar Routes */}
-      <Route path="/security-dashboard" element={<DashboardLayout><SecurityDashboard /></DashboardLayout>} />
-      <Route path="/vulnerability-management" element={<DashboardLayout><VulnerabilityManagement /></DashboardLayout>} />
-      <Route path="/ai-model-management" element={<DashboardLayout><AIModelManagement /></DashboardLayout>} />
-      <Route path="/analytics-insights" element={<DashboardLayout><AnalyticsInsights /></DashboardLayout>} />
-      <Route path="/resource-monitoring" element={<DashboardLayout><ResourceMonitoring /></DashboardLayout>} />
-      <Route path="/user-team-management" element={<DashboardLayout><UserTeamManagement /></DashboardLayout>} />
-      <Route path="/integration-hub" element={<DashboardLayout><IntegrationHub /></DashboardLayout>} />
-      <Route path="/audit-compliance" element={<DashboardLayout><AuditCompliance /></DashboardLayout>} />
-      <Route path="/backup-recovery" element={<DashboardLayout><BackupRecovery /></DashboardLayout>} />
-      <Route path="/notification-center" element={<DashboardLayout><NotificationCenter /></DashboardLayout>} />
-      <Route path="/knowledge-base" element={<DashboardLayout><KnowledgeBase /></DashboardLayout>} />
-      
-      {/* Catch-all route */}
-      <Route path="*" element={
-        <DashboardLayout>
-          <div style={{ padding: '24px' }}>
-            <div style={{ background: '#fff2e8', padding: '16px', border: '1px solid #ffbb96', borderRadius: '6px' }}>
-              <h2>🚨 Page Not Found</h2>
-              <p><strong>Requested Path:</strong> {window.location.pathname}</p>
-              <p><strong>Available Routes:</strong></p>
-              <ul>
-                <li>/workflow - Workflow overview</li>
-                <li>/workflow-complex - Complete workflow diagram</li>
-                <li>/workflow-minimal - Minimal workflow view</li>
-                <li>/workflow-basic - Basic workflow view</li>
-              </ul>
-              <div style={{ marginTop: '16px' }}>
-                <button onClick={() => window.location.href = '/workflow'}>
-                  Go to Workflow Overview
-                </button>
-                <button onClick={() => window.location.href = '/'} style={{ marginLeft: '8px' }}>
-                  Go to Dashboard
-                </button>
+    <ErrorBoundary>
+      <Suspense fallback={<SuspenseFallback />}>
+        <Routes>
+          {/* Login route - redirect back to dashboard in demo mode */}
+          <Route path="/login" element={<LoginPlaceholder />} />
+          
+          {/* Main dashboard routes - flattened structure */}
+          <Route path="/" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
+          <Route path="/test-cases" element={<DashboardLayout><TestCases /></DashboardLayout>} />
+          <Route path="/test-plans" element={<DashboardLayout><TestPlans /></DashboardLayout>} />
+          <Route path="/test-plans/:planId" element={<DashboardLayout><TestPlanDetails /></DashboardLayout>} />
+          <Route path="/test-execution" element={<DashboardLayout><TestExecution /></DashboardLayout>} />
+          <Route path="/test-execution-debug" element={<DashboardLayout><TestExecutionDebug /></DashboardLayout>} />
+          {/* Backward compatibility redirect */}
+          <Route path="/tests" element={<Navigate to="/test-execution-debug" replace />} />
+          <Route path="/execution-debug" element={<DashboardLayout><ExecutionDebug /></DashboardLayout>} />
+          <Route path="/execution-monitor" element={<DashboardLayout><ExecutionMonitor /></DashboardLayout>} />
+          <Route path="/test-environment" element={<DashboardLayout><TestEnvironment /></DashboardLayout>} />
+          {/* Backward compatibility redirect */}
+          <Route path="/environment-management" element={<Navigate to="/test-environment" replace />} />
+          <Route path="/results" element={<DashboardLayout><TestResults /></DashboardLayout>} />
+          <Route path="/defects" element={<DashboardLayout><DefectManagement /></DashboardLayout>} />
+          <Route path="/coverage" element={<DashboardLayout><Coverage /></DashboardLayout>} />
+          <Route path="/performance" element={<DashboardLayout><Performance /></DashboardLayout>} />
+          <Route path="/workflow" element={
+            <DashboardLayout>
+              <SimpleTest />
+            </DashboardLayout>
+          } />
+          <Route path="/workflow-minimal" element={<DashboardLayout><WorkflowMinimal /></DashboardLayout>} />
+          <Route path="/workflow-test" element={<DashboardLayout><WorkflowTest /></DashboardLayout>} />
+          <Route path="/workflow-simple" element={<DashboardLayout><WorkflowDiagramSimple /></DashboardLayout>} />
+          <Route path="/workflow-basic" element={<DashboardLayout><WorkflowBasic /></DashboardLayout>} />
+          <Route path="/workflow-full" element={<DashboardLayout><WorkflowBasic /></DashboardLayout>} />
+          <Route path="/workflow-complex" element={<DashboardLayout><WorkflowDiagram /></DashboardLayout>} />
+          <Route path="/workflow-diagnostic" element={<DashboardLayout><WorkflowDiagnostic /></DashboardLayout>} />
+          <Route path="/test-deployment" element={<DashboardLayout><DeploymentWorkflow /></DashboardLayout>} />
+          <Route path="/test-deployment-workflow" element={<DashboardLayout><DeploymentWorkflow /></DashboardLayout>} />
+          {/* Backward compatibility redirects */}
+          <Route path="/deployment" element={<Navigate to="/test-deployment" replace />} />
+          <Route path="/deployment-workflow" element={<Navigate to="/test-deployment" replace />} />
+          
+          {/* Infrastructure Management */}
+          <Route path="/test-infrastructure" element={<DashboardLayout><Infrastructure /></DashboardLayout>} />
+          <Route path="/infrastructure" element={<Navigate to="/test-infrastructure" replace />} />
+          
+          {/* Test Specifications - Property-based Testing */}
+          <Route path="/test-specifications" element={<DashboardLayout><TestSpecifications /></DashboardLayout>} />
+          <Route path="/specifications" element={<Navigate to="/test-specifications" replace />} />
+          
+          <Route path="/menu-debug" element={<DashboardLayout><MenuDebugger /></DashboardLayout>} />
+          <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
+          <Route path="/syntax-test" element={<DashboardLayout><SyntaxHighlightTest /></DashboardLayout>} />
+          
+          {/* New Enhanced Sidebar Routes with Error Boundaries */}
+          <Route path="/security-dashboard" element={
+            <FeatureErrorBoundary featureName="Security Dashboard">
+              <RouteGuard requiredPermissions={['read', 'manage_security']}>
+                <DashboardLayout><SecurityDashboard /></DashboardLayout>
+              </RouteGuard>
+            </FeatureErrorBoundary>
+          } />
+          <Route path="/vulnerability-management" element={
+            <FeatureErrorBoundary featureName="Vulnerability Management">
+              <RouteGuard requiredPermissions={['read', 'manage_security']}>
+                <DashboardLayout><VulnerabilityManagement /></DashboardLayout>
+              </RouteGuard>
+            </FeatureErrorBoundary>
+          } />
+          <Route path="/ai-model-management" element={
+            <FeatureErrorBoundary featureName="AI Model Management">
+              <RouteGuard requiredPermissions={['read', 'admin']}>
+                <DashboardLayout><AIModelManagement /></DashboardLayout>
+              </RouteGuard>
+            </FeatureErrorBoundary>
+          } />
+          <Route path="/analytics-insights" element={
+            <FeatureErrorBoundary featureName="Analytics & Insights">
+              <RouteGuard requiredPermissions={['read']}>
+                <DashboardLayout><AnalyticsInsights /></DashboardLayout>
+              </RouteGuard>
+            </FeatureErrorBoundary>
+          } />
+          <Route path="/resource-monitoring" element={
+            <FeatureErrorBoundary featureName="Resource Monitoring">
+              <RouteGuard requiredPermissions={['read', 'admin']}>
+                <DashboardLayout><ResourceMonitoring /></DashboardLayout>
+              </RouteGuard>
+            </FeatureErrorBoundary>
+          } />
+          <Route path="/user-team-management" element={
+            <FeatureErrorBoundary featureName="User & Team Management">
+              <RouteGuard requiredPermissions={['manage_users', 'admin']}>
+                <DashboardLayout><UserTeamManagement /></DashboardLayout>
+              </RouteGuard>
+            </FeatureErrorBoundary>
+          } />
+          <Route path="/integration-hub" element={
+            <FeatureErrorBoundary featureName="Integration Hub">
+              <RouteGuard requiredPermissions={['read', 'admin']}>
+                <DashboardLayout><IntegrationHub /></DashboardLayout>
+              </RouteGuard>
+            </FeatureErrorBoundary>
+          } />
+          <Route path="/audit-compliance" element={
+            <FeatureErrorBoundary featureName="Audit & Compliance">
+              <RouteGuard requiredPermissions={['read', 'admin']}>
+                <DashboardLayout><AuditCompliance /></DashboardLayout>
+              </RouteGuard>
+            </FeatureErrorBoundary>
+          } />
+          <Route path="/backup-recovery" element={
+            <FeatureErrorBoundary featureName="Backup & Recovery">
+              <RouteGuard requiredPermissions={['admin']}>
+                <DashboardLayout><BackupRecovery /></DashboardLayout>
+              </RouteGuard>
+            </FeatureErrorBoundary>
+          } />
+          <Route path="/notification-center" element={
+            <FeatureErrorBoundary featureName="Notification Center">
+              <RouteGuard requiredPermissions={['read']}>
+                <DashboardLayout><NotificationCenter /></DashboardLayout>
+              </RouteGuard>
+            </FeatureErrorBoundary>
+          } />
+          <Route path="/knowledge-base" element={
+            <FeatureErrorBoundary featureName="Knowledge Base">
+              <RouteGuard requiredPermissions={['read']}>
+                <DashboardLayout><KnowledgeBase /></DashboardLayout>
+              </RouteGuard>
+            </FeatureErrorBoundary>
+          } />
+          
+          {/* Catch-all route */}
+          <Route path="*" element={
+            <DashboardLayout>
+              <div style={{ padding: '24px' }}>
+                <div style={{ background: '#fff2e8', padding: '16px', border: '1px solid #ffbb96', borderRadius: '6px' }}>
+                  <h2>🚨 Page Not Found</h2>
+                  <p><strong>Requested Path:</strong> {window.location.pathname}</p>
+                  <p><strong>Available Routes:</strong></p>
+                  <ul>
+                    <li>/workflow - Workflow overview</li>
+                    <li>/workflow-complex - Complete workflow diagram</li>
+                    <li>/workflow-minimal - Minimal workflow view</li>
+                    <li>/workflow-basic - Basic workflow view</li>
+                  </ul>
+                  <div style={{ marginTop: '16px' }}>
+                    <button onClick={() => window.location.href = '/workflow'}>
+                      Go to Workflow Overview
+                    </button>
+                    <button onClick={() => window.location.href = '/'} style={{ marginLeft: '8px' }}>
+                      Go to Dashboard
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </DashboardLayout>
-      } />
-    </Routes>
+            </DashboardLayout>
+          } />
+        </Routes>
+      </Suspense>
+    </ErrorBoundary>
   )
 }
 
