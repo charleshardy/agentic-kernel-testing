@@ -10,6 +10,7 @@ An autonomous AI-powered testing platform that intelligently tests Linux kernels
 
 ### Core Documentation
 - **[Quick Start Guide](docs/QUICKSTART.md)** - Get up and running in minutes
+- **[Virtual Environment Guide](docs/VIRTUAL_ENVIRONMENT_GUIDE.md)** - Python virtual environment setup and troubleshooting
 - **[Architecture Overview](docs/ARCHITECTURE.md)** - System design and technical architecture
 - **[Installation Guide](docs/INSTALLATION.md)** - Detailed installation instructions
 - **[Known Issues & Solutions](docs/KNOWN_ISSUES.md)** - Common issues and troubleshooting guide
@@ -218,8 +219,32 @@ See [SSO Quick Reference](SSO_QUICK_REFERENCE.md) for complete setup.
    cd agentic-kernel-testing
    ```
 
-3. **Install Python dependencies**
+3. **Set up Python virtual environment**
    ```bash
+   # Create virtual environment
+   python3 -m venv venv
+   
+   # Activate virtual environment
+   source venv/bin/activate
+   
+   # Your prompt should now show (venv) prefix
+   ```
+   
+   > **Important:** Always use the virtual environment to avoid dependency conflicts!
+   > - **Why?** Virtual environments isolate project dependencies from system Python
+   > - **System Python** (`python3`): Shared globally, may lack project packages
+   > - **Virtual Environment** (`venv/bin/python`): Project-specific, has all dependencies
+   > 
+   > **Three ways to use the virtual environment:**
+   > 1. Activate it: `source venv/bin/activate` (then use `python` normally)
+   > 2. Use full path: `venv/bin/python -m api.server`
+   > 3. Use convenience script: `./start-api.sh` (automatically uses venv)
+
+4. **Install Python dependencies**
+   ```bash
+   # Make sure venv is activated (you should see (venv) in your prompt)
+   # Or use venv/bin/pip directly
+   
    # Using Poetry (recommended)
    poetry install
    
@@ -230,7 +255,7 @@ See [SSO Quick Reference](SSO_QUICK_REFERENCE.md) for complete setup.
    pip install -e ".[dev]"
    ```
 
-4. **Install frontend dependencies**
+5. **Install frontend dependencies**
    ```bash
    # Install Vite and React dependencies for dashboard
    cd dashboard
@@ -238,7 +263,7 @@ See [SSO Quick Reference](SSO_QUICK_REFERENCE.md) for complete setup.
    cd ..
    ```
 
-5. **Start the development server**
+6. **Start the development server**
    ```bash
    # Start the dashboard (includes XDG_RUNTIME_DIR fix for headless environments)
    cd dashboard
@@ -246,7 +271,7 @@ See [SSO Quick Reference](SSO_QUICK_REFERENCE.md) for complete setup.
    # Dashboard will be available at http://localhost:5173
    ```
 
-6. **Configure environment**
+7. **Configure environment**
    ```bash
    # The .env file is pre-configured for Amazon Q Developer Pro with AWS SSO
    # For AWS SSO setup (recommended):
@@ -304,15 +329,20 @@ isort .
 ### Running the System
 
 ```bash
-# Start API server
-python -m api.server
+# Start API server (use virtual environment!)
+./start-api.sh
+# Or: venv/bin/python -m api.server
+# Or: source venv/bin/activate && python -m api.server
 
 # Start web dashboard
 cd dashboard && npm run dev
 
 # CLI tool
-python -m cli.main --help
+venv/bin/python -m cli.main --help
+# Or: source venv/bin/activate && python -m cli.main --help
 ```
+
+> **⚠️ Important:** Always use the virtual environment Python (`venv/bin/python`) or activate it first (`source venv/bin/activate`). Using system Python (`python3`) will fail with missing dependency errors like `ModuleNotFoundError: No module named 'email_validator'`.
 
 ## Key Features
 
