@@ -90,8 +90,8 @@ if settings.api.rate_limit_enabled:
     requests_per_minute = max(settings.api.rate_limit_requests // 60, 100)
     app.add_middleware(RateLimitMiddleware, requests_per_minute=requests_per_minute)
 
-# Security scheme
-security = HTTPBearer()
+# Security scheme for authentication
+http_bearer = HTTPBearer()
 
 # Include routers
 app.include_router(health.router, prefix="/api/v1", tags=["Health"])

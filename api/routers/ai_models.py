@@ -1,7 +1,7 @@
 """AI/ML Model Management API endpoints."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel
 
@@ -50,7 +50,7 @@ class PromptTemplate(BaseModel):
 class FallbackConfig(BaseModel):
     primary_model: str
     fallback_models: List[str]
-    trigger_conditions: Dict[str, any]
+    trigger_conditions: Dict[str, Any]
     enabled: bool
 
 
