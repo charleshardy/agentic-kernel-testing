@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, Row, Col, Statistic, Progress, Tag, List, Badge } from 'antd';
 import { 
-  ShieldOutlined, 
+  SecurityScanOutlined, 
   RobotOutlined, 
   TeamOutlined, 
   BellOutlined,
@@ -60,7 +60,7 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({ data }) => {
               title="Security Status"
               value={data.security.complianceScore}
               suffix="%"
-              prefix={<ShieldOutlined />}
+              prefix={<SecurityScanOutlined />}
               valueStyle={{ color: data.security.critical > 0 ? '#cf1322' : '#3f8600' }}
             />
             <div style={{ marginTop: 16 }}>
@@ -161,7 +161,7 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({ data }) => {
             <List
               size="small"
               dataSource={[
-                { label: 'View Security Findings', path: '/security', icon: <ShieldOutlined /> },
+                { label: 'View Security Findings', path: '/security', icon: <SecurityScanOutlined /> },
                 { label: 'Manage Teams', path: '/users', icon: <TeamOutlined /> },
                 { label: 'Check Resources', path: '/resource-monitoring', icon: <CloudServerOutlined /> },
                 { label: 'View Analytics', path: '/analytics', icon: <BarChartOutlined /> }

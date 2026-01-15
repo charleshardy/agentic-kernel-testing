@@ -22,7 +22,6 @@ import {
   Divider
 } from 'antd';
 import {
-  ShieldCheckOutlined,
   BugOutlined,
   ExclamationCircleOutlined,
   SafetyCertificateOutlined,
@@ -365,7 +364,7 @@ const SecurityDashboard: React.FC = () => {
               value={85}
               suffix="/100"
               valueStyle={{ color: '#52c41a' }}
-              prefix={<ShieldCheckOutlined />}
+              prefix={<SafetyCertificateOutlined />}
             />
             <div style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
               Overall security rating

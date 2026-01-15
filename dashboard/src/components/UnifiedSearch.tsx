@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Input, Modal, List, Tag, Spin, Empty } from 'antd';
 import { SearchOutlined, FileTextOutlined, UserOutlined, TeamOutlined, 
-         BellOutlined, BookOutlined, BarChartOutlined, ShieldOutlined } from '@ant-design/icons';
+         BellOutlined, BookOutlined, BarChartOutlined, SecurityScanOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { debounce } from 'lodash';
 
@@ -62,14 +62,14 @@ const UnifiedSearch: React.FC<UnifiedSearchProps> = ({ visible, onClose }) => {
     const iconMap: Record<string, React.ReactNode> = {
       'test-case': <FileTextOutlined />,
       'test-plan': <FileTextOutlined />,
-      'security': <ShieldOutlined />,
+      'security': <SecurityScanOutlined />,
       'user': <UserOutlined />,
       'team': <TeamOutlined />,
       'notification': <BellOutlined />,
       'knowledge': <BookOutlined />,
       'analytics': <BarChartOutlined />,
       'integration': <FileTextOutlined />,
-      'audit': <ShieldOutlined />
+      'audit': <SecurityScanOutlined />
     };
     return iconMap[type] || <FileTextOutlined />;
   };

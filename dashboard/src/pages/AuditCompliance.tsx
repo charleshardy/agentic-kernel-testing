@@ -42,8 +42,7 @@ import {
   SettingOutlined,
   UserOutlined,
   CalendarOutlined,
-  FlagOutlined,
-  ShieldCheckOutlined
+  FlagOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { AuditEvent, ComplianceFramework, ComplianceReport, AuditTrail } from '../types/audit';
@@ -439,7 +438,7 @@ const AuditCompliance: React.FC = () => {
             <Statistic
               title="Active Frameworks"
               value={frameworks.length}
-              prefix={<ShieldCheckOutlined />}
+              prefix={<SafetyCertificateOutlined />}
               valueStyle={{ color: '#1890ff' }}
             />
             <div style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>

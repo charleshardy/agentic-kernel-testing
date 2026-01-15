@@ -296,6 +296,5 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     </SidebarProvider>
   )
 }
-}
 
 export default DashboardLayout

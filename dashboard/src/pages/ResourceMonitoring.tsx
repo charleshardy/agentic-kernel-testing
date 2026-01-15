@@ -29,7 +29,7 @@ import {
 } from 'antd';
 import {
   MonitorOutlined,
-  ServerOutlined,
+  CloudServerOutlined,
   DatabaseOutlined,
   CloudOutlined,
   WarningOutlined,
@@ -43,11 +43,9 @@ import {
   ThunderboltOutlined,
   HddOutlined,
   WifiOutlined,
-  CpuOutlined,
-  MemoryOutlined,
   AlertOutlined,
-  TrendingUpOutlined,
-  TrendingDownOutlined
+  ArrowUpOutlined,
+  ArrowDownOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { ResourceMetrics, InfrastructureMetrics, CapacityMetrics, ResourceAlert, ResourceThreshold } from '../types/resources';
@@ -537,7 +535,7 @@ const ResourceMonitoring: React.FC = () => {
             <Statistic
               title="Total Resources"
               value={infrastructure.totalResources}
-              prefix={<ServerOutlined />}
+              prefix={<CloudServerOutlined />}
               valueStyle={{ color: '#1890ff' }}
             />
             <div style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
@@ -552,7 +550,7 @@ const ResourceMonitoring: React.FC = () => {
               value={capacity.currentUtilization.cpu}
               suffix="%"
               valueStyle={{ color: capacity.currentUtilization.cpu > 70 ? '#ff4d4f' : '#3f8600' }}
-              prefix={<CpuOutlined />}
+              prefix={<ThunderboltOutlined />}
             />
             <Progress 
               percent={capacity.currentUtilization.cpu} 
@@ -569,7 +567,7 @@ const ResourceMonitoring: React.FC = () => {
               value={capacity.currentUtilization.memory}
               suffix="%"
               valueStyle={{ color: capacity.currentUtilization.memory > 80 ? '#ff4d4f' : '#3f8600' }}
-              prefix={<MemoryOutlined />}
+              prefix={<DatabaseOutlined />}
             />
             <Progress 
               percent={capacity.currentUtilization.memory} 
@@ -710,7 +708,7 @@ const ResourceMonitoring: React.FC = () => {
                       <List.Item.Meta
                         avatar={
                           <Avatar 
-                            icon={recommendation.type === 'scale_up' ? <TrendingUpOutlined /> : <ServerOutlined />}
+                            icon={recommendation.type === 'scale_up' ? <ArrowUpOutlined /> : <CloudServerOutlined />}
                             style={{ 
                               backgroundColor: recommendation.priority === 'high' ? '#ff4d4f' : 
                                               recommendation.priority === 'medium' ? '#faad14' : '#52c41a'

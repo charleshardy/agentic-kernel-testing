@@ -18,7 +18,6 @@ import {
   
   // Security & Quality Icons
   SecurityScanOutlined,
-  ShieldOutlined,
   SafetyCertificateOutlined,
   
   // AI & Analytics Icons
@@ -186,7 +185,7 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({
     {
       id: 'security-quality',
       title: 'Security & Quality',
-      icon: ShieldOutlined,
+      icon: SecurityScanOutlined,
       collapsible: true,
       defaultCollapsed: false,
       items: [
