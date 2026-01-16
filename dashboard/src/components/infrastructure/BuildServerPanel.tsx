@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import {
   Card, Table, Tag, Button, Space, Modal, Form, Input, InputNumber,
-  Select, Switch, Progress, Tooltip, Badge, Typography, Row, Col, Statistic
+  Select, Switch, Progress, Tooltip, Badge, Typography, Row, Col, Statistic, message
 } from 'antd'
 import {
   HddOutlined, PlusOutlined, ReloadOutlined, SettingOutlined,
@@ -9,6 +9,7 @@ import {
   CheckCircleOutlined, CloseCircleOutlined, ToolOutlined
 } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
+import SSHTerminal from './SSHTerminal'
 
 const { Title, Text } = Typography
 const { Option } = Select
@@ -61,6 +62,7 @@ const BuildServerPanel: React.FC = () => {
   const queryClient = useQueryClient()
   const [isModalVisible, setIsModalVisible] = useState(false)
   const [selectedServer, setSelectedServer] = useState<BuildServer | null>(null)
+  const [consoleServer, setConsoleServer] = useState<BuildServer | null>(null)
   const [form] = Form.useForm()
 
   // Fetch build servers
@@ -82,14 +84,21 @@ const BuildServerPanel: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       })
-      if (!response.ok) throw new Error('Failed to register build server')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || errorData.message || 'Failed to register build server')
+      }
       return response.json()
     },
     {
-      onSuccess: () => {
+      onSuccess: (data) => {
+        message.success(`Build server "${data.hostname}" registered successfully!`)
         queryClient.invalidateQueries('buildServers')
         setIsModalVisible(false)
         form.resetFields()
+      },
+      onError: (error: Error) => {
+        message.error(`Failed to register build server: ${error.message}`)
       }
     }
   )
@@ -101,21 +110,32 @@ const BuildServerPanel: React.FC = () => {
         `/api/v1/infrastructure/build-servers/${serverId}/maintenance?enabled=${enabled}`,
         { method: 'PUT' }
       )
-      if (!response.ok) throw new Error('Failed to set maintenance mode')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || errorData.message || 'Failed to set maintenance mode')
+      }
       return response.json()
     },
-    { onSuccess: () => queryClient.invalidateQueries('buildServers') }
+    {
+      onSuccess: (_, variables) => {
+        message.success(`Maintenance mode ${variables.enabled ? 'enabled' : 'disabled'} successfully`)
+        queryClient.invalidateQueries('buildServers')
+      },
+      onError: (error: Error) => {
+        message.error(`Failed to set maintenance mode: ${error.message}`)
+      }
+    }
   )
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { color: string; text: string }> = {
-      online: { color: 'green', text: 'Online' },
-      offline: { color: 'red', text: 'Offline' },
-      degraded: { color: 'orange', text: 'Degraded' },
-      maintenance: { color: 'blue', text: 'Maintenance' }
+      online: { color: 'success', text: 'Online' },
+      offline: { color: 'error', text: 'Offline' },
+      degraded: { color: 'warning', text: 'Degraded' },
+      maintenance: { color: 'processing', text: 'Maintenance' }
     }
     const config = statusConfig[status] || { color: 'default', text: status }
-    return <Badge status={config.color as any} text={config.text} />
+    return <Tag color={config.color}>{config.text}</Tag>
   }
 
   const columns = [
@@ -180,6 +200,15 @@ const BuildServerPanel: React.FC = () => {
       key: 'actions',
       render: (_: any, record: BuildServer) => (
         <Space>
+          <Tooltip title="SSH Console">
+            <Button
+              size="small"
+              icon={<ToolOutlined />}
+              onClick={() => {
+                setConsoleServer(record)
+              }}
+            />
+          </Tooltip>
           <Tooltip title={record.maintenance_mode ? 'Exit Maintenance' : 'Enter Maintenance'}>
             <Button
               size="small"
@@ -222,9 +251,18 @@ const BuildServerPanel: React.FC = () => {
       <Modal
         title="Register Build Server"
         open={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
+        onCancel={() => {
+          if (!registerMutation.isLoading) {
+            setIsModalVisible(false)
+            form.resetFields()
+          }
+        }}
         onOk={() => form.submit()}
         confirmLoading={registerMutation.isLoading}
+        okButtonProps={{ disabled: registerMutation.isLoading }}
+        cancelButtonProps={{ disabled: registerMutation.isLoading }}
+        closable={!registerMutation.isLoading}
+        maskClosable={!registerMutation.isLoading}
         width={600}
       >
         <Form form={form} layout="vertical" onFinish={(values) => registerMutation.mutate(values)}>
@@ -277,7 +315,7 @@ const BuildServerPanel: React.FC = () => {
         open={!!selectedServer}
         onCancel={() => setSelectedServer(null)}
         footer={null}
-        width={700}
+        width={900}
       >
         {selectedServer && (
           <div>
@@ -298,6 +336,29 @@ const BuildServerPanel: React.FC = () => {
               )}
             </Card>
           </div>
+        )}
+      </Modal>
+
+      {/* SSH Console Modal */}
+      <Modal
+        title={
+          <Space>
+            <ToolOutlined />
+            <span>SSH Console: {consoleServer?.hostname}</span>
+          </Space>
+        }
+        open={!!consoleServer}
+        onCancel={() => setConsoleServer(null)}
+        footer={null}
+        width={1000}
+        bodyStyle={{ padding: 0, height: '600px' }}
+      >
+        {consoleServer && (
+          <SSHTerminal 
+            serverId={consoleServer.id} 
+            hostname={consoleServer.hostname}
+            username="lliu2"
+          />
         )}
       </Modal>
     </div>

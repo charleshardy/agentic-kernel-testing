@@ -13,7 +13,7 @@ from .routers import (
     tests, status, results, health, auth, webhooks, environments, performance, 
     execution, test_plans, deployments, infrastructure, specifications,
     security, ai_models, audit, resources, integrations, users, notifications,
-    knowledge_base, analytics, backup
+    knowledge_base, analytics, backup, ssh_websocket
 )
 from .middleware import RequestLoggingMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
 from .auth import verify_token, get_current_user
@@ -106,6 +106,7 @@ app.include_router(environments.router, prefix="/api/v1", tags=["Environments"])
 app.include_router(webhooks.router, prefix="/api/v1", tags=["Webhooks"])
 app.include_router(performance.router, prefix="/api/v1", tags=["Performance"])
 app.include_router(infrastructure.router, tags=["Infrastructure"])
+app.include_router(ssh_websocket.router, tags=["SSH"])
 app.include_router(specifications.router, prefix="/api/v1", tags=["Specifications"])
 
 # New feature routers

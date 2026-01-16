@@ -149,11 +149,41 @@ class BuildServer:
 @dataclass
 class BuildConfig:
     """Configuration for a build job."""
+    # Build mode
+    build_mode: str = "kernel"  # "kernel" or "custom"
+    
+    # Build configuration (for kernel mode)
     kernel_config: Optional[str] = None  # defconfig name or path
     extra_make_args: List[str] = field(default_factory=list)
     enable_modules: bool = True
     build_dtbs: bool = True
     custom_env: Dict[str, str] = field(default_factory=dict)
+    
+    # Custom build commands (for custom mode)
+    pre_build_commands: List[str] = field(default_factory=list)  # Commands to run before build
+    build_commands: List[str] = field(default_factory=list)  # Main build commands
+    post_build_commands: List[str] = field(default_factory=list)  # Commands to run after build
+    
+    # Build path configuration
+    workspace_root: str = "/tmp/builds"  # Root directory for all builds
+    build_directory: Optional[str] = None  # Specific build dir (auto-generated if None)
+    output_directory: Optional[str] = None  # Where to place artifacts
+    keep_workspace: bool = False  # Keep workspace after build
+    
+    # Repository configuration
+    git_depth: int = 1  # Shallow clone depth
+    git_submodules: bool = False  # Clone submodules
+    
+    # Artifact configuration
+    artifact_patterns: List[str] = field(default_factory=lambda: [
+        "arch/*/boot/bzImage",
+        "arch/*/boot/Image",
+        "arch/*/boot/zImage",
+        "vmlinux",
+        "System.map",
+        "*.ko",
+        "*.dtb"
+    ])
 
 
 @dataclass

@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Tabs } from 'antd'
+import { useSearchParams } from 'react-router-dom'
 import {
   DashboardOutlined,
   BuildOutlined,
@@ -35,6 +36,17 @@ import {
  * - Settings
  */
 const Infrastructure: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // Set active tab from URL query parameter
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
   const tabItems = [
     {
       key: 'overview',
@@ -86,7 +98,8 @@ const Infrastructure: React.FC = () => {
   return (
     <div style={{ padding: '24px' }}>
       <Tabs
-        defaultActiveKey="overview"
+        activeKey={activeTab}
+        onChange={setActiveTab}
         items={tabItems}
         size="large"
         tabPosition="left"

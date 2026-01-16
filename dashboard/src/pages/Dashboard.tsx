@@ -210,14 +210,14 @@ const Dashboard: React.FC = () => {
           type="primary" 
           size="large"
           icon={<RobotOutlined />}
-          onClick={() => navigate('/workflow')}
+          onClick={() => navigate('/workflow-flowchart')}
           style={{ 
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             border: 'none',
             boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
           }}
         >
-          View Complete Workflow Diagram
+          View Workflow Flowchart
         </Button>
       </div>
       
@@ -259,7 +259,7 @@ const Dashboard: React.FC = () => {
         </Row>
       )}
 
-      {/* Workflow Diagram Quick Access */}
+      {/* Workflow Flowchart Quick Access */}
       <Row style={{ marginBottom: 24 }}>
         <Col span={24}>
           <Card 
@@ -275,20 +275,20 @@ const Dashboard: React.FC = () => {
                 <Space direction="vertical" size="small">
                   <Title level={3} style={{ color: 'white', margin: 0 }}>
                     <RobotOutlined style={{ marginRight: '8px' }} />
-                    Complete Workflow Diagram
+                    Interactive Workflow Flowchart
                   </Title>
                   <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: '16px' }}>
-                    Interactive visualization of the autonomous AI-powered testing workflow with 8 phases and 25+ steps
+                    Professional visualization with 7 phases, 20 stages, performance metrics, and interactive tooltips
                   </Text>
                   <Space wrap>
                     <Tag color="rgba(255,255,255,0.2)" style={{ color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}>
-                      🤖 AI-Powered Analysis
+                      📊 Performance Metrics
                     </Tag>
                     <Tag color="rgba(255,255,255,0.2)" style={{ color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}>
-                      🖥️ Multi-Environment Testing
+                      🎯 Phase Separators
                     </Tag>
                     <Tag color="rgba(255,255,255,0.2)" style={{ color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}>
-                      📊 Real-Time Monitoring
+                      ⚡ Real-Time Status
                     </Tag>
                   </Space>
                 </Space>
@@ -298,7 +298,7 @@ const Dashboard: React.FC = () => {
                   type="default"
                   size="large"
                   icon={<RobotOutlined />}
-                  onClick={() => navigate('/workflow')}
+                  onClick={() => navigate('/workflow-flowchart')}
                   style={{ 
                     background: 'white',
                     color: '#667eea',
@@ -308,7 +308,7 @@ const Dashboard: React.FC = () => {
                     minWidth: '200px'
                   }}
                 >
-                  Open Workflow Diagram
+                  Open Flowchart
                 </Button>
               </Col>
             </Row>

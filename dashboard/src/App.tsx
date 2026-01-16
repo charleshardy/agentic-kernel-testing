@@ -24,6 +24,7 @@ import WorkflowDiagramSimple from './pages/WorkflowDiagramSimple'
 import WorkflowBasic from './pages/WorkflowBasic'
 import WorkflowTest from './pages/WorkflowTest'
 import WorkflowMinimal from './pages/WorkflowMinimal'
+import WorkflowFlowchartPage from './pages/WorkflowFlowchartPage'
 import SimpleTest from './pages/SimpleTest'
 import WorkflowDiagnostic from './components/WorkflowDiagnostic'
 import MenuDebugger from './components/MenuDebugger'
@@ -103,6 +104,8 @@ function App() {
           <Route path="/workflow-basic" element={<DashboardLayout><WorkflowBasic /></DashboardLayout>} />
           <Route path="/workflow-full" element={<DashboardLayout><WorkflowBasic /></DashboardLayout>} />
           <Route path="/workflow-complex" element={<DashboardLayout><WorkflowDiagram /></DashboardLayout>} />
+          <Route path="/workflow-flowchart" element={<DashboardLayout><WorkflowFlowchartPage /></DashboardLayout>} />
+          <Route path="/workflow-diagram" element={<Navigate to="/workflow-flowchart" replace />} />
           <Route path="/workflow-diagnostic" element={<DashboardLayout><WorkflowDiagnostic /></DashboardLayout>} />
           <Route path="/test-deployment" element={<DashboardLayout><DeploymentWorkflow /></DashboardLayout>} />
           <Route path="/test-deployment-workflow" element={<DashboardLayout><DeploymentWorkflow /></DashboardLayout>} />

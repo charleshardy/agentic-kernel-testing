@@ -458,6 +458,53 @@ class BuildJobManager:
         self._append_log(job.id, f"Branch: {job.branch}")
         self._append_log(job.id, f"Commit: {job.commit_hash}")
         self._append_log(job.id, f"Architecture: {job.target_architecture}")
+        
+        # Start actual build execution in background
+        asyncio.create_task(self._execute_build(job))
+    
+    async def _execute_build(self, job: BuildJob) -> None:
+        """
+        Execute the actual build on the remote server.
+        
+        Args:
+            job: Build job to execute
+        """
+        try:
+            # Get server
+            server = self._server_pool.get(job.server_id)
+            if not server:
+                raise RuntimeError(f"Server {job.server_id} not found")
+            
+            # Import SSH executor
+            from infrastructure.services.ssh_build_executor import SSHBuildExecutor
+            
+            # Create executor
+            executor = SSHBuildExecutor(server)
+            
+            # Execute build and stream logs
+            async for log_line in executor.execute_full_build(
+                job,
+                job.build_config,
+                self._artifact_storage_path
+            ):
+                self._append_log(job.id, log_line.rstrip())
+            
+            # Mark as completed
+            await self.complete_build(
+                job.id,
+                success=True,
+                artifacts=job.artifacts
+            )
+            
+        except Exception as e:
+            # Mark as failed
+            error_msg = f"Build failed: {str(e)}"
+            self._append_log(job.id, error_msg)
+            await self.complete_build(
+                job.id,
+                success=False,
+                error_message=error_msg
+            )
 
     def _estimate_start_time(self, queue_position: int) -> datetime:
         """Estimate when a queued job will start."""

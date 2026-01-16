@@ -212,137 +212,299 @@ const WorkflowDiagram: React.FC = () => {
       ],
     },
     {
-      id: 'orchestration',
-      title: 'Test Orchestration',
-      description: 'Schedule and manage test execution across resources',
+      id: 'test-plan-management',
+      title: 'Test Plan Management',
+      description: 'Organize test cases into executable test plans',
       color: '#722ed1',
-      icon: <CloudServerOutlined />,
+      icon: <DatabaseOutlined />,
       steps: [
         {
-          id: 'priority-scheduling',
-          title: 'Priority Scheduling',
-          description: 'Schedule tests using bin-packing algorithm',
+          id: 'create-test-plan',
+          title: 'Create Test Plan',
+          description: 'Create and configure test plan with target hardware',
           status: 'waiting',
-          icon: <ClockCircleOutlined />,
-          details: 'Optimizes resource utilization with priority-based scheduling',
-          duration: 5.0,
+          icon: <DatabaseOutlined />,
+          details: 'Define test plan name, description, and target hardware specifications',
+          duration: 2.0,
         },
         {
-          id: 'resource-allocation',
-          title: 'Resource Allocation',
-          description: 'Allocate tests across virtual and physical environments',
+          id: 'add-tests-to-plan',
+          title: 'Add Tests to Plan',
+          description: 'Add generated test cases to the test plan',
           status: 'waiting',
-          icon: <CloudServerOutlined />,
-          details: 'Distributes tests across QEMU, KVM, and physical hardware',
+          icon: <ExperimentOutlined />,
+          details: 'Select and organize test cases within the test plan',
           duration: 3.0,
         },
       ],
     },
     {
-      id: 'execution',
-      title: 'Multi-Environment Execution',
-      description: 'Execute tests across virtual and physical hardware environments',
+      id: 'hardware-allocation',
+      title: 'Hardware Allocation',
+      description: 'Allocate and assign physical or virtual hardware resources',
       color: '#13c2c2',
       icon: <MonitorOutlined />,
       steps: [
         {
-          id: 'virtual-testing',
-          title: 'Virtual Environment Testing',
-          description: 'Execute tests in QEMU/KVM environments',
+          id: 'allocate-hardware',
+          title: 'Allocate Physical Board',
+          description: 'Reserve physical hardware board for testing',
+          status: 'waiting',
+          icon: <MonitorOutlined />,
+          details: 'Select and reserve ARM, x86, or RISC-V physical boards from hardware lab',
+          duration: 5.0,
+        },
+        {
+          id: 'assign-to-plan',
+          title: 'Assign Board to Test Plan',
+          description: 'Link allocated hardware to test plan',
+          status: 'waiting',
+          icon: <ApiOutlined />,
+          details: 'Associate reserved hardware with test plan for execution',
+          duration: 2.0,
+        },
+      ],
+    },
+    {
+      id: 'build-compilation',
+      title: 'Build & Compilation',
+      description: 'Compile test cases and kernel modules for target architecture',
+      color: '#fa8c16',
+      icon: <CodeOutlined />,
+      steps: [
+        {
+          id: 'identify-architecture',
+          title: 'Identify Target Architecture',
+          description: 'Determine target architecture from assigned hardware',
+          status: 'waiting',
+          icon: <SettingOutlined />,
+          details: 'Extract architecture (x86_64, ARM64, RISC-V) from hardware configuration',
+          duration: 1.0,
+        },
+        {
+          id: 'compile-tests',
+          title: 'Compile Test Cases',
+          description: 'Build test executables on build server',
+          status: 'waiting',
+          icon: <CodeOutlined />,
+          details: 'Cross-compile test cases and dependencies for target architecture',
+          duration: 45.0,
+        },
+        {
+          id: 'compile-kernel-modules',
+          title: 'Compile Kernel Modules',
+          description: 'Build kernel modules if required',
+          status: 'waiting',
+          icon: <DatabaseOutlined />,
+          details: 'Compile kernel modules (.ko files) for kernel testing',
+          duration: 30.0,
+        },
+        {
+          id: 'verify-artifacts',
+          title: 'Verify Build Artifacts',
+          description: 'Validate compiled binaries and checksums',
+          status: 'waiting',
+          icon: <SafetyOutlined />,
+          details: 'Verify binary compatibility, checksums, and dependencies',
+          duration: 5.0,
+        },
+      ],
+    },
+    {
+      id: 'deployment',
+      title: 'Test Deployment',
+      description: 'Deploy compiled artifacts to target hardware',
+      color: '#eb2f96',
+      icon: <CloudServerOutlined />,
+      steps: [
+        {
+          id: 'transfer-artifacts',
+          title: 'Transfer Build Artifacts',
+          description: 'Copy compiled tests to target hardware',
           status: 'waiting',
           icon: <CloudServerOutlined />,
-          details: 'Supports x86_64, ARM64, RISC-V architectures',
+          details: 'Transfer binaries, libraries, and configuration files via SSH/SCP',
+          duration: 15.0,
+        },
+        {
+          id: 'install-dependencies',
+          title: 'Install Dependencies',
+          description: 'Install required libraries and tools',
+          status: 'waiting',
+          icon: <DatabaseOutlined />,
+          details: 'Install runtime dependencies and configure environment',
+          duration: 20.0,
+        },
+        {
+          id: 'verify-deployment',
+          title: 'Verify Deployment',
+          description: 'Validate test environment readiness',
+          status: 'waiting',
+          icon: <CheckCircleOutlined />,
+          details: 'Check file permissions, paths, and environment configuration',
+          duration: 5.0,
+        },
+      ],
+    },
+    {
+      id: 'execution',
+      title: 'Test Execution',
+      description: 'Execute tests on deployed hardware with real-time monitoring',
+      color: '#52c41a',
+      icon: <PlayCircleOutlined />,
+      steps: [
+        {
+          id: 'start-execution',
+          title: 'Start Test Execution',
+          description: 'Begin running test cases on target hardware',
+          status: 'waiting',
+          icon: <PlayCircleOutlined />,
+          details: 'Execute test plan with real-time progress monitoring',
           duration: 120.0,
         },
         {
-          id: 'physical-testing',
-          title: 'Physical Hardware Testing',
-          description: 'Execute tests on real hardware boards',
+          id: 'monitor-execution',
+          title: 'Monitor Execution',
+          description: 'Track test progress and capture live logs',
           status: 'waiting',
           icon: <MonitorOutlined />,
-          details: 'SSH and serial console testing on physical boards',
-          duration: 180.0,
+          details: 'Real-time log streaming, progress tracking, and status updates',
+          duration: 120.0,
         },
         {
-          id: 'fault-injection',
-          title: 'Fault Injection Testing',
-          description: 'Inject faults to test error handling',
+          id: 'collect-results',
+          title: 'Collect Test Results',
+          description: 'Gather test outcomes, logs, and artifacts',
           status: 'waiting',
-          icon: <ThunderboltOutlined />,
-          details: 'Memory failures, I/O errors, timing variations',
-          duration: 90.0,
+          icon: <DatabaseOutlined />,
+          details: 'Capture stdout, stderr, exit codes, core dumps, and performance metrics',
+          duration: 10.0,
         },
       ],
     },
     {
       id: 'analysis',
-      title: 'Comprehensive Analysis',
-      description: 'Analyze test results and generate insights',
-      color: '#eb2f96',
+      title: 'Result Analysis',
+      description: 'Analyze test results using AI-powered insights',
+      color: '#1890ff',
       icon: <BarChartOutlined />,
       steps: [
         {
+          id: 'ai-failure-analysis',
+          title: 'AI Failure Analysis',
+          description: 'Analyze failures using LLM-powered root cause analysis',
+          status: 'waiting',
+          icon: <RobotOutlined />,
+          details: 'AI analyzes logs, stack traces, and error patterns to identify root causes',
+          duration: 25.0,
+        },
+        {
           id: 'coverage-analysis',
           title: 'Coverage Analysis',
-          description: 'Track code coverage and identify gaps',
+          description: 'Calculate code coverage metrics',
           status: 'waiting',
           icon: <BarChartOutlined />,
           details: 'Line, branch, and function coverage with gap identification',
-          duration: 30.0,
+          duration: 15.0,
         },
         {
-          id: 'security-scanning',
-          title: 'Security Scanning',
-          description: 'Perform security analysis and fuzzing',
-          status: 'waiting',
-          icon: <SafetyOutlined />,
-          details: 'Syzkaller fuzzing, Coccinelle static analysis, vulnerability detection',
-          duration: 60.0,
-        },
-        {
-          id: 'performance-monitoring',
-          title: 'Performance Monitoring',
-          description: 'Monitor performance and detect regressions',
+          id: 'performance-analysis',
+          title: 'Performance Analysis',
+          description: 'Analyze performance metrics and detect regressions',
           status: 'waiting',
           icon: <LineChartOutlined />,
-          details: 'LMBench, FIO, Netperf benchmarks with regression detection',
-          duration: 45.0,
+          details: 'Compare execution times, memory usage, and throughput against baselines',
+          duration: 10.0,
+        },
+        {
+          id: 'security-analysis',
+          title: 'Security Analysis',
+          description: 'Scan for security vulnerabilities',
+          status: 'waiting',
+          icon: <SafetyOutlined />,
+          details: 'Identify potential security issues, memory leaks, and race conditions',
+          duration: 20.0,
         },
       ],
     },
     {
-      id: 'ai-insights',
-      title: 'AI-Driven Insights',
-      description: 'Generate intelligent insights and recommendations',
+      id: 'defect-reporting',
+      title: 'Defect Reporting',
+      description: 'Create and track defects from test failures',
       color: '#f5222d',
-      icon: <RobotOutlined />,
+      icon: <BugOutlined />,
       steps: [
         {
-          id: 'root-cause-analysis',
-          title: 'Root Cause Analysis',
-          description: 'AI-powered failure analysis and pattern recognition',
+          id: 'create-defect',
+          title: 'Create Defect Report',
+          description: 'Generate defect report from failure',
           status: 'waiting',
           icon: <BugOutlined />,
-          details: 'LLM-based log analysis with historical pattern matching',
-          duration: 25.0,
+          details: 'Auto-populate defect with reproduction steps, logs, and environment details',
+          duration: 5.0,
         },
         {
-          id: 'failure-correlation',
-          title: 'Failure Correlation',
-          description: 'Correlate failures with code changes',
+          id: 'link-artifacts',
+          title: 'Link Artifacts',
+          description: 'Attach logs, core dumps, and traces to defect',
+          status: 'waiting',
+          icon: <DatabaseOutlined />,
+          details: 'Associate all relevant artifacts with the defect for debugging',
+          duration: 3.0,
+        },
+        {
+          id: 'assign-defect',
+          title: 'Assign & Notify',
+          description: 'Assign defect to developer and send notifications',
+          status: 'waiting',
+          icon: <BellOutlined />,
+          details: 'Route defect to appropriate team member and send alerts',
+          duration: 2.0,
+        },
+      ],
+    },
+    {
+      id: 'summary-generation',
+      title: 'Summary Generation',
+      description: 'Generate comprehensive test execution summary',
+      color: '#faad14',
+      icon: <LineChartOutlined />,
+      steps: [
+        {
+          id: 'aggregate-results',
+          title: 'Aggregate Results',
+          description: 'Compile all test results and metrics',
+          status: 'waiting',
+          icon: <DatabaseOutlined />,
+          details: 'Aggregate pass/fail statistics, coverage, performance, and security findings',
+          duration: 5.0,
+        },
+        {
+          id: 'generate-trends',
+          title: 'Generate Trends',
+          description: 'Compare with historical data and identify trends',
+          status: 'waiting',
+          icon: <LineChartOutlined />,
+          details: 'Analyze trends, detect regressions, and identify flaky tests',
+          duration: 10.0,
+        },
+        {
+          id: 'create-report',
+          title: 'Create Summary Report',
+          description: 'Generate comprehensive test summary',
+          status: 'waiting',
+          icon: <BarChartOutlined />,
+          details: 'Create detailed report with visualizations, recommendations, and action items',
+          duration: 8.0,
+        },
+        {
+          id: 'export-summary',
+          title: 'Export Summary',
+          description: 'Export summary in multiple formats',
           status: 'waiting',
           icon: <ApiOutlined />,
-          details: 'Automated git bisect and commit correlation',
-          duration: 15.0,
-        },
-        {
-          id: 'fix-suggestions',
-          title: 'Fix Suggestions',
-          description: 'Generate AI-powered fix recommendations',
-          status: 'waiting',
-          icon: <RobotOutlined />,
-          details: 'LLM-generated code patches and remediation suggestions',
-          duration: 20.0,
+          details: 'Export as PDF, HTML, JSON, or send to external systems',
+          duration: 3.0,
         },
       ],
     },
@@ -466,11 +628,12 @@ const WorkflowDiagram: React.FC = () => {
       <div style={{ marginBottom: '24px' }}>
         <Title level={2}>
           <RobotOutlined style={{ marginRight: '8px' }} />
-          Agentic AI Testing System - Complete Workflow
+          Complete End-to-End Testing Workflow
         </Title>
         <Paragraph>
-          Interactive visualization of the autonomous AI-powered testing workflow for Linux kernels and BSPs.
-          This system combines AI-driven test generation, multi-environment execution, and intelligent analysis.
+          Interactive visualization of the complete testing workflow from AI-powered test generation 
+          through hardware allocation, compilation, deployment, execution, analysis, defect reporting, 
+          and summary generation. Click on any stage to explore details and interact with the workflow.
         </Paragraph>
         
         <Space style={{ marginBottom: '16px' }}>
@@ -511,15 +674,18 @@ const WorkflowDiagram: React.FC = () => {
                 content: (
                   <div>
                     <Paragraph>
-                      This workflow represents the complete autonomous testing process:
+                      This workflow represents the complete end-to-end testing process:
                     </Paragraph>
                     <ul>
-                      <li><strong>8 Major Phases:</strong> From code detection to reporting</li>
-                      <li><strong>25+ Individual Steps:</strong> Each with specific functions</li>
-                      <li><strong>AI-Powered:</strong> Multiple LLM providers for intelligence</li>
-                      <li><strong>Multi-Environment:</strong> Virtual and physical hardware testing</li>
-                      <li><strong>Property-Based:</strong> 50+ correctness properties verified</li>
-                      <li><strong>Production Ready:</strong> All 50 implementation tasks complete</li>
+                      <li><strong>11 Major Phases:</strong> From test generation to summary reporting</li>
+                      <li><strong>40+ Individual Steps:</strong> Each with specific functions and interactions</li>
+                      <li><strong>AI-Powered Generation:</strong> Automated test case creation from code analysis</li>
+                      <li><strong>Hardware Management:</strong> Physical and virtual environment allocation</li>
+                      <li><strong>Build & Compilation:</strong> Cross-platform test compilation for target architectures</li>
+                      <li><strong>Deployment & Execution:</strong> Automated deployment and real-time execution monitoring</li>
+                      <li><strong>Intelligent Analysis:</strong> AI-powered failure analysis and root cause identification</li>
+                      <li><strong>Defect Tracking:</strong> Automated defect creation with full context</li>
+                      <li><strong>Comprehensive Reporting:</strong> Detailed summaries with trends and recommendations</li>
                     </ul>
                   </div>
                 ),
