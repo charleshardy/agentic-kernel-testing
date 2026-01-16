@@ -1,0 +1,23 @@
+{
+  "bs-pek-lpgtest16": {
+    "id": "bs-pek-lpgtest16",
+    "hostname": "pek-lpgtest16",
+    "ip_address": "128.224.179.80",
+    "status": "online",
+    "supported_architectures": [
+      "x86_64"
+    ],
+    "toolchains": [],
+    "total_cpu_cores": 72,
+    "total_memory_mb": 128793,
+    "total_storage_gb": 159,
+    "active_build_count": 0,
+    "queue_depth": 0,
+    "maintenance_mode": false,
+    "created_at": "2026-01-16 11:37:34.703802",
+    "updated_at": "2026-01-16 11:37:34.703808",
+    "ssh_port": 22,
+    "ssh_username": "lliu2",
+    "ssh_key_path": null
+  }
+}

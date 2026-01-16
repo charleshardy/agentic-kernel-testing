@@ -13,9 +13,165 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from pydantic import BaseModel, Field
 from enum import Enum
+import asyncio
+import subprocess
+import json
+import os
+from pathlib import Path
 
 # Create main router
 router = APIRouter(prefix="/api/v1/infrastructure", tags=["infrastructure"])
+
+# Persistence file paths
+PERSISTENCE_DIR = Path("infrastructure_state")
+PERSISTENCE_DIR.mkdir(exist_ok=True)
+BUILD_SERVERS_FILE = PERSISTENCE_DIR / "build_servers.json"
+HOSTS_FILE = PERSISTENCE_DIR / "hosts.json"
+BOARDS_FILE = PERSISTENCE_DIR / "boards.json"
+BUILD_JOBS_FILE = PERSISTENCE_DIR / "build_jobs.json"
+PIPELINES_FILE = PERSISTENCE_DIR / "pipelines.json"
+
+# Helper functions for persistence
+def load_from_file(file_path: Path) -> Dict[str, Dict[str, Any]]:
+    """Load data from JSON file"""
+    if file_path.exists():
+        try:
+            with open(file_path, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading {file_path}: {e}")
+    return {}
+
+def save_to_file(file_path: Path, data: Dict[str, Dict[str, Any]]):
+    """Save data to JSON file"""
+    try:
+        with open(file_path, 'w') as f:
+            json.dump(data, f, indent=2, default=str)
+    except Exception as e:
+        print(f"Error saving {file_path}: {e}")
+
+# In-memory storage (for development/testing) - now with persistence
+_build_servers: Dict[str, Dict[str, Any]] = load_from_file(BUILD_SERVERS_FILE)
+_hosts: Dict[str, Dict[str, Any]] = load_from_file(HOSTS_FILE)
+_boards: Dict[str, Dict[str, Any]] = load_from_file(BOARDS_FILE)
+_build_jobs: Dict[str, Dict[str, Any]] = load_from_file(BUILD_JOBS_FILE)
+_pipelines: Dict[str, Dict[str, Any]] = load_from_file(PIPELINES_FILE)
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+async def get_server_resources(hostname: str, ssh_port: int = 22, ssh_username: str = None, ssh_key_path: str = None) -> Dict[str, int]:
+    """
+    Get actual server resources via SSH.
+    Returns CPU cores, memory MB, and storage GB.
+    """
+    default_resources = {
+        'cpu_cores': 8,
+        'memory_mb': 16384,
+        'storage_gb': 500
+    }
+    
+    try:
+        # Build SSH command
+        ssh_cmd = ['ssh', '-o', 'ConnectTimeout=5', '-o', 'StrictHostKeyChecking=no', '-o', 'BatchMode=yes']
+        
+        # Use provided key or try default keys
+        if ssh_key_path:
+            ssh_cmd.extend(['-i', ssh_key_path])
+        
+        if ssh_username:
+            ssh_cmd.append(f'{ssh_username}@{hostname}')
+        else:
+            ssh_cmd.append(hostname)
+        
+        # Command to get CPU, memory, and disk
+        remote_cmd = "nproc && free -m | grep Mem | awk '{print $2}' && df -BG / | tail -1 | awk '{print $2}'"
+        ssh_cmd.append(remote_cmd)
+        
+        # Execute SSH command
+        proc = await asyncio.create_subprocess_exec(
+            *ssh_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=10)
+        
+        if proc.returncode == 0:
+            lines = stdout.decode().strip().split('\n')
+            if len(lines) >= 3:
+                cpu_cores = int(lines[0].strip())
+                memory_mb = int(lines[1].strip())
+                storage_str = lines[2].strip().replace('G', '')
+                storage_gb = int(storage_str)
+                
+                return {
+                    'cpu_cores': cpu_cores,
+                    'memory_mb': memory_mb,
+                    'storage_gb': storage_gb
+                }
+    except Exception as e:
+        # If SSH fails, return defaults
+        pass
+    
+    return default_resources
+
+
+async def check_ssh_connectivity(hostname: str, port: int = 22, timeout: int = 5) -> bool:
+    """
+    Check if SSH is accessible on the given host.
+    Uses a simple TCP connection test.
+    """
+    try:
+        # Use nc (netcat) to test TCP connectivity
+        proc = await asyncio.create_subprocess_exec(
+            'nc', '-z', '-w', str(timeout), hostname, str(port),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        await asyncio.wait_for(proc.wait(), timeout=timeout + 1)
+        return proc.returncode == 0
+    except (asyncio.TimeoutError, FileNotFoundError, Exception):
+        # If nc is not available or times out, try ping as fallback
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                'ping', '-c', '1', '-W', str(timeout), hostname,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await asyncio.wait_for(proc.wait(), timeout=timeout + 1)
+            return proc.returncode == 0
+        except Exception:
+            return False
+
+
+async def update_server_status(server_id: str):
+    """
+    Update the status of a build server based on connectivity check.
+    """
+    if server_id not in _build_servers:
+        return
+    
+    server = _build_servers[server_id]
+    
+    # Skip if in maintenance mode
+    if server.get('maintenance_mode', False):
+        server['status'] = ResourceStatus.MAINTENANCE
+        return
+    
+    # Check SSH connectivity
+    hostname = server.get('hostname') or server.get('ip_address')
+    is_online = await check_ssh_connectivity(hostname)
+    
+    # Update status
+    if is_online:
+        server['status'] = ResourceStatus.ONLINE
+    else:
+        server['status'] = ResourceStatus.OFFLINE
+    
+    server['updated_at'] = datetime.now()
 
 
 # =============================================================================
@@ -270,23 +426,53 @@ async def register_build_server(registration: BuildServerRegistration):
     **Requirement 1.1**: Register build servers with hostname, IP, SSH credentials
     **Requirement 1.2**: Validate SSH connectivity and toolchain availability
     """
-    # In production, this would use the BuildServerManagementService
-    return BuildServerResponse(
-        id="bs-" + registration.hostname,
+    server_id = "bs-" + registration.hostname
+    
+    # Check if server already exists
+    if server_id in _build_servers:
+        raise HTTPException(status_code=400, detail=f"Build server with hostname '{registration.hostname}' already exists")
+    
+    # Check initial connectivity
+    hostname = registration.hostname or registration.ip_address
+    is_online = await check_ssh_connectivity(hostname, registration.ssh_port)
+    
+    # Get actual server resources
+    resources = await get_server_resources(
+        hostname, 
+        registration.ssh_port, 
+        registration.ssh_username,
+        registration.ssh_key_path
+    )
+    
+    # Create server response
+    server = BuildServerResponse(
+        id=server_id,
         hostname=registration.hostname,
         ip_address=registration.ip_address,
-        status=ResourceStatus.ONLINE,
+        status=ResourceStatus.ONLINE if is_online else ResourceStatus.OFFLINE,
         supported_architectures=registration.supported_architectures,
         toolchains=[],
-        total_cpu_cores=8,
-        total_memory_mb=16384,
-        total_storage_gb=500,
+        total_cpu_cores=resources['cpu_cores'],
+        total_memory_mb=resources['memory_mb'],
+        total_storage_gb=resources['storage_gb'],
         active_build_count=0,
         queue_depth=0,
         maintenance_mode=False,
         created_at=datetime.now(),
         updated_at=datetime.now()
     )
+    
+    # Store in memory (including SSH credentials for future checks)
+    server_dict = server.dict()
+    server_dict['ssh_port'] = registration.ssh_port
+    server_dict['ssh_username'] = registration.ssh_username
+    server_dict['ssh_key_path'] = registration.ssh_key_path
+    _build_servers[server_id] = server_dict
+    
+    # Persist to file
+    save_to_file(BUILD_SERVERS_FILE, _build_servers)
+    
+    return server
 
 
 @router.get("/build-servers", response_model=List[BuildServerResponse], tags=["build-servers"])
@@ -299,8 +485,18 @@ async def list_build_servers(
     
     **Requirement 2.1**: Display all registered build servers with status
     """
-    # In production, this would query the BuildServerManagementService
-    return []
+    # Update status for all servers
+    await asyncio.gather(*[update_server_status(sid) for sid in _build_servers.keys()])
+    
+    servers = list(_build_servers.values())
+    
+    # Apply filters
+    if status:
+        servers = [s for s in servers if s['status'] == status]
+    if architecture:
+        servers = [s for s in servers if architecture in s['supported_architectures']]
+    
+    return servers
 
 
 @router.get("/build-servers/{server_id}", response_model=BuildServerResponse, tags=["build-servers"])
@@ -310,7 +506,9 @@ async def get_build_server(server_id: str):
     
     **Requirement 2.5**: Display detailed information including toolchains and history
     """
-    raise HTTPException(status_code=404, detail=f"Build server {server_id} not found")
+    if server_id not in _build_servers:
+        raise HTTPException(status_code=404, detail=f"Build server {server_id} not found")
+    return _build_servers[server_id]
 
 
 @router.get("/build-servers/{server_id}/status", tags=["build-servers"])
@@ -320,7 +518,21 @@ async def get_build_server_status(server_id: str):
     
     **Requirement 2.2**: Update display within 10 seconds
     """
-    raise HTTPException(status_code=404, detail=f"Build server {server_id} not found")
+    if server_id not in _build_servers:
+        raise HTTPException(status_code=404, detail=f"Build server {server_id} not found")
+    
+    # Update status before returning
+    await update_server_status(server_id)
+    
+    server = _build_servers[server_id]
+    return {
+        "id": server_id,
+        "status": server['status'],
+        "maintenance_mode": server.get('maintenance_mode', False),
+        "active_build_count": server.get('active_build_count', 0),
+        "queue_depth": server.get('queue_depth', 0),
+        "updated_at": server['updated_at']
+    }
 
 
 @router.get("/build-servers/{server_id}/capacity", response_model=BuildServerCapacity, tags=["build-servers"])
@@ -340,7 +552,20 @@ async def set_build_server_maintenance(server_id: str, enabled: bool = True):
     
     **Requirement 12.1**: Prevent new allocations during maintenance
     """
-    raise HTTPException(status_code=404, detail=f"Build server {server_id} not found")
+    if server_id not in _build_servers:
+        raise HTTPException(status_code=404, detail=f"Build server {server_id} not found")
+    
+    _build_servers[server_id]['maintenance_mode'] = enabled
+    _build_servers[server_id]['updated_at'] = datetime.now()
+    
+    # Persist to file
+    save_to_file(BUILD_SERVERS_FILE, _build_servers)
+    
+    return OperationResponse(
+        success=True,
+        message=f"Maintenance mode {'enabled' if enabled else 'disabled'}",
+        resource_id=server_id
+    )
 
 
 @router.delete("/build-servers/{server_id}", response_model=OperationResponse, tags=["build-servers"])
@@ -350,7 +575,80 @@ async def decommission_build_server(server_id: str, force: bool = False):
     
     **Requirement 12.4**: Verify no active workloads before decommissioning
     """
-    raise HTTPException(status_code=404, detail=f"Build server {server_id} not found")
+    if server_id not in _build_servers:
+        raise HTTPException(status_code=404, detail=f"Build server {server_id} not found")
+    
+    server = _build_servers[server_id]
+    
+    # Check for active builds
+    if server['active_build_count'] > 0 and not force:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot decommission server with {server['active_build_count']} active builds. Use force=true to override."
+        )
+    
+    del _build_servers[server_id]
+    
+    # Persist to file
+    save_to_file(BUILD_SERVERS_FILE, _build_servers)
+    
+    return OperationResponse(
+        success=True,
+        message="Build server decommissioned successfully",
+        resource_id=server_id
+    )
+
+
+@router.post("/build-servers/{server_id}/execute", tags=["build-servers"])
+async def execute_ssh_command(server_id: str, command: str):
+    """
+    Execute a command on a build server via SSH.
+    
+    Returns the command output.
+    """
+    if server_id not in _build_servers:
+        raise HTTPException(status_code=404, detail=f"Build server {server_id} not found")
+    
+    server = _build_servers[server_id]
+    hostname = server.get('hostname') or server.get('ip_address')
+    ssh_port = server.get('ssh_port', 22)
+    ssh_username = server.get('ssh_username')
+    ssh_key_path = server.get('ssh_key_path')
+    
+    try:
+        # Build SSH command
+        ssh_cmd = ['ssh', '-o', 'ConnectTimeout=10', '-o', 'StrictHostKeyChecking=no', '-o', 'BatchMode=yes']
+        
+        if ssh_key_path:
+            ssh_cmd.extend(['-i', ssh_key_path])
+        
+        if ssh_username:
+            ssh_cmd.append(f'{ssh_username}@{hostname}')
+        else:
+            ssh_cmd.append(hostname)
+        
+        ssh_cmd.append(command)
+        
+        # Execute SSH command
+        proc = await asyncio.create_subprocess_exec(
+            *ssh_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+        
+        return {
+            "success": proc.returncode == 0,
+            "exit_code": proc.returncode,
+            "stdout": stdout.decode('utf-8', errors='replace'),
+            "stderr": stderr.decode('utf-8', errors='replace'),
+            "command": command
+        }
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=408, detail="Command execution timed out")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to execute command: {str(e)}")
 
 
 # =============================================================================
